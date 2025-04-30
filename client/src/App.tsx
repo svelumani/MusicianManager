@@ -22,6 +22,8 @@ import CategoriesPage from "@/pages/categories/index";
 import AddCategoryPage from "@/pages/categories/add";
 import PaymentsPage from "@/pages/payments/index";
 import ReportsPage from "@/pages/reports/index";
+import PlannerPage from "@/pages/planner/index";
+import PlannerInvoicePage from "@/pages/planner/invoice";
 
 function Router() {
   const [location] = useLocation();
@@ -109,6 +111,20 @@ function Router() {
         <AppLayout>
           <ReportsPage />
         </AppLayout>
+      </Route>
+
+      {/* Planner */}
+      <Route path="/planner">
+        <AppLayout>
+          <PlannerPage />
+        </AppLayout>
+      </Route>
+      <Route path="/planner/:id/invoice">
+        {(params) => (
+          <AppLayout>
+            <PlannerInvoicePage />
+          </AppLayout>
+        )}
       </Route>
 
       {/* Fallback to 404 */}

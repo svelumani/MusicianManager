@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
   BarChart, Users, Music, Building, Calendar, 
-  DollarSign, PieChart, Tag, Menu, Bell, LogOut 
+  DollarSign, PieChart, Tag, Menu, Bell, LogOut,
+  CalendarRange
 } from "lucide-react";
 
 type SidebarItem = {
@@ -19,6 +20,7 @@ const sidebarItems: SidebarItem[] = [
   { label: "Venues", path: "/venues", icon: <Building className="mr-3 h-5 w-5" /> },
   { label: "Musicians", path: "/musicians", icon: <Music className="mr-3 h-5 w-5" /> },
   { label: "Events", path: "/events", icon: <Calendar className="mr-3 h-5 w-5" /> },
+  { label: "Planner", path: "/planner", icon: <CalendarRange className="mr-3 h-5 w-5" /> },
   { label: "Payments", path: "/payments", icon: <DollarSign className="mr-3 h-5 w-5" /> },
   { label: "Reports", path: "/reports", icon: <PieChart className="mr-3 h-5 w-5" /> },
   { label: "Categories", path: "/categories", icon: <Tag className="mr-3 h-5 w-5" /> },
