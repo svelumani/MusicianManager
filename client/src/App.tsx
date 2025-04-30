@@ -24,6 +24,8 @@ import PaymentsPage from "@/pages/payments/index";
 import ReportsPage from "@/pages/reports/index";
 import PlannerPage from "@/pages/planner/index";
 import PlannerInvoicePage from "@/pages/planner/invoice";
+import SettingsPage from "@/pages/settings/index";
+import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 
 function Router() {
   const [location] = useLocation();
@@ -125,6 +127,18 @@ function Router() {
             <PlannerInvoicePage />
           </AppLayout>
         )}
+      </Route>
+
+      {/* Settings */}
+      <Route path="/settings">
+        <AppLayout>
+          <SettingsPage />
+        </AppLayout>
+      </Route>
+      <Route path="/settings/instrument-manager">
+        <AppLayout>
+          <InstrumentManagerPage />
+        </AppLayout>
       </Route>
 
       {/* Fallback to 404 */}
