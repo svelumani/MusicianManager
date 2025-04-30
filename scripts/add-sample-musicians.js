@@ -9,7 +9,7 @@ const sampleMusicians = [
     type: "Jazz Pianist",
     payRate: 120,
     categoryId: 1, // Jazz
-    instruments: ["Piano", "Keyboard", "Organ"],
+    instruments: ["Piano", "Keyboard", "Organ", "Accordion"],
     profileImage: "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Robert is an acclaimed jazz pianist with over 15 years of experience performing at prestigious venues across the country. He specializes in bebop and contemporary jazz styles.",
     rating: 4.8
@@ -21,7 +21,7 @@ const sampleMusicians = [
     type: "Jazz Vocalist",
     payRate: 150,
     categoryId: 1, // Jazz
-    instruments: ["Vocals", "Piano"],
+    instruments: ["Vocals", "Piano", "Ukulele"],
     profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Ella is a versatile jazz vocalist with a rich, soulful tone. She has performed with numerous jazz ensembles and can cover everything from standards to modern compositions.",
     rating: 4.9
@@ -35,7 +35,7 @@ const sampleMusicians = [
     type: "Violinist",
     payRate: 140,
     categoryId: 2, // Classical
-    instruments: ["Violin"],
+    instruments: ["Violin", "Viola", "Mandolin"],
     profileImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "David is a classically trained violinist with a master's degree from Juilliard. He has performed with several symphony orchestras and specializes in both classical and contemporary repertoire.",
     rating: 5.0
@@ -47,7 +47,7 @@ const sampleMusicians = [
     type: "Cellist",
     payRate: 135,
     categoryId: 2, // Classical
-    instruments: ["Cello"],
+    instruments: ["Cello", "Bass", "Double Bass"],
     profileImage: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Maria is a passionate cellist with a warm, expressive tone. Her performances blend technical precision with emotional depth, making her perfect for both solo and ensemble works.",
     rating: 4.7
@@ -59,7 +59,7 @@ const sampleMusicians = [
     type: "Classical Pianist",
     payRate: 160,
     categoryId: 2, // Classical
-    instruments: ["Piano"],
+    instruments: ["Piano", "Harpsichord", "Pipe Organ"],
     profileImage: "https://images.unsplash.com/photo-1500048993953-d23a436266cf?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Thomas is a distinguished classical pianist with international performance experience. His repertoire spans from Bach to contemporary composers, with a special focus on Romantic-era pieces.",
     rating: 4.9
@@ -73,7 +73,7 @@ const sampleMusicians = [
     type: "Rock Guitarist",
     payRate: 110,
     categoryId: 3, // Rock
-    instruments: ["Electric Guitar", "Acoustic Guitar"],
+    instruments: ["Electric Guitar", "Acoustic Guitar", "Lap Steel Guitar", "12-String Guitar"],
     profileImage: "https://images.unsplash.com/photo-1552058544-f2b08422138a?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Jack is an energetic rock guitarist with a powerful stage presence. His versatile playing style covers everything from classic rock to modern alternative, making him perfect for any rock-oriented event.",
     rating: 4.6
@@ -85,7 +85,7 @@ const sampleMusicians = [
     type: "Rock Vocalist",
     payRate: 125,
     categoryId: 3, // Rock
-    instruments: ["Vocals", "Guitar"],
+    instruments: ["Vocals", "Guitar", "Bass Guitar", "Theremin"],
     profileImage: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Sarah is a dynamic rock vocalist with a powerful range. She has fronted several successful bands and can deliver everything from classic rock anthems to modern rock hits.",
     rating: 4.8
@@ -99,7 +99,7 @@ const sampleMusicians = [
     type: "Pop Vocalist",
     payRate: 130,
     categoryId: 4, // Pop
-    instruments: ["Vocals", "Guitar", "Piano"],
+    instruments: ["Vocals", "Guitar", "Piano", "Loop Station", "Keytar"],
     profileImage: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Michael is a versatile pop vocalist with a contemporary sound. His extensive repertoire of current and classic hits makes him perfect for weddings, corporate events, and private parties.",
     rating: 4.7
@@ -111,7 +111,7 @@ const sampleMusicians = [
     type: "Pop Pianist/Vocalist",
     payRate: 145,
     categoryId: 4, // Pop
-    instruments: ["Piano", "Vocals", "Keyboard"],
+    instruments: ["Piano", "Vocals", "Keyboard", "Melodica", "Digital Workstation"],
     profileImage: "https://images.unsplash.com/photo-1554151228-14d9def656e4?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Emily is a talented pianist and vocalist specializing in contemporary pop music. Her ability to perform solo or lead a band makes her extremely versatile for any entertainment needs.",
     rating: 4.9
@@ -125,7 +125,7 @@ const sampleMusicians = [
     type: "Folk Guitarist/Vocalist",
     payRate: 105,
     categoryId: 5, // Folk
-    instruments: ["Acoustic Guitar", "Vocals", "Harmonica"],
+    instruments: ["Acoustic Guitar", "Vocals", "Harmonica", "Banjo", "Dulcimer"],
     profileImage: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "James is an authentic folk musician with a warm, inviting stage presence. His performances blend traditional folk songs with contemporary acoustic music, perfect for intimate venues.",
     rating: 4.5
@@ -137,7 +137,7 @@ const sampleMusicians = [
     type: "Folk Fiddler",
     payRate: 115,
     categoryId: 5, // Folk
-    instruments: ["Violin", "Fiddle", "Mandolin"],
+    instruments: ["Violin", "Fiddle", "Mandolin", "Celtic Harp", "Tin Whistle"],
     profileImage: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Sophia is a spirited folk fiddler whose playing brings traditional music to life. Her extensive repertoire of jigs, reels, and folk melodies makes her perfect for cultural events and celebrations.",
     rating: 4.6
@@ -151,7 +151,7 @@ const sampleMusicians = [
     type: "DJ/Producer",
     payRate: 180,
     categoryId: 6, // Electronic
-    instruments: ["Turntables", "Synthesizer", "Sampler"],
+    instruments: ["Turntables", "Synthesizer", "Sampler", "Ableton Push", "Drum Machine", "MIDI Controllers"],
     profileImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Alex is a cutting-edge DJ and electronic music producer specializing in house, techno, and EDM. His immersive sets create the perfect atmosphere for clubs, festivals, and modern events.",
     rating: 4.8
@@ -163,7 +163,7 @@ const sampleMusicians = [
     type: "Electronic Music Artist",
     payRate: 160,
     categoryId: 6, // Electronic
-    instruments: ["Synthesizer", "Drum Machine", "Laptop"],
+    instruments: ["Synthesizer", "Drum Machine", "Laptop", "Modular Synth", "Vocoder", "Launchpad"],
     profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Olivia creates innovative electronic soundscapes that blend ambient textures with driving beats. Her performances feature live electronic instruments for a unique and engaging experience.",
     rating: 4.7
@@ -177,7 +177,7 @@ const sampleMusicians = [
     type: "Blues Guitarist",
     payRate: 125,
     categoryId: 7, // Blues
-    instruments: ["Electric Guitar", "Slide Guitar", "Acoustic Guitar"],
+    instruments: ["Electric Guitar", "Slide Guitar", "Acoustic Guitar", "Resonator Guitar", "Cigar Box Guitar"],
     profileImage: "https://images.unsplash.com/photo-1500048993953-d23a436266cf?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Samuel is a soulful blues guitarist with decades of experience. His authentic playing style and deep knowledge of blues traditions make him perfect for blues clubs and festivals.",
     rating: 4.9
@@ -189,7 +189,7 @@ const sampleMusicians = [
     type: "Blues Singer",
     payRate: 130,
     categoryId: 7, // Blues
-    instruments: ["Vocals", "Piano"],
+    instruments: ["Vocals", "Piano", "Hammond Organ", "Washboard"],
     profileImage: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Grace possesses a powerful, soulful voice perfectly suited for blues and soul music. Her emotional performances draw from both classic and contemporary blues traditions.",
     rating: 4.8
@@ -203,7 +203,7 @@ const sampleMusicians = [
     type: "Country Guitarist/Vocalist",
     payRate: 115,
     categoryId: 8, // Country
-    instruments: ["Acoustic Guitar", "Electric Guitar", "Vocals", "Banjo"],
+    instruments: ["Acoustic Guitar", "Electric Guitar", "Vocals", "Banjo", "Pedal Steel Guitar", "Dobro"],
     profileImage: "https://images.unsplash.com/photo-1552058544-f2b08422138a?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Daniel brings authentic country music to life with his skillful guitar playing and warm vocal style. His repertoire spans classic country, western, and modern country hits.",
     rating: 4.6
@@ -215,7 +215,7 @@ const sampleMusicians = [
     type: "Country Singer",
     payRate: 125,
     categoryId: 8, // Country
-    instruments: ["Vocals", "Acoustic Guitar"],
+    instruments: ["Vocals", "Acoustic Guitar", "Autoharp", "Mandolin"],
     profileImage: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Emma is a versatile country vocalist with a genuine delivery and engaging stage presence. She specializes in contemporary country music with a traditional sensibility.",
     rating: 4.7
@@ -229,7 +229,7 @@ const sampleMusicians = [
     type: "R&B Vocalist",
     payRate: 140,
     categoryId: 9, // R&B
-    instruments: ["Vocals", "Keyboard"],
+    instruments: ["Vocals", "Keyboard", "MIDI Controller", "Talk Box"],
     profileImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Marcus is a soulful R&B vocalist with a smooth, expressive style. His performances range from classic soul to contemporary R&B, perfect for upscale events and intimate venues.",
     rating: 4.8
@@ -241,7 +241,7 @@ const sampleMusicians = [
     type: "Soul Singer",
     payRate: 145,
     categoryId: 9, // R&B
-    instruments: ["Vocals"],
+    instruments: ["Vocals", "Tambourine", "Keyboard", "Electric Piano"],
     profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Zoe possesses a powerful, expressive voice perfectly suited for soul and R&B music. Her dynamic performances captivate audiences with both emotional depth and technical skill.",
     rating: 4.9
@@ -255,7 +255,7 @@ const sampleMusicians = [
     type: "Sitar Player",
     payRate: 135,
     categoryId: 10, // World Music
-    instruments: ["Sitar", "Tabla"],
+    instruments: ["Sitar", "Tabla", "Tanpura", "Harmonium", "Sarod"],
     profileImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Raj is a masterful sitar player trained in the classical Indian tradition. His performances blend traditional ragas with contemporary influences, perfect for cultural events and meditative settings.",
     rating: 4.8
@@ -267,7 +267,7 @@ const sampleMusicians = [
     type: "Flamenco Guitarist",
     payRate: 140,
     categoryId: 10, // World Music
-    instruments: ["Spanish Guitar", "Cajon"],
+    instruments: ["Spanish Guitar", "Cajon", "Castanets", "Palmas"],
     profileImage: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Isabella is a passionate flamenco guitarist with deep roots in Spanish musical traditions. Her fiery performances bring authentic flamenco energy to any venue or cultural celebration.",
     rating: 4.9
@@ -279,7 +279,7 @@ const sampleMusicians = [
     type: "African Percussion",
     payRate: 120,
     categoryId: 10, // World Music
-    instruments: ["Djembe", "Talking Drum", "Calabash"],
+    instruments: ["Djembe", "Talking Drum", "Calabash", "Balafon", "Shekere", "Kora"],
     profileImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Kofi is a master of West African percussion with decades of experience. His rhythmic performances are both educational and entertaining, perfect for cultural events and celebrations.",
     rating: 4.7
@@ -291,7 +291,7 @@ const sampleMusicians = [
     type: "Koto Player",
     payRate: 130,
     categoryId: 10, // World Music
-    instruments: ["Koto", "Shamisen"],
+    instruments: ["Koto", "Shamisen", "Shakuhachi", "Taiko Drums"],
     profileImage: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Yuki is an accomplished performer of traditional Japanese string instruments. Her elegant koto playing brings the beauty of Japanese classical music to cultural events and ceremonies.",
     rating: 4.8
@@ -303,7 +303,7 @@ const sampleMusicians = [
     type: "Latin Percussionist",
     payRate: 125,
     categoryId: 10, // World Music
-    instruments: ["Congas", "Bongos", "Timbales", "Cajon"],
+    instruments: ["Congas", "Bongos", "Timbales", "Cajon", "Guiro", "Maracas", "Claves"],
     profileImage: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80",
     bio: "Carlos is a dynamic Latin percussionist skilled in various percussion styles from Cuba, Brazil, and Puerto Rico. His rhythmic expertise adds authentic Latin flavor to any ensemble or event.",
     rating: 4.7
