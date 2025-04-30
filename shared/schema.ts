@@ -273,3 +273,110 @@ export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+
+// Monthly Planner model
+export const monthlyPlanners = pgTable("monthly_planners", {
+  id: serial("id").primaryKey(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("draft"), // draft, active, completed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertMonthlyPlannerSchema = createInsertSchema(monthlyPlanners).pick({
+  month: true,
+  year: true,
+  name: true,
+  description: true,
+  status: true,
+});
+
+// Planner Slot model (individual performances within a planner)
+export const plannerSlots = pgTable("planner_slots", {
+  id: serial("id").primaryKey(),
+  plannerId: integer("planner_id").notNull(), // Foreign key to monthly_planners
+  date: timestamp("date").notNull(),
+  venueId: integer("venue_id").notNull(), // Foreign key to venues
+  categoryId: integer("category_id").notNull(), // Foreign key to categories
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("open"), // open, assigned, completed
+  fee: doublePrecision("fee"), // Fee for this slot
+});
+
+export const insertPlannerSlotSchema = createInsertSchema(plannerSlots).pick({
+  plannerId: true,
+  date: true,
+  venueId: true,
+  categoryId: true,
+  startTime: true,
+  endTime: true,
+  description: true,
+  status: true,
+  fee: true,
+});
+
+// Planner Assignment model (musician assigned to slots)
+export const plannerAssignments = pgTable("planner_assignments", {
+  id: serial("id").primaryKey(),
+  slotId: integer("slot_id").notNull(), // Foreign key to planner_slots
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  assignedAt: timestamp("assigned_at").notNull().defaultNow(),
+  status: text("status").notNull().default("scheduled"), // scheduled, confirmed, attended, absent
+  attendanceMarkedAt: timestamp("attendance_marked_at"),
+  attendanceMarkedBy: integer("attendance_marked_by"), // User ID who marked attendance
+  notes: text("notes"),
+  actualFee: doublePrecision("actual_fee"), // Could differ from slot fee (e.g., overtime)
+});
+
+export const insertPlannerAssignmentSchema = createInsertSchema(plannerAssignments).pick({
+  slotId: true,
+  musicianId: true,
+  status: true,
+  notes: true,
+  actualFee: true,
+});
+
+// Monthly Invoice model
+export const monthlyInvoices = pgTable("monthly_invoices", {
+  id: serial("id").primaryKey(),
+  plannerId: integer("planner_id").notNull(), // Foreign key to monthly_planners
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  totalSlots: integer("total_slots").notNull().default(0),
+  attendedSlots: integer("attended_slots").notNull().default(0),
+  totalAmount: doublePrecision("total_amount").notNull().default(0),
+  status: text("status").notNull().default("draft"), // draft, finalized, paid
+  generatedAt: timestamp("generated_at").notNull().defaultNow(),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+});
+
+export const insertMonthlyInvoiceSchema = createInsertSchema(monthlyInvoices).pick({
+  plannerId: true,
+  musicianId: true,
+  month: true,
+  year: true,
+  totalSlots: true,
+  attendedSlots: true,
+  totalAmount: true,
+  status: true,
+  notes: true,
+});
+
+export type MonthlyPlanner = typeof monthlyPlanners.$inferSelect;
+export type InsertMonthlyPlanner = z.infer<typeof insertMonthlyPlannerSchema>;
+
+export type PlannerSlot = typeof plannerSlots.$inferSelect;
+export type InsertPlannerSlot = z.infer<typeof insertPlannerSlotSchema>;
+
+export type PlannerAssignment = typeof plannerAssignments.$inferSelect;
+export type InsertPlannerAssignment = z.infer<typeof insertPlannerAssignmentSchema>;
+
+export type MonthlyInvoice = typeof monthlyInvoices.$inferSelect;
+export type InsertMonthlyInvoice = z.infer<typeof insertMonthlyInvoiceSchema>;

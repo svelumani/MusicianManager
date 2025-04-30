@@ -1,13 +1,18 @@
 import {
   users, venues, categories, musicians, availability, 
   events, bookings, payments, collections, expenses, 
-  activities, type User, type InsertUser, type Venue, 
+  activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
+  type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type Musician, type InsertMusician, type Availability, 
   type InsertAvailability, type Event, type InsertEvent, 
   type Booking, type InsertBooking, type Payment, type InsertPayment, 
   type Collection, type InsertCollection, type Expense, 
-  type InsertExpense, type Activity, type InsertActivity
+  type InsertExpense, type Activity, type InsertActivity,
+  type MonthlyPlanner, type InsertMonthlyPlanner,
+  type PlannerSlot, type InsertPlannerSlot,
+  type PlannerAssignment, type InsertPlannerAssignment,
+  type MonthlyInvoice, type InsertMonthlyInvoice
 } from "@shared/schema";
 
 // Define the storage interface
@@ -106,6 +111,40 @@ export interface IStorage {
     totalExpenses: number;
     profit: number;
   }>;
+  
+  // Monthly Planner management
+  getMonthlyPlanners(): Promise<MonthlyPlanner[]>;
+  getMonthlyPlanner(id: number): Promise<MonthlyPlanner | undefined>;
+  getMonthlyPlannerByMonth(month: number, year: number): Promise<MonthlyPlanner | undefined>;
+  createMonthlyPlanner(planner: InsertMonthlyPlanner): Promise<MonthlyPlanner>;
+  updateMonthlyPlanner(id: number, data: Partial<InsertMonthlyPlanner>): Promise<MonthlyPlanner | undefined>;
+  deleteMonthlyPlanner(id: number): Promise<boolean>;
+  
+  // Planner Slots management
+  getPlannerSlots(plannerId?: number): Promise<PlannerSlot[]>;
+  getPlannerSlot(id: number): Promise<PlannerSlot | undefined>;
+  createPlannerSlot(slot: InsertPlannerSlot): Promise<PlannerSlot>;
+  updatePlannerSlot(id: number, data: Partial<InsertPlannerSlot>): Promise<PlannerSlot | undefined>;
+  deletePlannerSlot(id: number): Promise<boolean>;
+  getPlannerSlotsByDate(date: Date): Promise<PlannerSlot[]>;
+  
+  // Planner Assignments management
+  getPlannerAssignments(slotId?: number, musicianId?: number): Promise<PlannerAssignment[]>;
+  getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined>;
+  createPlannerAssignment(assignment: InsertPlannerAssignment): Promise<PlannerAssignment>;
+  updatePlannerAssignment(id: number, data: Partial<InsertPlannerAssignment>): Promise<PlannerAssignment | undefined>;
+  deletePlannerAssignment(id: number): Promise<boolean>;
+  markAttendance(id: number, status: string, userId: number, notes?: string): Promise<PlannerAssignment | undefined>;
+  
+  // Monthly Invoice management
+  getMonthlyInvoices(plannerId?: number, musicianId?: number): Promise<MonthlyInvoice[]>;
+  getMonthlyInvoice(id: number): Promise<MonthlyInvoice | undefined>;
+  createMonthlyInvoice(invoice: InsertMonthlyInvoice): Promise<MonthlyInvoice>;
+  updateMonthlyInvoice(id: number, data: Partial<InsertMonthlyInvoice>): Promise<MonthlyInvoice | undefined>;
+  deleteMonthlyInvoice(id: number): Promise<boolean>;
+  generateMonthlyInvoices(plannerId: number): Promise<MonthlyInvoice[]>;
+  finalizeMonthlyInvoice(id: number): Promise<MonthlyInvoice | undefined>;
+  markMonthlyInvoiceAsPaid(id: number, notes?: string): Promise<MonthlyInvoice | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -120,6 +159,10 @@ export class MemStorage implements IStorage {
   private collections: Map<number, Collection>;
   private expenses: Map<number, Expense>;
   private activities: Map<number, Activity>;
+  private monthlyPlanners: Map<number, MonthlyPlanner>;
+  private plannerSlots: Map<number, PlannerSlot>;
+  private plannerAssignments: Map<number, PlannerAssignment>;
+  private monthlyInvoices: Map<number, MonthlyInvoice>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -133,6 +176,10 @@ export class MemStorage implements IStorage {
   private currentCollectionId: number;
   private currentExpenseId: number;
   private currentActivityId: number;
+  private currentMonthlyPlannerId: number;
+  private currentPlannerSlotId: number;
+  private currentPlannerAssignmentId: number;
+  private currentMonthlyInvoiceId: number;
 
   constructor() {
     // Initialize maps
