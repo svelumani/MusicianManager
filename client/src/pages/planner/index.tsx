@@ -33,10 +33,13 @@ const PlannerPage = () => {
     error: plannerError,
   } = useQuery({
     queryKey: ['/api/planners/month', currentMonth, 'year', currentYear],
-    queryFn: async () => {
+    queryFn: async ({ queryKey }) => {
       try {
-        return await apiRequest(`/api/planners/month/${currentMonth}/year/${currentYear}`);
+        const result = await apiRequest(`/api/planners/month/${currentMonth}/year/${currentYear}`);
+        console.log("Planner result:", result);
+        return result;
       } catch (error) {
+        console.log("Planner error:", error);
         // If planner doesn't exist for this month, the error is expected
         return null;
       }
@@ -62,7 +65,7 @@ const PlannerPage = () => {
   // Create a new monthly planner
   const createPlannerMutation = useMutation({
     mutationFn: (data: any) => apiRequest("/api/planners", "POST", data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Success",
         description: "Monthly planner created successfully",
@@ -76,17 +79,26 @@ const PlannerPage = () => {
         description: "Failed to create monthly planner",
         variant: "destructive",
       });
-      console.error(error);
+      console.error("Error creating planner:", error);
     }
   });
 
   // Generate monthly planner if it doesn't exist
   const handleCreatePlanner = () => {
+    console.log("Creating planner with data:", {
+      month: currentMonth,
+      year: currentYear,
+      name: `Planner for ${format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}`,
+      status: "draft",
+      description: `Monthly planner for ${format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}`
+    });
+    
     createPlannerMutation.mutate({
       month: currentMonth,
       year: currentYear,
       name: `Planner for ${format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}`,
-      status: "draft"
+      status: "draft",
+      description: `Monthly planner for ${format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}`
     });
   };
 

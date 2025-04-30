@@ -71,17 +71,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {/* Sidebar Navigation */}
             <nav className="mt-5 px-2 space-y-1">
               {sidebarItems.map((item) => (
-                <Link key={item.path} href={item.path}>
-                  <a 
-                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-md group ${
-                      location === item.path 
-                        ? 'text-white bg-primary-600' 
-                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                    }`}
-                  >
-                    {item.icon}
-                    {item.label}
-                  </a>
+                <Link key={item.path} href={item.path}
+                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md group ${
+                    location === item.path 
+                      ? 'text-white bg-primary-600' 
+                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  }`}
+                >
+                  {item.icon}
+                  {item.label}
                 </Link>
               ))}
             </nav>
