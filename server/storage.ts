@@ -194,6 +194,10 @@ export class MemStorage implements IStorage {
     this.collections = new Map();
     this.expenses = new Map();
     this.activities = new Map();
+    this.monthlyPlanners = new Map();
+    this.plannerSlots = new Map();
+    this.plannerAssignments = new Map();
+    this.monthlyInvoices = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
@@ -207,6 +211,10 @@ export class MemStorage implements IStorage {
     this.currentCollectionId = 1;
     this.currentExpenseId = 1;
     this.currentActivityId = 1;
+    this.currentMonthlyPlannerId = 1;
+    this.currentPlannerSlotId = 1;
+    this.currentPlannerAssignmentId = 1;
+    this.currentMonthlyInvoiceId = 1;
     
     // Initialize with default admin user
     this.createUser({
@@ -834,6 +842,420 @@ export class MemStorage implements IStorage {
       totalExpenses,
       profit
     };
+  }
+  
+  // Monthly Planner management methods
+  async getMonthlyPlanners(): Promise<MonthlyPlanner[]> {
+    return Array.from(this.monthlyPlanners.values());
+  }
+
+  async getMonthlyPlanner(id: number): Promise<MonthlyPlanner | undefined> {
+    return this.monthlyPlanners.get(id);
+  }
+
+  async getMonthlyPlannerByMonth(month: number, year: number): Promise<MonthlyPlanner | undefined> {
+    return Array.from(this.monthlyPlanners.values()).find(
+      p => p.month === month && p.year === year
+    );
+  }
+
+  async createMonthlyPlanner(planner: InsertMonthlyPlanner): Promise<MonthlyPlanner> {
+    const id = this.currentMonthlyPlannerId++;
+    const newPlanner: MonthlyPlanner = { 
+      ...planner, 
+      id,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.monthlyPlanners.set(id, newPlanner);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Created",
+      entityType: "MonthlyPlanner",
+      entityId: id,
+      timestamp: new Date(),
+      details: { planner: newPlanner.name, month: newPlanner.month, year: newPlanner.year }
+    });
+    
+    return newPlanner;
+  }
+
+  async updateMonthlyPlanner(id: number, data: Partial<InsertMonthlyPlanner>): Promise<MonthlyPlanner | undefined> {
+    const planner = await this.getMonthlyPlanner(id);
+    if (!planner) return undefined;
+    
+    const updatedPlanner = { 
+      ...planner, 
+      ...data,
+      updatedAt: new Date()
+    };
+    this.monthlyPlanners.set(id, updatedPlanner);
+    return updatedPlanner;
+  }
+
+  async deleteMonthlyPlanner(id: number): Promise<boolean> {
+    // First delete all related slots
+    const slots = await this.getPlannerSlots(id);
+    for (const slot of slots) {
+      await this.deletePlannerSlot(slot.id);
+    }
+    
+    return this.monthlyPlanners.delete(id);
+  }
+
+  // Planner Slots management methods
+  async getPlannerSlots(plannerId?: number): Promise<PlannerSlot[]> {
+    if (plannerId) {
+      return Array.from(this.plannerSlots.values()).filter(s => s.plannerId === plannerId);
+    }
+    return Array.from(this.plannerSlots.values());
+  }
+
+  async getPlannerSlot(id: number): Promise<PlannerSlot | undefined> {
+    return this.plannerSlots.get(id);
+  }
+
+  async createPlannerSlot(slot: InsertPlannerSlot): Promise<PlannerSlot> {
+    const id = this.currentPlannerSlotId++;
+    const newSlot: PlannerSlot = { ...slot, id };
+    this.plannerSlots.set(id, newSlot);
+    
+    // Create activity
+    const venue = await this.getVenue(slot.venueId);
+    const category = await this.getCategory(slot.categoryId);
+    
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Created",
+      entityType: "PlannerSlot",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        date: newSlot.date.toISOString().split('T')[0],
+        venue: venue?.name || 'Unknown',
+        category: category?.title || 'Unknown',
+        time: `${newSlot.startTime}-${newSlot.endTime}`
+      }
+    });
+    
+    return newSlot;
+  }
+
+  async updatePlannerSlot(id: number, data: Partial<InsertPlannerSlot>): Promise<PlannerSlot | undefined> {
+    const slot = await this.getPlannerSlot(id);
+    if (!slot) return undefined;
+    
+    const updatedSlot = { ...slot, ...data };
+    this.plannerSlots.set(id, updatedSlot);
+    return updatedSlot;
+  }
+
+  async deletePlannerSlot(id: number): Promise<boolean> {
+    // First delete all related assignments
+    const assignments = await this.getPlannerAssignments(id);
+    for (const assignment of assignments) {
+      await this.deletePlannerAssignment(assignment.id);
+    }
+    
+    return this.plannerSlots.delete(id);
+  }
+
+  async getPlannerSlotsByDate(date: Date): Promise<PlannerSlot[]> {
+    const dateStr = date.toISOString().split('T')[0];
+    return Array.from(this.plannerSlots.values()).filter(slot => 
+      slot.date.toISOString().split('T')[0] === dateStr
+    );
+  }
+
+  // Planner Assignments management methods
+  async getPlannerAssignments(slotId?: number, musicianId?: number): Promise<PlannerAssignment[]> {
+    let assignments = Array.from(this.plannerAssignments.values());
+    
+    if (slotId) {
+      assignments = assignments.filter(a => a.slotId === slotId);
+    }
+    
+    if (musicianId) {
+      assignments = assignments.filter(a => a.musicianId === musicianId);
+    }
+    
+    return assignments;
+  }
+
+  async getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined> {
+    return this.plannerAssignments.get(id);
+  }
+
+  async createPlannerAssignment(assignment: InsertPlannerAssignment): Promise<PlannerAssignment> {
+    const id = this.currentPlannerAssignmentId++;
+    const newAssignment: PlannerAssignment = {
+      ...assignment,
+      id,
+      assignedAt: new Date(),
+      attendanceMarkedAt: null,
+      attendanceMarkedBy: null
+    };
+    this.plannerAssignments.set(id, newAssignment);
+    
+    // Create activity
+    const slot = await this.getPlannerSlot(assignment.slotId);
+    const musician = await this.getMusician(assignment.musicianId);
+    
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Assigned",
+      entityType: "PlannerAssignment",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name || 'Unknown',
+        date: slot?.date.toISOString().split('T')[0] || 'Unknown',
+        fee: assignment.actualFee || slot?.fee || 0
+      }
+    });
+    
+    return newAssignment;
+  }
+
+  async updatePlannerAssignment(id: number, data: Partial<InsertPlannerAssignment>): Promise<PlannerAssignment | undefined> {
+    const assignment = await this.getPlannerAssignment(id);
+    if (!assignment) return undefined;
+    
+    const updatedAssignment = { ...assignment, ...data };
+    this.plannerAssignments.set(id, updatedAssignment);
+    return updatedAssignment;
+  }
+
+  async deletePlannerAssignment(id: number): Promise<boolean> {
+    return this.plannerAssignments.delete(id);
+  }
+
+  async markAttendance(id: number, status: string, userId: number, notes?: string): Promise<PlannerAssignment | undefined> {
+    const assignment = await this.getPlannerAssignment(id);
+    if (!assignment) return undefined;
+    
+    const updatedAssignment: PlannerAssignment = {
+      ...assignment,
+      status,
+      attendanceMarkedAt: new Date(),
+      attendanceMarkedBy: userId,
+      notes: notes || assignment.notes
+    };
+    
+    this.plannerAssignments.set(id, updatedAssignment);
+    
+    // Create activity
+    const slot = await this.getPlannerSlot(assignment.slotId);
+    const musician = await this.getMusician(assignment.musicianId);
+    const user = await this.getUser(userId);
+    
+    this.createActivity({
+      userId,
+      action: "Marked Attendance",
+      entityType: "PlannerAssignment",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name || 'Unknown',
+        date: slot?.date.toISOString().split('T')[0] || 'Unknown',
+        status,
+        markedBy: user?.name || 'Unknown'
+      }
+    });
+    
+    return updatedAssignment;
+  }
+
+  // Monthly Invoice management methods
+  async getMonthlyInvoices(plannerId?: number, musicianId?: number): Promise<MonthlyInvoice[]> {
+    let invoices = Array.from(this.monthlyInvoices.values());
+    
+    if (plannerId) {
+      invoices = invoices.filter(i => i.plannerId === plannerId);
+    }
+    
+    if (musicianId) {
+      invoices = invoices.filter(i => i.musicianId === musicianId);
+    }
+    
+    return invoices;
+  }
+
+  async getMonthlyInvoice(id: number): Promise<MonthlyInvoice | undefined> {
+    return this.monthlyInvoices.get(id);
+  }
+
+  async createMonthlyInvoice(invoice: InsertMonthlyInvoice): Promise<MonthlyInvoice> {
+    const id = this.currentMonthlyInvoiceId++;
+    const newInvoice: MonthlyInvoice = {
+      ...invoice,
+      id,
+      generatedAt: new Date(),
+      paidAt: null
+    };
+    this.monthlyInvoices.set(id, newInvoice);
+    return newInvoice;
+  }
+
+  async updateMonthlyInvoice(id: number, data: Partial<InsertMonthlyInvoice>): Promise<MonthlyInvoice | undefined> {
+    const invoice = await this.getMonthlyInvoice(id);
+    if (!invoice) return undefined;
+    
+    const updatedInvoice = { ...invoice, ...data };
+    this.monthlyInvoices.set(id, updatedInvoice);
+    return updatedInvoice;
+  }
+
+  async deleteMonthlyInvoice(id: number): Promise<boolean> {
+    return this.monthlyInvoices.delete(id);
+  }
+
+  async generateMonthlyInvoices(plannerId: number): Promise<MonthlyInvoice[]> {
+    const planner = await this.getMonthlyPlanner(plannerId);
+    if (!planner) {
+      throw new Error("Planner not found");
+    }
+    
+    // Get all slots for this planner
+    const slots = await this.getPlannerSlots(plannerId);
+    if (slots.length === 0) {
+      throw new Error("No slots found for this planner");
+    }
+    
+    // Get all musicians who have assignments for these slots
+    const slotIds = slots.map(s => s.id);
+    const assignments = Array.from(this.plannerAssignments.values())
+      .filter(a => slotIds.includes(a.slotId));
+    
+    // Group assignments by musician
+    const musicianAssignments = new Map<number, PlannerAssignment[]>();
+    for (const assignment of assignments) {
+      if (!musicianAssignments.has(assignment.musicianId)) {
+        musicianAssignments.set(assignment.musicianId, []);
+      }
+      musicianAssignments.get(assignment.musicianId)?.push(assignment);
+    }
+    
+    // Generate invoices for each musician
+    const invoices: MonthlyInvoice[] = [];
+    for (const [musicianId, assignments] of musicianAssignments.entries()) {
+      const totalSlots = assignments.length;
+      const attendedSlots = assignments.filter(a => a.status === 'attended').length;
+      
+      // Calculate total amount based on actual fees or slot fees
+      let totalAmount = 0;
+      for (const assignment of assignments) {
+        if (assignment.status === 'attended') {
+          if (assignment.actualFee) {
+            totalAmount += assignment.actualFee;
+          } else {
+            const slot = await this.getPlannerSlot(assignment.slotId);
+            if (slot && slot.fee) {
+              totalAmount += slot.fee;
+            }
+          }
+        }
+      }
+      
+      // Create a new invoice
+      const invoice = await this.createMonthlyInvoice({
+        plannerId,
+        musicianId,
+        month: planner.month,
+        year: planner.year,
+        totalSlots,
+        attendedSlots,
+        totalAmount,
+        status: 'draft',
+        notes: `Auto-generated invoice for ${planner.name}`
+      });
+      
+      invoices.push(invoice);
+      
+      // Create activity
+      const musician = await this.getMusician(musicianId);
+      this.createActivity({
+        userId: 1, // Default admin
+        action: "Generated Invoice",
+        entityType: "MonthlyInvoice",
+        entityId: invoice.id,
+        timestamp: new Date(),
+        details: { 
+          musician: musician?.name || 'Unknown',
+          month: planner.month,
+          year: planner.year,
+          totalAmount,
+          attendedSlots: `${attendedSlots}/${totalSlots}`
+        }
+      });
+    }
+    
+    return invoices;
+  }
+
+  async finalizeMonthlyInvoice(id: number): Promise<MonthlyInvoice | undefined> {
+    const invoice = await this.getMonthlyInvoice(id);
+    if (!invoice) return undefined;
+    
+    const finalizedInvoice = {
+      ...invoice,
+      status: 'finalized'
+    };
+    
+    this.monthlyInvoices.set(id, finalizedInvoice);
+    
+    // Create activity
+    const musician = await this.getMusician(invoice.musicianId);
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Finalized Invoice",
+      entityType: "MonthlyInvoice",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name || 'Unknown',
+        month: invoice.month,
+        year: invoice.year,
+        totalAmount: invoice.totalAmount
+      }
+    });
+    
+    return finalizedInvoice;
+  }
+
+  async markMonthlyInvoiceAsPaid(id: number, notes?: string): Promise<MonthlyInvoice | undefined> {
+    const invoice = await this.getMonthlyInvoice(id);
+    if (!invoice) return undefined;
+    
+    const paidInvoice = {
+      ...invoice,
+      status: 'paid',
+      paidAt: new Date(),
+      notes: notes || invoice.notes
+    };
+    
+    this.monthlyInvoices.set(id, paidInvoice);
+    
+    // Create activity
+    const musician = await this.getMusician(invoice.musicianId);
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Marked Invoice as Paid",
+      entityType: "MonthlyInvoice",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name || 'Unknown',
+        month: invoice.month,
+        year: invoice.year,
+        totalAmount: invoice.totalAmount,
+        paidAt: paidInvoice.paidAt?.toISOString()
+      }
+    });
+    
+    return paidInvoice;
   }
 }
 

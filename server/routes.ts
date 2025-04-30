@@ -17,7 +17,11 @@ import {
   insertBookingSchema,
   insertPaymentSchema,
   insertCollectionSchema,
-  insertExpenseSchema
+  insertExpenseSchema,
+  insertMonthlyPlannerSchema,
+  insertPlannerSlotSchema,
+  insertPlannerAssignmentSchema,
+  insertMonthlyInvoiceSchema
 } from "@shared/schema";
 
 const SessionStore = MemoryStore(session);
