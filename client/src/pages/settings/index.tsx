@@ -1,4 +1,4 @@
-import { useRouter } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,7 +39,6 @@ const settingsSections = [
 ];
 
 export default function SettingsPage() {
-  const [, navigate] = useRouter();
 
   return (
     <div className="space-y-6">
@@ -64,7 +63,6 @@ export default function SettingsPage() {
               <Card 
                 key={section.id} 
                 className={section.comingSoon ? "opacity-60" : "hover:shadow-md transition-shadow cursor-pointer"}
-                onClick={() => !section.comingSoon && navigate(`/settings/${section.id}`)}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -81,13 +79,24 @@ export default function SettingsPage() {
                   <CardDescription>{section.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button
-                    variant={section.comingSoon ? "outline" : "default"}
-                    className="w-full"
-                    disabled={section.comingSoon}
-                  >
-                    {section.comingSoon ? "Coming Soon" : "Manage"}
-                  </Button>
+                  {section.comingSoon ? (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled
+                    >
+                      Coming Soon
+                    </Button>
+                  ) : (
+                    <Link href={`/settings/${section.id}`}>
+                      <Button
+                        variant="default"
+                        className="w-full"
+                      >
+                        Manage
+                      </Button>
+                    </Link>
+                  )}
                 </CardContent>
               </Card>
             ))}

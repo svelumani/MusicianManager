@@ -6,7 +6,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
   BarChart, Users, Music, Building, Calendar, 
   DollarSign, PieChart, Tag, Menu, Bell, LogOut,
-  CalendarRange
+  CalendarRange, Settings
 } from "lucide-react";
 
 type SidebarItem = {
@@ -24,6 +24,7 @@ const sidebarItems: SidebarItem[] = [
   { label: "Payments", path: "/payments", icon: <DollarSign className="mr-3 h-5 w-5" /> },
   { label: "Reports", path: "/reports", icon: <PieChart className="mr-3 h-5 w-5" /> },
   { label: "Categories", path: "/categories", icon: <Tag className="mr-3 h-5 w-5" /> },
+  { label: "Settings", path: "/settings", icon: <Settings className="mr-3 h-5 w-5" /> },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
