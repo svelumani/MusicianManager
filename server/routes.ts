@@ -683,14 +683,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/planners", isAuthenticated, async (req, res) => {
     try {
-      const plannerData = insertMonthlyPlannerSchema.parse(req.body);
-      const planner = await storage.createMonthlyPlanner(plannerData);
-      res.status(201).json(planner);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid planner data", errors: error.errors });
+      console.log("Creating planner with data:", req.body);
+      
+      // Set default values for required fields if they're missing
+      const plannerData = {
+        ...req.body,
+        status: req.body.status || "draft",
+        description: req.body.description || null
+      };
+      
+      // Log the data after defaults are applied
+      console.log("Modified planner data:", plannerData);
+      
+      // Validate with schema
+      try {
+        const validatedData = insertMonthlyPlannerSchema.parse(plannerData);
+        console.log("Validated planner data:", validatedData);
+        
+        const planner = await storage.createMonthlyPlanner(validatedData);
+        console.log("Created planner:", planner);
+        
+        res.status(201).json(planner);
+      } catch (zodError) {
+        console.error("Schema validation error:", zodError);
+        return res.status(400).json({ 
+          message: "Invalid planner data", 
+          errors: zodError instanceof z.ZodError ? zodError.errors : "Unknown validation error" 
+        });
       }
-      console.error(error);
+    } catch (error) {
+      console.error("Server error creating planner:", error);
       res.status(500).json({ message: "Error creating planner" });
     }
   });

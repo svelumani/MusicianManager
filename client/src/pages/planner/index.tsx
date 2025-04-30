@@ -73,13 +73,13 @@ const PlannerPage = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
       queryClient.invalidateQueries({ queryKey: ['/api/planners/month', currentMonth, 'year', currentYear] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      const errorMessage = error?.message || "Failed to create monthly planner";
       toast({
         title: "Error",
-        description: "Failed to create monthly planner",
+        description: errorMessage,
         variant: "destructive",
       });
-      console.error("Error creating planner:", error);
     }
   });
 
