@@ -643,6 +643,366 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Monthly Planner routes
+  apiRouter.get("/planners", isAuthenticated, async (req, res) => {
+    try {
+      const planners = await storage.getMonthlyPlanners();
+      res.json(planners);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planners" });
+    }
+  });
+
+  apiRouter.get("/planners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const planner = await storage.getMonthlyPlanner(parseInt(req.params.id));
+      if (!planner) {
+        return res.status(404).json({ message: "Planner not found" });
+      }
+      res.json(planner);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner" });
+    }
+  });
+
+  apiRouter.get("/planners/month/:month/year/:year", isAuthenticated, async (req, res) => {
+    try {
+      const { month, year } = req.params;
+      const planner = await storage.getMonthlyPlannerByMonth(parseInt(month), parseInt(year));
+      if (!planner) {
+        return res.status(404).json({ message: "Planner not found for specified month/year" });
+      }
+      res.json(planner);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner by month/year" });
+    }
+  });
+
+  apiRouter.post("/planners", isAuthenticated, async (req, res) => {
+    try {
+      const plannerData = insertMonthlyPlannerSchema.parse(req.body);
+      const planner = await storage.createMonthlyPlanner(plannerData);
+      res.status(201).json(planner);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid planner data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating planner" });
+    }
+  });
+
+  apiRouter.put("/planners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const plannerData = insertMonthlyPlannerSchema.partial().parse(req.body);
+      const planner = await storage.updateMonthlyPlanner(parseInt(req.params.id), plannerData);
+      if (!planner) {
+        return res.status(404).json({ message: "Planner not found" });
+      }
+      res.json(planner);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid planner data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating planner" });
+    }
+  });
+
+  apiRouter.delete("/planners/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMonthlyPlanner(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Planner not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting planner" });
+    }
+  });
+
+  // Planner Slots routes
+  apiRouter.get("/planner-slots", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
+      const slots = await storage.getPlannerSlots(plannerId);
+      res.json(slots);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner slots" });
+    }
+  });
+
+  apiRouter.get("/planner-slots/:id", isAuthenticated, async (req, res) => {
+    try {
+      const slot = await storage.getPlannerSlot(parseInt(req.params.id));
+      if (!slot) {
+        return res.status(404).json({ message: "Planner slot not found" });
+      }
+      res.json(slot);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner slot" });
+    }
+  });
+
+  apiRouter.get("/planner-slots/date/:date", isAuthenticated, async (req, res) => {
+    try {
+      const date = new Date(req.params.date);
+      const slots = await storage.getPlannerSlotsByDate(date);
+      res.json(slots);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner slots by date" });
+    }
+  });
+
+  apiRouter.post("/planner-slots", isAuthenticated, async (req, res) => {
+    try {
+      const slotData = insertPlannerSlotSchema.parse(req.body);
+      const slot = await storage.createPlannerSlot(slotData);
+      res.status(201).json(slot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid slot data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating planner slot" });
+    }
+  });
+
+  apiRouter.put("/planner-slots/:id", isAuthenticated, async (req, res) => {
+    try {
+      const slotData = insertPlannerSlotSchema.partial().parse(req.body);
+      const slot = await storage.updatePlannerSlot(parseInt(req.params.id), slotData);
+      if (!slot) {
+        return res.status(404).json({ message: "Planner slot not found" });
+      }
+      res.json(slot);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid slot data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating planner slot" });
+    }
+  });
+
+  apiRouter.delete("/planner-slots/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deletePlannerSlot(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Planner slot not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting planner slot" });
+    }
+  });
+
+  // Planner Assignments routes
+  apiRouter.get("/planner-assignments", isAuthenticated, async (req, res) => {
+    try {
+      const slotId = req.query.slotId ? parseInt(req.query.slotId as string) : undefined;
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      const assignments = await storage.getPlannerAssignments(slotId, musicianId);
+      res.json(assignments);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner assignments" });
+    }
+  });
+
+  apiRouter.get("/planner-assignments/:id", isAuthenticated, async (req, res) => {
+    try {
+      const assignment = await storage.getPlannerAssignment(parseInt(req.params.id));
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      res.json(assignment);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching assignment" });
+    }
+  });
+
+  apiRouter.post("/planner-assignments", isAuthenticated, async (req, res) => {
+    try {
+      const assignmentData = insertPlannerAssignmentSchema.parse(req.body);
+      const assignment = await storage.createPlannerAssignment(assignmentData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating assignment" });
+    }
+  });
+
+  apiRouter.put("/planner-assignments/:id", isAuthenticated, async (req, res) => {
+    try {
+      const assignmentData = insertPlannerAssignmentSchema.partial().parse(req.body);
+      const assignment = await storage.updatePlannerAssignment(parseInt(req.params.id), assignmentData);
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      res.json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid assignment data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating assignment" });
+    }
+  });
+
+  apiRouter.delete("/planner-assignments/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deletePlannerAssignment(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting assignment" });
+    }
+  });
+
+  apiRouter.post("/planner-assignments/:id/mark-attendance", isAuthenticated, async (req, res) => {
+    try {
+      const { status, notes } = req.body;
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      const userId = (req.user as any).id;
+      const assignment = await storage.markAttendance(parseInt(req.params.id), status, userId, notes);
+      
+      if (!assignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      
+      res.json(assignment);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error marking attendance" });
+    }
+  });
+
+  // Monthly Invoice routes
+  apiRouter.get("/monthly-invoices", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      const invoices = await storage.getMonthlyInvoices(plannerId, musicianId);
+      res.json(invoices);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching invoices" });
+    }
+  });
+
+  apiRouter.get("/monthly-invoices/:id", isAuthenticated, async (req, res) => {
+    try {
+      const invoice = await storage.getMonthlyInvoice(parseInt(req.params.id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching invoice" });
+    }
+  });
+
+  apiRouter.post("/monthly-invoices", isAuthenticated, async (req, res) => {
+    try {
+      const invoiceData = insertMonthlyInvoiceSchema.parse(req.body);
+      const invoice = await storage.createMonthlyInvoice(invoiceData);
+      res.status(201).json(invoice);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid invoice data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating invoice" });
+    }
+  });
+
+  apiRouter.put("/monthly-invoices/:id", isAuthenticated, async (req, res) => {
+    try {
+      const invoiceData = insertMonthlyInvoiceSchema.partial().parse(req.body);
+      const invoice = await storage.updateMonthlyInvoice(parseInt(req.params.id), invoiceData);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid invoice data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating invoice" });
+    }
+  });
+
+  apiRouter.delete("/monthly-invoices/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMonthlyInvoice(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting invoice" });
+    }
+  });
+
+  apiRouter.post("/planners/:id/generate-invoices", isAuthenticated, async (req, res) => {
+    try {
+      const invoices = await storage.generateMonthlyInvoices(parseInt(req.params.id));
+      res.status(201).json(invoices);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error generating invoices", error: (error as Error).message });
+    }
+  });
+
+  apiRouter.post("/monthly-invoices/:id/finalize", isAuthenticated, async (req, res) => {
+    try {
+      const invoice = await storage.finalizeMonthlyInvoice(parseInt(req.params.id));
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error finalizing invoice" });
+    }
+  });
+
+  apiRouter.post("/monthly-invoices/:id/mark-paid", isAuthenticated, async (req, res) => {
+    try {
+      const { notes } = req.body;
+      const invoice = await storage.markMonthlyInvoiceAsPaid(parseInt(req.params.id), notes);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.json(invoice);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error marking invoice as paid" });
+    }
+  });
+
   // Mount the API router
   app.use("/api", apiRouter);
 
