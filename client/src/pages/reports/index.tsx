@@ -3,455 +3,301 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PieChart, LineChart, PieChartIcon, BarChart as BarChartIcon, FileText, Download } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Loader2, Download, Sliders, BarChart4, PieChart, LineChart, Save } from "lucide-react";
 import { format } from "date-fns";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  Cell,
-  Pie
-} from "recharts";
-import type { Payment, Collection, Event, Booking, Musician, Venue } from "@shared/schema";
+import VenuePerformanceReport from "@/components/reports/VenuePerformanceReport";
+import MusicianEarningsReport from "@/components/reports/MusicianEarningsReport";
+import FinancialReport from "@/components/reports/FinancialReport";
+import BookingsTrendReport from "@/components/reports/BookingsTrendReport";
+import SavedReportsList from "@/components/reports/SavedReportsList";
 
-// Define colors for the charts
-const COLORS = ["hsl(var(--chart-1))", "hsl(var(--chart-2))", "hsl(var(--chart-3))", "hsl(var(--chart-4))", "hsl(var(--chart-5))"];
+// Report type definitions
+type ReportView = "venues" | "musicians" | "financial" | "bookings";
+type ChartType = "bar" | "line" | "pie";
+type DateRange = "last30days" | "last90days" | "lastYear" | "custom";
+
+interface ReportFilters {
+  dateRange: DateRange;
+  startDate: Date | null;
+  endDate: Date | null;
+  groupBy: string;
+  chartType: ChartType;
+  showTables: boolean;
+}
 
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState("financial");
-
-  const { data: payments, isLoading: isLoadingPayments } = useQuery<Payment[]>({
-    queryKey: ["/api/payments"],
+  // State for the active report view
+  const [activeView, setActiveView] = useState<ReportView>("financial");
+  
+  // State for the custom filters
+  const [filters, setFilters] = useState<ReportFilters>({
+    dateRange: "last30days",
+    startDate: null,
+    endDate: null,
+    groupBy: "month",
+    chartType: "bar",
+    showTables: true,
   });
 
-  const { data: collections, isLoading: isLoadingCollections } = useQuery<Collection[]>({
-    queryKey: ["/api/collections"],
+  // Fetch dashboard metrics for base data
+  const { data: metricsData, isLoading: isLoadingMetrics } = useQuery({
+    queryKey: ["/api/dashboard/metrics"],
   });
 
-  const { data: events, isLoading: isLoadingEvents } = useQuery<Event[]>({
-    queryKey: ["/api/events"],
-  });
-
-  const { data: bookings, isLoading: isLoadingBookings } = useQuery<Booking[]>({
-    queryKey: ["/api/bookings"],
-  });
-
-  const { data: musicians } = useQuery<Musician[]>({
-    queryKey: ["/api/musicians"],
-  });
-
-  const { data: venues } = useQuery<Venue[]>({
-    queryKey: ["/api/venues"],
-  });
-
-  // Helper functions
-  const getMusicianName = (musicianId: number) => {
-    const musician = musicians?.find(m => m.id === musicianId);
-    return musician ? musician.name : "Unknown";
+  // Helper functions for date ranges
+  const getDateRangeLabel = (range: DateRange): string => {
+    switch (range) {
+      case "last30days": return "Last 30 Days";
+      case "last90days": return "Last 90 Days";
+      case "lastYear": return "Last Year";
+      case "custom": return "Custom Range";
+    }
+  };
+  
+  // Update filters function
+  const updateFilters = (key: keyof ReportFilters, value: any) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const getEventName = (eventId: number) => {
-    const event = events?.find(e => e.id === eventId);
-    return event ? event.name : "Unknown";
-  };
-
-  const getVenueName = (venueId: number) => {
-    const venue = venues?.find(v => v.id === venueId);
-    return venue ? venue.name : "Unknown";
-  };
-
-  // Financial data
-  const getTotalPayments = () => {
-    return payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
-  };
-
-  const getTotalCollections = () => {
-    return collections?.reduce((sum, collection) => sum + collection.amount, 0) || 0;
-  };
-
-  const getProfit = () => {
-    return getTotalCollections() - getTotalPayments();
-  };
-
-  // Chart data
-  const getRevenueByMonth = () => {
-    if (!collections) return [];
-
-    const monthlyRevenue: Record<string, number> = {};
+  // Format date range for display
+  const getFormattedDateRange = (): string => {
+    if (filters.dateRange !== "custom") {
+      return getDateRangeLabel(filters.dateRange);
+    }
     
-    collections.forEach(collection => {
-      const date = new Date(collection.date);
-      const monthKey = format(date, 'MMM yyyy');
-      
-      if (!monthlyRevenue[monthKey]) {
-        monthlyRevenue[monthKey] = 0;
-      }
-      monthlyRevenue[monthKey] += collection.amount;
-    });
-
-    return Object.entries(monthlyRevenue).map(([month, amount]) => ({
-      month,
-      amount
-    })).sort((a, b) => {
-      const dateA = new Date(a.month);
-      const dateB = new Date(b.month);
-      return dateA.getTime() - dateB.getTime();
-    });
+    if (filters.startDate && filters.endDate) {
+      return `${format(filters.startDate, "MMM d, yyyy")} - ${format(filters.endDate, "MMM d, yyyy")}`;
+    }
+    
+    return "Custom Range";
   };
 
-  const getBookingsByStatus = () => {
-    if (!bookings) return [];
-
-    const statusCount: Record<string, number> = {
-      pending: 0,
-      confirmed: 0,
-      cancelled: 0
-    };
-
-    bookings.forEach(booking => {
-      const status = booking.isAccepted ? 
-        (booking.contractSigned ? "confirmed" : "pending") : 
-        "cancelled";
-      statusCount[status]++;
-    });
-
-    return Object.entries(statusCount).map(([status, count]) => ({
-      status: status.charAt(0).toUpperCase() + status.slice(1),
-      count
-    }));
+  // Mock function for exporting reports
+  const exportReport = () => {
+    alert("Report export functionality would be implemented here");
   };
-
-  // Event data
-  const getUpcomingEvents = () => {
-    if (!events) return [];
-
-    const now = new Date();
-    return events
-      .filter(event => new Date(event.startDate) >= now)
-      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-      .slice(0, 5);
+  
+  // Mock function for saving report configuration
+  const saveReportConfig = () => {
+    alert("Configuration saved!");
   };
-
-  // Mock export function (would be implemented with actual export functionality in a real app)
-  const exportReport = (reportType: string) => {
-    console.log(`Exporting ${reportType} report...`);
-    // In a real app, this would generate and download a CSV/Excel file
-  };
-
-  const isLoading = isLoadingPayments || isLoadingCollections || isLoadingEvents || isLoadingBookings;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reports</h1>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Advanced Reports & Analytics</h1>
+          <p className="text-muted-foreground">
+            Generate detailed reports and visualize your business metrics
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={exportReport}>
+            <Download className="mr-2 h-4 w-4" />
+            Export
+          </Button>
+          <Button onClick={saveReportConfig}>
+            <Save className="mr-2 h-4 w-4" />
+            Save Configuration
+          </Button>
+        </div>
       </div>
 
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full md:w-auto grid-cols-2 md:grid-cols-3">
-          <TabsTrigger value="financial">Financial</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="musicians">Musicians</TabsTrigger>
-        </TabsList>
+      <Tabs value={activeView} onValueChange={(v) => setActiveView(v as ReportView)}>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+          <TabsList>
+            <TabsTrigger value="financial">Financial</TabsTrigger>
+            <TabsTrigger value="venues">Venue Performance</TabsTrigger>
+            <TabsTrigger value="musicians">Musician Earnings</TabsTrigger>
+            <TabsTrigger value="bookings">Booking Trends</TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center gap-x-2">
+            <Label htmlFor="saved-reports">Saved Reports:</Label>
+            <Select>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select a report" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="q1-financial">Q1 Financial Summary</SelectItem>
+                <SelectItem value="top-venues">Top Performing Venues</SelectItem>
+                <SelectItem value="musician-attendance">Musician Attendance</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
-        {isLoading ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="h-80 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        {/* Filter Panel */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center">
+              <Sliders className="h-5 w-5 mr-2" />
+              Report Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="date-range">Date Range</Label>
+                <Select 
+                  value={filters.dateRange}
+                  onValueChange={(value) => updateFilters("dateRange", value)}
+                >
+                  <SelectTrigger id="date-range">
+                    <SelectValue placeholder="Select date range" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="last30days">Last 30 Days</SelectItem>
+                    <SelectItem value="last90days">Last 90 Days</SelectItem>
+                    <SelectItem value="lastYear">Last Year</SelectItem>
+                    <SelectItem value="custom">Custom Range</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </CardContent>
-          </Card>
+
+              {filters.dateRange === "custom" && (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="start-date">Start Date</Label>
+                    <DatePicker
+                      id="start-date"
+                      selected={filters.startDate}
+                      onSelect={(date) => updateFilters("startDate", date)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="end-date">End Date</Label>
+                    <DatePicker
+                      id="end-date"
+                      selected={filters.endDate}
+                      onSelect={(date) => updateFilters("endDate", date)}
+                      className="w-full"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="space-y-1.5">
+                <Label htmlFor="group-by">Group By</Label>
+                <Select 
+                  value={filters.groupBy}
+                  onValueChange={(value) => updateFilters("groupBy", value)}
+                >
+                  <SelectTrigger id="group-by">
+                    <SelectValue placeholder="Select grouping" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="day">Day</SelectItem>
+                    <SelectItem value="week">Week</SelectItem>
+                    <SelectItem value="month">Month</SelectItem>
+                    <SelectItem value="quarter">Quarter</SelectItem>
+                    <SelectItem value="year">Year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="chart-type">Chart Type</Label>
+                <div className="flex space-x-4 mt-2">
+                  <Button
+                    variant={filters.chartType === "bar" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateFilters("chartType", "bar")}
+                    className="flex items-center"
+                  >
+                    <BarChart4 className="h-4 w-4 mr-1" />
+                    Bar
+                  </Button>
+                  <Button
+                    variant={filters.chartType === "line" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateFilters("chartType", "line")}
+                    className="flex items-center"
+                  >
+                    <LineChart className="h-4 w-4 mr-1" />
+                    Line
+                  </Button>
+                  <Button
+                    variant={filters.chartType === "pie" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateFilters("chartType", "pie")}
+                    className="flex items-center"
+                  >
+                    <PieChart className="h-4 w-4 mr-1" />
+                    Pie
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="show-tables"
+                    checked={filters.showTables}
+                    onCheckedChange={(checked) => updateFilters("showTables", checked)}
+                  />
+                  <Label htmlFor="show-tables">Show Data Tables</Label>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isLoadingMetrics ? (
+          <div className="h-80 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading report data...</span>
+          </div>
         ) : (
           <>
-            {/* Financial Reports Tab */}
-            <TabsContent value="financial" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">${getTotalCollections().toFixed(2)}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">${getTotalPayments().toFixed(2)}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl font-bold ${getProfit() >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${getProfit().toFixed(2)}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      <span>Revenue by Month</span>
-                      <Button variant="outline" size="sm" onClick={() => exportReport('revenue')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={getRevenueByMonth()}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
-                          <YAxis />
-                          <Tooltip formatter={(value) => [`$${value}`, 'Revenue']} />
-                          <Legend />
-                          <Bar dataKey="amount" name="Revenue" fill="hsl(var(--chart-1))" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      <span>Recent Payments</span>
-                      <Button variant="outline" size="sm" onClick={() => exportReport('payments')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Musician</TableHead>
-                          <TableHead>Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {payments?.slice(0, 5).map((payment) => {
-                          const booking = bookings?.find(b => b.id === payment.bookingId);
-                          return (
-                            <TableRow key={payment.id}>
-                              <TableCell>{format(new Date(payment.date), 'MMM dd, yyyy')}</TableCell>
-                              <TableCell>
-                                {booking ? getMusicianName(booking.musicianId) : 'Unknown'}
-                              </TableCell>
-                              <TableCell>${payment.amount.toFixed(2)}</TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </div>
+            <TabsContent value="financial" className="mt-0">
+              <FinancialReport 
+                filters={filters} 
+                metricsData={metricsData || {}} 
+                dateRangeDisplay={getFormattedDateRange()} 
+              />
             </TabsContent>
-
-            {/* Events Reports Tab */}
-            <TabsContent value="events" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{events?.length || 0}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{getUpcomingEvents().length}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Bookings Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {bookings?.filter(b => b.contractSigned).length || 0} Confirmed
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Bookings by Status</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-80">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={getBookingsByStatus()}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                            outerRadius={80}
-                            fill="#8884d8"
-                            dataKey="count"
-                          >
-                            {getBookingsByStatus().map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(value) => [value, 'Bookings']} />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex justify-between items-center">
-                      <span>Upcoming Events</span>
-                      <Button variant="outline" size="sm" onClick={() => exportReport('events')}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Event</TableHead>
-                          <TableHead>Venue</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getUpcomingEvents().map((event) => (
-                          <TableRow key={event.id}>
-                            <TableCell>{format(new Date(event.startDate), 'MMM dd, yyyy')}</TableCell>
-                            <TableCell>{event.name}</TableCell>
-                            <TableCell>{getVenueName(event.venueId)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
-              </div>
+            
+            <TabsContent value="venues" className="mt-0">
+              <VenuePerformanceReport 
+                filters={filters} 
+                metricsData={metricsData || {}} 
+                dateRangeDisplay={getFormattedDateRange()} 
+              />
             </TabsContent>
-
-            {/* Musicians Reports Tab */}
-            <TabsContent value="musicians" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Total Musicians</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{musicians?.length || 0}</div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Active Musicians</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      {musicians?.filter(m => {
-                        const musicianBookings = bookings?.filter(b => b.musicianId === m.id) || [];
-                        return musicianBookings.length > 0;
-                      }).length || 0}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">Avg. Pay Rate</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">
-                      ${musicians && musicians.length > 0 
-                        ? (musicians.reduce((sum, m) => sum + m.payRate, 0) / musicians.length).toFixed(2) 
-                        : '0.00'}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex justify-between items-center">
-                    <span>Musician Performance</span>
-                    <Button variant="outline" size="sm" onClick={() => exportReport('musicians')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Musician</TableHead>
-                        <TableHead>Bookings</TableHead>
-                        <TableHead>Earnings</TableHead>
-                        <TableHead>Rating</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {musicians?.slice(0, 10).map((musician) => {
-                        const musicianBookings = bookings?.filter(b => b.musicianId === musician.id) || [];
-                        const earnings = payments?.filter(p => {
-                          const booking = bookings?.find(b => b.id === p.bookingId);
-                          return booking?.musicianId === musician.id;
-                        }).reduce((sum, p) => sum + p.amount, 0) || 0;
-                        
-                        return (
-                          <TableRow key={musician.id}>
-                            <TableCell className="font-medium">{musician.name}</TableCell>
-                            <TableCell>{musicianBookings.length}</TableCell>
-                            <TableCell>${earnings.toFixed(2)}</TableCell>
-                            <TableCell>{musician.rating?.toFixed(1) || 'N/A'}</TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+            
+            <TabsContent value="musicians" className="mt-0">
+              <MusicianEarningsReport 
+                filters={filters} 
+                metricsData={metricsData || {}} 
+                dateRangeDisplay={getFormattedDateRange()} 
+              />
+            </TabsContent>
+            
+            <TabsContent value="bookings" className="mt-0">
+              <BookingsTrendReport 
+                filters={filters} 
+                metricsData={metricsData || {}} 
+                dateRangeDisplay={getFormattedDateRange()} 
+              />
             </TabsContent>
           </>
         )}
       </Tabs>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Saved Reports</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SavedReportsList />
+        </CardContent>
+      </Card>
     </div>
   );
 }
