@@ -1,0 +1,205 @@
+
+## Comprehensive Scope Document: Musician Management Platform
+
+**1. Introduction**
+
+This document outlines the comprehensive scope of work for the development of a musician management platform designed to streamline the operations of VAMP. The platform will facilitate the end-to-end management of venues, empanelled musicians, event creation, booking processes, communication, financial transactions, and reporting. The system will integrate email and WhatsApp notifications to enhance communication efficiency.
+
+**2. Goals**
+
+The primary goals of this platform are to:
+
+* Centralize and efficiently manage a database of venues and their details.
+* Streamline the onboarding and management of empanelled musicians, including their profiles and payment information.
+* Simplify the entire event lifecycle, from creation and musician invitation to booking confirmation.
+* Automate and manage communication with musicians regarding availability, invitations, and booking confirmations via WhatsApp and email.
+* Provide a clear and real-time overview of musician availability, event status, and booking confirmations through an intuitive dashboard.
+* Streamline the payment process for musicians and track payment history.
+* Enable comprehensive financial tracking, including collections and profitability analysis for each event.
+* Facilitate the generation of various reports, including payment reports and pending collections.
+* Manage the process of collecting musician availability on a monthly basis.
+* Implement a digital contract signing process for confirmed bookings.
+
+**3. Target Users**
+
+The primary users of this platform will be:
+
+* **Company Admin:** Possesses full control over the system, responsible for onboarding venues and musicians, creating events, inviting and booking musicians, managing availability, processing payments, tracking finances, and generating reports.
+* **Planners (Implicit within Admin role):** Admin users responsible for creating and managing events and booking musicians.
+* **Musicians:** Empanelled individuals who will interact with the platform to mark their availability, respond to booking invitations, review and sign digital contracts, and receive payment updates via WhatsApp and a web interface.
+
+**4. Key Features and Functionality**
+
+The platform will encompass the following key features:
+
+**4.1. Authentication:**
+
+* **Login:** Secure login for administrators with valid credentials.
+* **Logout:** Functionality for administrators to securely log out of the system.
+* **Change Password:** Secure process for administrators to update their passwords.
+
+**4.2. Dashboard:**
+
+* **Key Metrics Overview:**
+    * Total Bookings: Display the total number of bookings made.
+    * Active Events: Display the current number of active events.
+    * Total Musicians: Display the total count of onboarded musicians.
+    * Total Venues: Display the total number of onboarded venues.
+    * Revenue Chart: A visual representation of revenue generated from events and bookings.
+* **Activity Feed:** Display of recent system activities (e.g., new bookings, musician responses, contract signings).
+* **Upcoming Events:** List of upcoming events with relevant details and status (using defined color codes).
+* **Calendar Availability (Admin View):** Visual representation of musician availability based on their monthly submissions.
+* **Event Status Overview (Color-Coded):**
+    * Upcoming Events (Color 1)
+    * Booked Events (Color 2)
+    * Accepted Events (Color 3)
+    * Contract Signed Events (Color 4)
+* **Payment Report (Summary):** Quick overview of recent payment statuses.
+* **P&L Summary:** High-level view of overall profitability.
+
+**4.3. Venue Management:**
+
+* **Venue Onboarding:**
+    * Ability for admins to add new venues with detailed information:
+        * Venue Name
+        * Location
+        * Pax Count
+        * Address
+        * Venue Pictures
+        * Opening Hours
+        * Capacity
+        * Hourly Rate
+        * Description
+        * Rating
+
+**4.4. Musician Management:**
+
+* **Musician Onboarding:**
+    * Ability for admins to add new musicians with detailed information:
+        * Name
+        * Email
+        * Phone Number
+        * Type
+        * Pay Rate (flexible based on event type - hourly, daily, event-wise)
+        * Category (e.g., Guitar, Piano)
+        * Instruments (Tags)
+        * Profile Image
+        * Bio
+        * Rating (based on event performance)
+* **Musician Profile Management (Admin):** Ability for admins to view and manage all musician details.
+* **Rating System:** System to record and display musician ratings based on post-event performance feedback.
+
+**4.5. Category Management:**
+
+* **Category Creation:** Ability for admins to create and manage music categories (e.g., Jazz, Rock, Classical) with:
+    * Title
+    * Description
+
+**4.6. Event Management:**
+
+* **Event Creation:**
+    * Ability for admins to create new events with the following details:
+        * Event Name
+        * Number of Pax
+        * Venue Details (selection from onboarded venues)
+        * Event Type:
+            * One Day
+            * Multi-day (continuous)
+            * Multi-day (occurrence)
+        * Select Music Categories Needed (multi-select).
+    * **Musician Invitation Process:**
+        * **Find Available Musicians:** Based on the selected music categories and (implicitly) their marked availability, the system will list available musicians.
+        * **Select & Pick Musicians:** Admins can select one or multiple musicians across different categories to invite for the event.
+        * **Invite Sent to Musician:** Automated WhatsApp invite sent to selected musicians with event details.
+        * **Collect Acceptance:** System tracks musician responses to the invitation.
+        * **Wait for 24 Hours:** System monitors response time.
+            * **If Accepted:** Proceed to booking confirmation.
+            * **If Not Accepted:**
+                * Notify admin to choose the next set of musicians (if available and not yet invited).
+                * Send invite to the next selected musician.
+        * **Create the Event:** Once initial parameters are set.
+
+* **Booking Confirmation:**
+    * **Admin Acceptance:** Once a musician confirms availability, the admin can accept the booking.
+    * **Digital Contract Rollout:** Automated WhatsApp message containing a digital contract with:
+        * Pay Rate
+        * Timing
+        * "I Agree" / "Deny" Button.
+    * **Timestamp Recording:** Clicking "I Agree" records a timestamp on the booking contract page.
+    * **Contract Reminders:**
+        * Automated WhatsApp reminder sent after 24 hours if the contract is not signed.
+        * Notification to the admin if the contract remains unsigned after more than two reminders.
+
+**4.7. Availability Management (Musician Calendar):**
+
+* **Monthly Availability Request:** Automated notification (WhatsApp) sent to musicians 30 days prior to the start of each month, prompting them to mark their availability.
+* **Unique Link:** WhatsApp message includes a unique link to a mobile-responsive webpage.
+* **Availability Selection:** Musicians can select their available slots on the webpage.
+* **Submission:** Musicians click "Submit" to record their availability.
+* **Reminders:** Automated reminders sent via WhatsApp if availability is not submitted within 24, 48, and 72 hours respectively.
+* **Admin View:** Aggregated view of musician availability on the admin dashboard calendar.
+
+**4.8. Payments:**
+
+* **Payment Ledger:** Functionality for admins to record multiple schedule-wise payments transferred to musicians against specific bookings.
+* **Payment Status Visualization:** Automatic color change of the booking on the admin dashboard once payment is marked as made.
+* **Payment Reports:** Generation of reports detailing payments made to musicians.
+
+**4.9. Collections:**
+
+* **Collection Tracking:** Ability for admins to update collections received against each event.
+* **Pending Collections Report:** Generation of reports listing events with outstanding collections.
+
+**4.10. Profit & Loss (P&L):**
+
+* **Event-Level P&L:** Calculation and display of profit and loss for each event, considering:
+    * Collections against the event.
+    * Total payments made to musicians for the event.
+* **Overseas Event Expenses:** Provision to mark and include additional expenses related to overseas events (e.g., travel, stay) in the P&L calculation.
+
+**5. Out of Scope**
+
+The following items are explicitly excluded from the scope of this initial phase:
+
+* Handling of overseas musicians' specific properties (mentioned in the initial scope) is not explicitly detailed in the user stories and is therefore out of scope for now unless further clarified.
+* Advanced user role management beyond Admin and Musician interactions as described.
+* Public-facing website or portal for direct musician booking.
+* Detailed reporting and analytics beyond the specified dashboard elements and payment/collection reports.
+* Musician performance tracking and rating system beyond the basic rating field in the profile.
+* Direct communication features within the platform beyond automated notifications.
+
+**6. Technical Considerations**
+
+* **Platform:** Web-based application accessible via modern browsers and mobile-responsive webpages for musicians.
+* **Database:** [Specify preferred database technology if known].
+* **Security:** Robust security measures to protect sensitive data, including user credentials and payment information.
+* **Scalability:** Architecture designed to handle a growing number of users, venues, and events.
+* **Notifications:** Seamless integration of email and WhatsApp (via integration with a messaging service) for all specified notifications.
+
+**7. Assumptions**
+
+* The company has a clear and defined process for managing event finances and determining profitability.
+* The WhatsApp integration will be facilitated through a reliable third-party service.
+* Musicians have access to WhatsApp and internet to receive notifications and update availability.
+* The admin team will manage all data entry for venues and initial musician onboarding.
+
+**8. Success Criteria**
+
+The success of this project will be measured by the platform's ability to:
+
+* Efficiently manage venues and musician profiles.
+* Streamline the event creation, invitation, and booking process.
+* Automate and effectively manage communication with musicians via WhatsApp and email.
+* Provide a clear and real-time overview of key operational metrics through the admin dashboard.
+* Accurately track musician payments and event profitability.
+* Be adopted and effectively utilized by the admin team and musicians for their respective tasks.
+* Reduce manual effort and improve overall operational efficiency.
+
+**9. Future Considerations (Potential Enhancements)**
+
+* Advanced reporting and analytics dashboards with customizable views.
+* Integration with calendar applications.
+* Enhanced musician profile features and portfolio management.
+* Automated musician recommendations based on event requirements and past performance.
+* Internal messaging system for direct communication between admins and musicians.
+* More granular user roles and permissions for different administrative tasks.
