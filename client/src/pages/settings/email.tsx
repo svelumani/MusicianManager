@@ -1,16 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Mail, Send, Save, Check, X } from 'lucide-react';
+import { Loader2, Mail, Send, Save, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -44,6 +43,14 @@ const testEmailSchema = z.object({
 
 type TestEmailFormValues = z.infer<typeof testEmailSchema>;
 
+// Define settings interface
+interface EmailSettings {
+  enabled?: boolean;
+  from?: string;
+  replyTo?: string;
+  apiKey?: string;
+}
+
 export default function EmailSettingsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('settings');
@@ -70,30 +77,21 @@ export default function EmailSettingsPage() {
   });
   
   // Fetch email settings
-  const { data: settings, isLoading } = useQuery({
-    queryKey: ['/api/settings/email/config'],
-    gcTime: 0,
-    staleTime: 0,
-    onSettled: (data: any, error: any) => {
-      if (data) {
-        form.reset({
-          enabled: data?.enabled || false,
-          from: data?.from || '',
-          replyTo: data?.replyTo || '',
-          // Don't reset API key as it's masked in the response
-          apiKey: data?.apiKey ? '••••••••••••••••••••••' : '',
-        });
-      }
-      
-      if (error) {
-        toast({
-          title: "Failed to load email settings",
-          description: "Please try again later",
-          variant: "destructive",
-        });
-      }
-    }
+  const { data: settings, isLoading } = useQuery<EmailSettings>({
+    queryKey: ['/api/settings/email/config']
   });
+  
+  // Update form when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      form.reset({
+        enabled: settings.enabled || false,
+        from: settings.from || '',
+        replyTo: settings.replyTo || '',
+        apiKey: settings.apiKey ? '••••••••••••••••••••••' : '',
+      });
+    }
+  }, [settings, form]);
   
   // Save email settings
   const saveSettingsMutation = useMutation({
@@ -330,7 +328,7 @@ export default function EmailSettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {!settings?.enabled ? (
+              {!(settings && settings.enabled) ? (
                 <Alert variant="destructive" className="mb-4">
                   <X className="h-4 w-4" />
                   <AlertTitle>Email Not Configured</AlertTitle>
@@ -391,7 +389,7 @@ export default function EmailSettingsPage() {
                     
                     <Button 
                       type="submit" 
-                      disabled={sendTestEmailMutation.isPending || !settings?.enabled}
+                      disabled={sendTestEmailMutation.isPending || !(settings && settings.enabled)}
                       className="w-full sm:w-auto"
                     >
                       {sendTestEmailMutation.isPending ? (

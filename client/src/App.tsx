@@ -26,7 +26,7 @@ import PlannerPage from "@/pages/planner/index";
 import PlannerInvoicePage from "@/pages/planner/invoice";
 import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
-import EmailSettingsPage from "@/pages/settings/email";
+import EmailSettingsPage from "./pages/settings/email";
 
 function Router() {
   const [location] = useLocation();
