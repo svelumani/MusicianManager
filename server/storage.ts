@@ -4,7 +4,7 @@ import {
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
   settings, emailTemplates, musicianTypes, musicianTypeCategories,
   performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
-  improvementPlans, improvementActions,
+  improvementPlans, improvementActions, availabilityShareLinks,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type Musician, type InsertMusician, type Availability, 
@@ -25,7 +25,8 @@ import {
   type SkillTag, type InsertSkillTag,
   type MusicianSkillTag, type InsertMusicianSkillTag,
   type ImprovementPlan, type InsertImprovementPlan,
-  type ImprovementAction, type InsertImprovementAction
+  type ImprovementAction, type InsertImprovementAction,
+  type AvailabilityShareLink, type InsertAvailabilityShareLink
 } from "@shared/schema";
 
 // Define the storage interface
@@ -245,6 +246,13 @@ export interface IStorage {
   updateImprovementAction(id: number, data: Partial<InsertImprovementAction>): Promise<ImprovementAction | undefined>;
   deleteImprovementAction(id: number): Promise<boolean>;
   completeImprovementAction(id: number, feedback?: string): Promise<ImprovementAction | undefined>;
+  
+  // Availability Share Links management
+  createAvailabilityShareLink(shareLink: InsertAvailabilityShareLink): Promise<AvailabilityShareLink>;
+  getAvailabilityShareLinks(musicianId: number): Promise<AvailabilityShareLink[]>;
+  getAvailabilityShareLink(id: number): Promise<AvailabilityShareLink | undefined>;
+  getAvailabilityShareLinkByToken(token: string): Promise<AvailabilityShareLink | undefined>;
+  deleteAvailabilityShareLink(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -273,6 +281,7 @@ export class MemStorage implements IStorage {
   private musicianSkillTags: Map<number, MusicianSkillTag>;
   private improvementPlans: Map<number, ImprovementPlan>;
   private improvementActions: Map<number, ImprovementAction>;
+  private availabilityShareLinks: Map<number, AvailabilityShareLink>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -300,6 +309,7 @@ export class MemStorage implements IStorage {
   private currentMusicianSkillTagId: number;
   private currentImprovementPlanId: number;
   private currentImprovementActionId: number;
+  private currentAvailabilityShareLinkId: number;
 
   constructor() {
     // Initialize maps
@@ -328,6 +338,7 @@ export class MemStorage implements IStorage {
     this.musicianSkillTags = new Map();
     this.improvementPlans = new Map();
     this.improvementActions = new Map();
+    this.availabilityShareLinks = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
@@ -355,6 +366,7 @@ export class MemStorage implements IStorage {
     this.currentMusicianSkillTagId = 1;
     this.currentImprovementPlanId = 1;
     this.currentImprovementActionId = 1;
+    this.currentAvailabilityShareLinkId = 1;
     
     // Initialize with default admin user
     this.createUser({
@@ -2600,6 +2612,66 @@ export class MemStorage implements IStorage {
     }
     
     return updatedAction;
+  }
+  
+  // Availability Share Links management
+  async createAvailabilityShareLink(data: InsertAvailabilityShareLink): Promise<AvailabilityShareLink> {
+    const shareLink: AvailabilityShareLink = {
+      id: this.currentAvailabilityShareLinkId++,
+      musicianId: data.musicianId,
+      token: data.token,
+      expiryDate: new Date(data.expiryDate),
+      createdAt: new Date(data.createdAt || new Date())
+    };
+    
+    this.availabilityShareLinks.set(shareLink.id, shareLink);
+    
+    // Log activity
+    this.createActivity({
+      action: 'create',
+      entityType: 'availability-share-link',
+      entityId: shareLink.id,
+      timestamp: new Date(),
+      userId: null,
+      details: { musicianId: shareLink.musicianId }
+    });
+    
+    return shareLink;
+  }
+  
+  async getAvailabilityShareLinks(musicianId: number): Promise<AvailabilityShareLink[]> {
+    return Array.from(this.availabilityShareLinks.values())
+      .filter(link => link.musicianId === musicianId);
+  }
+  
+  async getAvailabilityShareLink(id: number): Promise<AvailabilityShareLink | undefined> {
+    return this.availabilityShareLinks.get(id);
+  }
+  
+  async getAvailabilityShareLinkByToken(token: string): Promise<AvailabilityShareLink | undefined> {
+    return Array.from(this.availabilityShareLinks.values())
+      .find(link => link.token === token);
+  }
+  
+  async deleteAvailabilityShareLink(id: number): Promise<boolean> {
+    if (!this.availabilityShareLinks.has(id)) {
+      return false;
+    }
+    
+    const shareLink = this.availabilityShareLinks.get(id);
+    this.availabilityShareLinks.delete(id);
+    
+    // Log activity
+    this.createActivity({
+      action: 'delete',
+      entityType: 'availability-share-link',
+      entityId: id,
+      timestamp: new Date(),
+      userId: null,
+      details: { musicianId: shareLink?.musicianId }
+    });
+    
+    return true;
   }
 }
 
