@@ -419,8 +419,12 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                     {selectedDates.map((date, index) => (
                       <Button
                         key={`date-tab-${index}`}
+                        type="button" // Explicitly set type to button to prevent form submission
                         variant={activeDate && date.toISOString() === activeDate.toISOString() ? "default" : "outline"}
-                        onClick={() => setActiveDate(date)}
+                        onClick={(e) => {
+                          e.preventDefault(); // Prevent any form submission
+                          setActiveDate(date);
+                        }}
                         className="text-sm"
                       >
                         {format(date, "MMM d, yyyy")}
@@ -522,7 +526,10 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                                     ? 'border-yellow-400 bg-yellow-50/10'
                                     : ''
                               }`}
-                              onClick={() => activeDate && toggleMusicianSelection(musician.id, activeDate)}
+                              onClick={(e) => {
+                                e.preventDefault(); // Prevent form submission
+                                if (activeDate) toggleMusicianSelection(musician.id, activeDate);
+                              }}
                             >
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-4">
@@ -558,7 +565,11 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                                     <Checkbox
                                       id={musicianKey}
                                       checked={isSelectedForActiveDate || false}
-                                      onCheckedChange={() => activeDate && toggleMusicianSelection(musician.id, activeDate)}
+                                      onCheckedChange={(checked) => {
+                                        if (activeDate) {
+                                          toggleMusicianSelection(musician.id, activeDate);
+                                        }
+                                      }}
                                     />
                                   </div>
                                 </div>
@@ -576,7 +587,11 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                                           key={idx}
                                           variant={isAssignedToDate ? "default" : "outline"}
                                           className={`text-xs cursor-pointer ${isAssignedToDate ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                                          onClick={() => toggleMusicianSelection(musician.id, date)}
+                                          onClick={(e) => {
+                                            e.preventDefault(); // Prevent form submission
+                                            e.stopPropagation(); // Prevent event bubbling
+                                            toggleMusicianSelection(musician.id, date);
+                                          }}
                                         >
                                           {format(date, "MMM d")}
                                         </Badge>
