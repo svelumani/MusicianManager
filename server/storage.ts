@@ -257,6 +257,8 @@ export class MemStorage implements IStorage {
     this.currentMonthlyInvoiceId = 1;
     this.currentSettingsId = 1;
     this.currentEmailTemplateId = 1;
+    this.currentMusicianTypeId = 1;
+    this.currentMusicianTypeCategoryId = 1;
     
     // Initialize with default admin user
     this.createUser({
@@ -332,6 +334,47 @@ export class MemStorage implements IStorage {
       description: "Template for sending contract confirmations to musicians",
       isDefault: true
     });
+    
+    // Initialize with sample musician types
+    const pianistType = this.createMusicianType({
+      name: "Pianist",
+      description: "Professional piano players for various venues and events",
+      defaultRate: 200,
+      isDefault: true
+    });
+    
+    const vocalistType = this.createMusicianType({
+      name: "Vocalist",
+      description: "Solo vocalists and singers for events",
+      defaultRate: 180,
+      isDefault: true
+    });
+    
+    const guitaristType = this.createMusicianType({
+      name: "Guitarist",
+      description: "Acoustic and electric guitar players",
+      defaultRate: 150,
+      isDefault: true
+    });
+    
+    const violinistType = this.createMusicianType({
+      name: "Violinist",
+      description: "Classical and contemporary violin players",
+      defaultRate: 190,
+      isDefault: true
+    });
+    
+    // Associate musician types with categories
+    this.associateMusicianTypeWithCategory(pianistType.id, 1); // Jazz
+    this.associateMusicianTypeWithCategory(pianistType.id, 2); // Classical
+    
+    this.associateMusicianTypeWithCategory(vocalistType.id, 3); // Rock
+    this.associateMusicianTypeWithCategory(vocalistType.id, 4); // Pop
+    
+    this.associateMusicianTypeWithCategory(guitaristType.id, 3); // Rock
+    this.associateMusicianTypeWithCategory(guitaristType.id, 4); // Pop
+    
+    this.associateMusicianTypeWithCategory(violinistType.id, 2); // Classical
   }
 
   // User management methods
@@ -1429,6 +1472,135 @@ export class MemStorage implements IStorage {
     });
     
     return this.emailTemplates.delete(id);
+  }
+
+  // Musician Type management methods
+  async getMusicianTypes(): Promise<MusicianType[]> {
+    return Array.from(this.musicianTypes.values());
+  }
+  
+  async getMusicianType(id: number): Promise<MusicianType | undefined> {
+    return this.musicianTypes.get(id);
+  }
+  
+  async getMusicianTypeCategories(musicianTypeId: number): Promise<Category[]> {
+    // Find all musician type category associations for this musician type
+    const categoryIds = Array.from(this.musicianTypeCategories.values())
+      .filter(mtc => mtc.musicianTypeId === musicianTypeId)
+      .map(mtc => mtc.categoryId);
+    
+    // Get the full category objects
+    return Array.from(this.categories.values())
+      .filter(category => categoryIds.includes(category.id));
+  }
+  
+  async createMusicianType(musicianType: InsertMusicianType): Promise<MusicianType> {
+    const id = this.currentMusicianTypeId++;
+    const now = new Date();
+    const newMusicianType: MusicianType = {
+      ...musicianType,
+      id,
+      createdAt: now,
+      updatedAt: null
+    };
+    this.musicianTypes.set(id, newMusicianType);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Created",
+      entityType: "MusicianType",
+      entityId: id,
+      timestamp: new Date(),
+      details: { musicianType: newMusicianType.name }
+    });
+    
+    return newMusicianType;
+  }
+  
+  async updateMusicianType(id: number, data: Partial<InsertMusicianType>): Promise<MusicianType | undefined> {
+    const musicianType = await this.getMusicianType(id);
+    if (!musicianType) return undefined;
+    
+    const updatedMusicianType = {
+      ...musicianType,
+      ...data,
+      updatedAt: new Date()
+    };
+    this.musicianTypes.set(id, updatedMusicianType);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Updated",
+      entityType: "MusicianType",
+      entityId: id,
+      timestamp: new Date(),
+      details: { musicianType: updatedMusicianType.name }
+    });
+    
+    return updatedMusicianType;
+  }
+  
+  async deleteMusicianType(id: number): Promise<boolean> {
+    const musicianType = await this.getMusicianType(id);
+    if (!musicianType) return false;
+    
+    // Delete all associations first
+    const categoryAssociations = Array.from(this.musicianTypeCategories.values())
+      .filter(mtc => mtc.musicianTypeId === id);
+    
+    for (const assoc of categoryAssociations) {
+      this.musicianTypeCategories.delete(assoc.id);
+    }
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Deleted",
+      entityType: "MusicianType",
+      entityId: id,
+      timestamp: new Date(),
+      details: { musicianType: musicianType.name }
+    });
+    
+    return this.musicianTypes.delete(id);
+  }
+  
+  async associateMusicianTypeWithCategory(musicianTypeId: number, categoryId: number): Promise<boolean> {
+    // Check if the musician type and category exist
+    const musicianType = await this.getMusicianType(musicianTypeId);
+    const category = await this.getCategory(categoryId);
+    
+    if (!musicianType || !category) return false;
+    
+    // Check if the association already exists
+    const existingAssociation = Array.from(this.musicianTypeCategories.values())
+      .find(mtc => mtc.musicianTypeId === musicianTypeId && mtc.categoryId === categoryId);
+    
+    if (existingAssociation) return true; // Already exists
+    
+    // Create new association
+    const id = this.currentMusicianTypeCategoryId++;
+    const association: MusicianTypeCategory = {
+      id,
+      musicianTypeId,
+      categoryId
+    };
+    
+    this.musicianTypeCategories.set(id, association);
+    return true;
+  }
+  
+  async removeMusicianTypeCategory(musicianTypeId: number, categoryId: number): Promise<boolean> {
+    // Find the association to remove
+    const association = Array.from(this.musicianTypeCategories.values())
+      .find(mtc => mtc.musicianTypeId === musicianTypeId && mtc.categoryId === categoryId);
+    
+    if (!association) return false;
+    
+    // Delete the association
+    return this.musicianTypeCategories.delete(association.id);
   }
 }
 
