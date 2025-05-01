@@ -87,6 +87,7 @@ export interface IStorage {
   updateAvailability(id: number, data: Partial<InsertAvailability>): Promise<Availability | undefined>;
   deleteAvailability(id: number): Promise<boolean>;
   getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]>;
+  updateAvailabilityForDate(musicianId: number, date: string, isAvailable: boolean, month: string, year: number): Promise<Availability>;
   
   // Event management
   getEvents(): Promise<Event[]>;
@@ -740,6 +741,8 @@ export class MemStorage implements IStorage {
     const availability = Array.from(this.availability.values()).find(a => a.id === id);
     if (!availability) return undefined;
     
+    // Implement the rest of the method...
+    
     const updatedAvailability = { ...availability, ...data };
     this.availability.set(id, updatedAvailability);
     return updatedAvailability;
@@ -747,6 +750,37 @@ export class MemStorage implements IStorage {
   
   async deleteAvailability(id: number): Promise<boolean> {
     return this.availability.delete(id);
+  }
+  
+  async updateAvailabilityForDate(musicianId: number, date: string, isAvailable: boolean, month: string, year: number): Promise<Availability> {
+    // Check if there's already an availability record for this date
+    const dateObj = new Date(date);
+    const existingAvailability = Array.from(this.availability.values()).find(
+      a => a.musicianId === musicianId && a.date.toISOString().split('T')[0] === date
+    );
+    
+    if (existingAvailability) {
+      // Update existing record
+      const updatedAvailability = { 
+        ...existingAvailability, 
+        isAvailable 
+      };
+      this.availability.set(existingAvailability.id, updatedAvailability);
+      return updatedAvailability;
+    } else {
+      // Create new record
+      const id = this.currentAvailabilityId++;
+      const newAvailability: Availability = { 
+        id, 
+        musicianId, 
+        date: dateObj, 
+        isAvailable,
+        month,
+        year 
+      };
+      this.availability.set(id, newAvailability);
+      return newAvailability;
+    }
   }
   
   async getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]> {
