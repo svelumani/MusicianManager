@@ -469,7 +469,7 @@ export default function EditMusicianPage() {
                         </h3>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         <FormField
                           control={form.control}
                           name={`payRates.${index}.eventCategoryId`}
@@ -536,7 +536,7 @@ export default function EditMusicianPage() {
                           control={form.control}
                           name={`payRates.${index}.eventRate`}
                           render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="sm:col-span-2 md:col-span-1">
                               <FormLabel>Event Rate ($)</FormLabel>
                               <FormControl>
                                 <Input

@@ -134,39 +134,39 @@ export default function ViewMusicianPage() {
                 <div>
                   <p className="font-medium mb-2 mt-1">Pay Rates:</p>
                   {payRates && payRates.length > 0 ? (
-                    <div className="mt-2 border rounded-md overflow-hidden">
-                      <table className="w-full text-sm">
+                    <div className="mt-2 border rounded-md overflow-x-auto">
+                      <table className="w-full text-sm min-w-[600px]">
                         <thead className="bg-muted">
                           <tr>
-                            <th className="px-4 py-2 text-left">Category</th>
-                            <th className="px-4 py-2 text-center">Hourly Rate</th>
-                            <th className="px-4 py-2 text-center">Daily Rate</th>
-                            <th className="px-4 py-2 text-center">Event Rate</th>
-                            <th className="px-4 py-2 text-left">Notes</th>
+                            <th className="px-3 py-2 text-left whitespace-nowrap">Category</th>
+                            <th className="px-3 py-2 text-center whitespace-nowrap">Hourly Rate</th>
+                            <th className="px-3 py-2 text-center whitespace-nowrap">Daily Rate</th>
+                            <th className="px-3 py-2 text-center whitespace-nowrap">Event Rate</th>
+                            <th className="px-3 py-2 text-left">Notes</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
                           {payRates.map(rate => (
-                            <tr key={rate.id}>
-                              <td className="px-4 py-3 font-medium">
+                            <tr key={rate.id} className="hover:bg-muted/30">
+                              <td className="px-3 py-3 font-medium whitespace-nowrap">
                                 {rate.eventCategoryId ? getCategoryName(rate.eventCategoryId) : "Default"}
                               </td>
-                              <td className="px-4 py-3 text-center">
-                                {rate.hourlyRate !== null && rate.hourlyRate !== undefined 
+                              <td className="px-3 py-3 text-center whitespace-nowrap">
+                                {rate.hourlyRate !== null && rate.hourlyRate !== undefined && rate.hourlyRate !== 0
                                   ? `$${parseFloat(rate.hourlyRate.toString()).toFixed(2)}/hr` 
                                   : "—"}
                               </td>
-                              <td className="px-4 py-3 text-center">
-                                {rate.dayRate !== null && rate.dayRate !== undefined 
+                              <td className="px-3 py-3 text-center whitespace-nowrap">
+                                {rate.dayRate !== null && rate.dayRate !== undefined && rate.dayRate !== 0
                                   ? `$${parseFloat(rate.dayRate.toString()).toFixed(2)}/day` 
                                   : "—"}
                               </td>
-                              <td className="px-4 py-3 text-center">
-                                {rate.eventRate !== null && rate.eventRate !== undefined 
+                              <td className="px-3 py-3 text-center whitespace-nowrap">
+                                {rate.eventRate !== null && rate.eventRate !== undefined && rate.eventRate !== 0
                                   ? `$${parseFloat(rate.eventRate.toString()).toFixed(2)}/event` 
                                   : "—"}
                               </td>
-                              <td className="px-4 py-3 text-gray-500 italic">
+                              <td className="px-3 py-3 text-gray-500 italic">
                                 {rate.notes || "—"}
                               </td>
                             </tr>
