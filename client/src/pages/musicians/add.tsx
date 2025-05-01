@@ -57,8 +57,13 @@ export default function AddMusicianPage() {
 
   const createMusicianMutation = useMutation({
     mutationFn: async (values: MusicianFormValues) => {
-      const res = await apiRequest("POST", "/api/musicians", values);
-      return res;
+      try {
+        const response = await apiRequest("POST", "/api/musicians", values);
+        return response;
+      } catch (err) {
+        console.error("Error saving musician:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       toast({
@@ -69,6 +74,7 @@ export default function AddMusicianPage() {
       navigate("/musicians");
     },
     onError: (error) => {
+      console.error("Mutation error:", error);
       toast({
         title: "Failed to create musician",
         description: error.message || "An error occurred while creating the musician",
