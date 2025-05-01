@@ -445,6 +445,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching availability" });
     }
   });
+  
+  // Get musician availability calendar by month and year
+  apiRouter.get("/musicians/:musicianId/availability-calendar/:month/:year", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId, month, year } = req.params;
+      const monthInt = parseInt(month);
+      const yearInt = parseInt(year);
+      
+      // Format as YYYY-MM for storage lookup
+      const monthStr = `${yearInt}-${monthInt.toString().padStart(2, '0')}`;
+      
+      // Get availability data
+      const availability = await storage.getAvailability(parseInt(musicianId), monthStr);
+      
+      // Get bookings data
+      const bookings = await storage.getBookingsByMusicianAndMonth(parseInt(musicianId), monthInt, yearInt);
+      
+      // Return combined data
+      res.json({
+        month: monthInt,
+        year: yearInt,
+        availability,
+        bookings
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician availability calendar" });
+    }
+  });
 
   apiRouter.post("/availability", isAuthenticated, async (req, res) => {
     try {
@@ -558,6 +587,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching bookings" });
+    }
+  });
+  
+  // Get musician bookings by month
+  apiRouter.get("/musicians/:musicianId/bookings/:month/:year", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId, month, year } = req.params;
+      const bookings = await storage.getBookingsByMusicianAndMonth(
+        parseInt(musicianId),
+        parseInt(month),
+        parseInt(year)
+      );
+      res.json(bookings);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician bookings by month" });
     }
   });
 

@@ -100,6 +100,7 @@ export interface IStorage {
   getBookings(eventId?: number): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | undefined>;
   getBookingsByMusician(musicianId: number): Promise<Booking[]>;
+  getBookingsByMusicianAndMonth(musicianId: number, month: number, year: number): Promise<Booking[]>;
   createBooking(booking: InsertBooking): Promise<Booking>;
   updateBooking(id: number, data: Partial<InsertBooking>): Promise<Booking | undefined>;
   deleteBooking(id: number): Promise<boolean>;
@@ -834,6 +835,15 @@ export class MemStorage implements IStorage {
   
   async getBookingsByMusician(musicianId: number): Promise<Booking[]> {
     return Array.from(this.bookings.values()).filter(b => b.musicianId === musicianId);
+  }
+  
+  async getBookingsByMusicianAndMonth(musicianId: number, month: number, year: number): Promise<Booking[]> {
+    return Array.from(this.bookings.values()).filter(b => {
+      if (b.musicianId !== musicianId) return false;
+      
+      const bookingDate = new Date(b.date);
+      return bookingDate.getMonth() + 1 === month && bookingDate.getFullYear() === year;
+    });
   }
   
   async createBooking(booking: InsertBooking): Promise<Booking> {
