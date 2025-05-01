@@ -143,6 +143,17 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       setSelectedDates([...selectedDates, date]);
     }
   };
+  
+  // Handle musician selection/deselection
+  const toggleMusicianSelection = (musicianId: number) => {
+    const isSelected = selectedMusicians.includes(musicianId);
+    
+    if (isSelected) {
+      setSelectedMusicians(prev => prev.filter(id => id !== musicianId));
+    } else {
+      setSelectedMusicians(prev => [...prev, musicianId]);
+    }
+  };
 
   function onSubmit(values: EventFormValues) {
     // Create a new object with the formatted values to match our EventApiValues type
@@ -373,7 +384,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                               className="h-3 w-3 cursor-pointer ml-1" 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedMusicians(prev => prev.filter(mId => mId !== id));
+                                toggleMusicianSelection(id);
                               }}
                             />
                           </Badge>
@@ -405,15 +416,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                               className={`overflow-hidden cursor-pointer transition-colors ${
                                 isSelected ? 'border-primary bg-primary/5' : ''
                               }`}
-                              onClick={() => {
-                                setSelectedMusicians(prev => {
-                                  if (isSelected) {
-                                    return prev.filter(id => id !== musician.id);
-                                  } else {
-                                    return [...prev, musician.id];
-                                  }
-                                });
-                              }}
+                              onClick={() => toggleMusicianSelection(musician.id)}
                             >
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-4">
@@ -445,19 +448,11 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                                       </Badge>
                                     </div>
                                   </div>
-                                  <div>
+                                  <div onClick={(e) => e.stopPropagation()}>
                                     <Checkbox
                                       id={musicianKey}
                                       checked={isSelected}
-                                      onCheckedChange={(checked) => {
-                                        setSelectedMusicians(prev => {
-                                          if (checked) {
-                                            return [...prev, musician.id];
-                                          } else {
-                                            return prev.filter(id => id !== musician.id);
-                                          }
-                                        });
-                                      }}
+                                      onCheckedChange={() => toggleMusicianSelection(musician.id)}
                                     />
                                   </div>
                                 </div>
