@@ -13,6 +13,7 @@ import Dashboard from "@/pages/dashboard";
 import LoginPage from "@/pages/login";
 import VenuesPage from "@/pages/venues/index";
 import AddVenuePage from "@/pages/venues/add";
+import ViewVenuePage from "@/pages/venues/view";
 import MusiciansPage from "@/pages/musicians/index";
 import AddMusicianPage from "@/pages/musicians/add";
 import EventsPage from "@/pages/events/index";
@@ -58,6 +59,13 @@ function Router() {
         <AppLayout>
           <AddVenuePage />
         </AppLayout>
+      </Route>
+      <Route path="/venues/:id">
+        {(params) => (
+          <AppLayout>
+            <ViewVenuePage id={parseInt(params.id)} />
+          </AppLayout>
+        )}
       </Route>
 
       {/* Musicians */}
