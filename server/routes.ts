@@ -658,6 +658,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error accessing shared availability" });
     }
   });
+  
+  // Public endpoint to update availability via share link
+  apiRouter.post("/public/availability/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { dates, isAvailable } = req.body;
+      
+      // Validate input
+      if (!dates || !Array.isArray(dates) || dates.length === 0) {
+        return res.status(400).json({ message: "Dates array is required" });
+      }
+      
+      if (typeof isAvailable !== 'boolean') {
+        return res.status(400).json({ message: "isAvailable must be a boolean" });
+      }
+      
+      // Get the share link
+      const shareLink = await storage.getAvailabilityShareLinkByToken(token);
+      if (!shareLink) {
+        return res.status(404).json({ message: "Share link not found" });
+      }
+      
+      // Check if the link has expired
+      if (new Date() > new Date(shareLink.expiryDate)) {
+        return res.status(401).json({ message: "Share link has expired" });
+      }
+      
+      // Process each date
+      const results = [];
+      for (const dateStr of dates) {
+        // Only allow updating future dates
+        const dateObj = new Date(dateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (dateObj < today) {
+          continue; // Skip past dates
+        }
+        
+        // Extract month/year
+        const month = dateObj.getMonth() + 1; // 0-based to 1-based
+        const year = dateObj.getFullYear();
+        const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+        
+        // Update availability
+        const availability = await storage.updateAvailabilityForDate(
+          shareLink.musicianId,
+          dateStr,
+          isAvailable,
+          monthStr,
+          year
+        );
+        
+        results.push(availability);
+      }
+      
+      res.json({
+        success: true,
+        updatedDates: results.length,
+        musicianId: shareLink.musicianId
+      });
+    } catch (error) {
+      console.error("Error updating availability via share link:", error);
+      res.status(500).json({ message: "Error updating availability" });
+    }
+  });
 
   apiRouter.post("/availability", isAuthenticated, async (req, res) => {
     try {

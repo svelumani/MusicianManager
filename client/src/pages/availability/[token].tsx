@@ -1,14 +1,23 @@
 import { useState, useEffect } from "react";
 import { useRoute } from "wouter";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
-import { Loader2, CheckCircle, XCircle, CalendarDays, Music } from "lucide-react";
+import { 
+  Loader2, 
+  CheckCircle, 
+  XCircle, 
+  CalendarDays, 
+  Music,
+  CheckSquare,
+  Square
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, addMonths, subMonths } from "date-fns";
+import { format, addMonths, subMonths, isAfter, startOfDay, isSameDay } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, AlertTriangle, ChevronLeft, ChevronRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface MusicianInfo {
   id: number;
@@ -39,12 +48,16 @@ interface SharedAvailabilityData {
 export default function SharedAvailabilityView() {
   const [, params] = useRoute<{ token: string }>("/availability/:token");
   const token = params?.token;
+  const { toast } = useToast();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [sharedData, setSharedData] = useState<SharedAvailabilityData | null>(null);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   useEffect(() => {
     if (!token) return;
@@ -92,6 +105,120 @@ export default function SharedAvailabilityView() {
     setCurrentMonth(prev => 
       direction === "next" ? addMonths(prev, 1) : subMonths(prev, 1)
     );
+    // Clear selected dates when changing months
+    setSelectedDates([]);
+  };
+  
+  const toggleDateSelection = (date: Date) => {
+    // Don't allow selection of dates with bookings or past dates
+    if (getBookingForDate(date) || !isFutureDate(date)) {
+      return;
+    }
+    
+    if (multiSelectMode) {
+      setSelectedDates(prev => {
+        // Check if date is already selected
+        const isSelected = prev.some(selectedDate => 
+          isSameDay(selectedDate, date)
+        );
+        
+        if (isSelected) {
+          // Remove date if already selected
+          return prev.filter(selectedDate => !isSameDay(selectedDate, date));
+        } else {
+          // Add date if not already selected
+          return [...prev, date];
+        }
+      });
+    } else {
+      // In single select mode, just set the date
+      setSelectedDates([date]);
+    }
+  };
+  
+  const isFutureDate = (date: Date) => {
+    const today = startOfDay(new Date());
+    return isAfter(date, today) || isSameDay(date, today);
+  };
+  
+  const isDateSelected = (date: Date) => {
+    return selectedDates.some(selectedDate => 
+      isSameDay(selectedDate, date)
+    );
+  };
+  
+  const updateAvailability = async (isAvailable: boolean) => {
+    if (selectedDates.length === 0) {
+      toast({
+        title: "No dates selected",
+        description: "Please select at least one date to update",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      setIsUpdating(true);
+      
+      const formattedDates = selectedDates.map(date => 
+        format(date, "yyyy-MM-dd")
+      );
+      
+      const response = await fetch(`/api/public/availability/${token}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dates: formattedDates,
+          isAvailable
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update availability");
+      }
+      
+      const result = await response.json();
+      
+      // Refresh the calendar data
+      const month = currentMonth.getMonth() + 1;
+      const year = currentMonth.getFullYear();
+      
+      const refreshResponse = await fetch(
+        `/api/public/availability/${token}?month=${month}&year=${year}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      
+      if (!refreshResponse.ok) {
+        throw new Error("Failed to refresh calendar data");
+      }
+      
+      const refreshedData = await refreshResponse.json();
+      setSharedData(refreshedData);
+      
+      // Clear selected dates
+      setSelectedDates([]);
+      
+      toast({
+        title: "Availability updated",
+        description: `Successfully marked ${result.updatedDates} date(s) as ${isAvailable ? 'available' : 'unavailable'}`,
+      });
+      
+    } catch (err) {
+      console.error("Error updating availability:", err);
+      toast({
+        title: "Update failed",
+        description: "There was an error updating your availability",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
   };
   
   const isDateAvailable = (date: Date) => {
