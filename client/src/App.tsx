@@ -33,6 +33,7 @@ import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
 import EmailTemplatesPage from "./pages/settings/templates";
+import SharedAvailabilityView from "@/pages/availability/[token]";
 
 function Router() {
   const [location] = useLocation();
@@ -196,6 +197,11 @@ function Router() {
         <AppLayout>
           <EmailTemplatesPage />
         </AppLayout>
+      </Route>
+      
+      {/* Public routes - no auth required */}
+      <Route path="/availability/:token">
+        <SharedAvailabilityView />
       </Route>
 
       {/* Fallback to 404 */}

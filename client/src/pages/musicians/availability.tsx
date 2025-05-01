@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { Link } from "wouter";
 import { AvailabilityCalendar } from "@/components/availability/AvailabilityCalendar";
+import { ShareLinkManager } from "@/components/availability/ShareLinkManager";
 import type { Musician } from "@shared/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
@@ -85,6 +86,7 @@ const MusicianAvailabilityPage = () => {
         <TabsList>
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           <TabsTrigger value="list">Booking History</TabsTrigger>
+          <TabsTrigger value="share">Share Links</TabsTrigger>
         </TabsList>
 
         <TabsContent value="calendar" className="mt-6">
@@ -93,6 +95,10 @@ const MusicianAvailabilityPage = () => {
 
         <TabsContent value="list" className="mt-6">
           <BookingHistoryList musicianId={musicianId} />
+        </TabsContent>
+        
+        <TabsContent value="share" className="mt-6">
+          <ShareLinkManager musicianId={musicianId} musicianName={musician.name} />
         </TabsContent>
       </Tabs>
     </div>
