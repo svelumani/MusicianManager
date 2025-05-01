@@ -1062,12 +1062,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Creating event with data:", req.body);
       
+      // Process eventDates to handle array of ISO strings
+      if (req.body.eventDates && Array.isArray(req.body.eventDates)) {
+        // Keep it as is - we'll let the schema validation handle the type conversion
+      }
+      
+      // For multi-day events, set startDate and endDate from the first and last eventDate
+      if (req.body.eventDates && Array.isArray(req.body.eventDates) && req.body.eventDates.length > 0) {
+        // Sort dates to ensure we get the right start and end dates
+        const sortedDates = [...req.body.eventDates].sort();
+        req.body.startDate = new Date(sortedDates[0]);
+        req.body.endDate = new Date(sortedDates[sortedDates.length - 1]);
+      }
+      
+      // Set eventType to a default value if it doesn't exist
+      if (!req.body.eventType) {
+        req.body.eventType = "standard";
+      }
+      
       // Parse the incoming data with our enhanced schema
       const eventData = insertEventSchema.parse(req.body);
       
       // Store the musician assignments separately since they're not part of the database schema
       const musicianAssignments = eventData.musicianAssignments;
+      const musicianTypeIds = eventData.musicianTypeIds;
+      const musicianIds = eventData.musicianIds;
+      
+      // Remove extended properties before storing in database
       delete eventData.musicianAssignments;
+      delete eventData.musicianTypeIds;
+      delete eventData.musicianIds;
       
       // Create the event
       const event = await storage.createEvent(eventData);
@@ -1080,6 +1104,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // For now, just log the assignments and return success
         // TODO: Implement actual invitations based on assignments
       }
+      
+      // For debugging: log the successful event creation
+      console.log("Successfully created event:", event);
       
       res.status(201).json(event);
     } catch (error) {

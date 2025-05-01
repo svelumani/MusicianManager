@@ -188,14 +188,15 @@ export const events = pgTable("events", {
   notes: text("notes"), // Notes about the event
 });
 
-export const insertEventSchema = createInsertSchema(events)
+export const insertEventSchema = createInsertSchema(events, {
+  eventType: z.string().optional(),
+  startDate: z.date().optional(),
+  endDate: z.date().optional()
+})
   .pick({
     name: true,
     paxCount: true,
     venueId: true,
-    eventType: true,
-    startDate: true,
-    endDate: true,
     eventDates: true,
     status: true,
     categoryIds: true,
@@ -204,6 +205,9 @@ export const insertEventSchema = createInsertSchema(events)
     advancePayment: true,
     secondPayment: true,
     notes: true,
+    eventType: true,
+    startDate: true,
+    endDate: true,
   })
   .extend({
     // Additional fields for our extended functionality
