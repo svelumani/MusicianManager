@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Music, Tag, User, CreditCard, Clock } from "lucide-react";
+import { Settings, Music, Tag, User, CreditCard, Clock, Mail } from "lucide-react";
 
 const settingsSections = [
   {
@@ -11,6 +11,13 @@ const settingsSections = [
     description: "Manage musical categories and their associated instruments",
     icon: <Music className="h-8 w-8" />,
     color: "text-blue-500 bg-blue-100",
+  },
+  {
+    id: "email",
+    title: "Email Settings",
+    description: "Configure email notifications for musicians and venues",
+    icon: <Mail className="h-8 w-8" />,
+    color: "text-red-500 bg-red-100",
   },
   {
     id: "musician-types",
