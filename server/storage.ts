@@ -551,7 +551,6 @@ export class MemStorage implements IStorage {
       hourlyRate: 120,
       dayRate: 550,
       eventRate: 350,
-      rateType: "Standard",
       notes: "Standard private event rate"
     });
     
@@ -561,7 +560,6 @@ export class MemStorage implements IStorage {
       hourlyRate: 180,
       dayRate: 800,
       eventRate: 600,
-      rateType: "Premium",
       notes: "Premium classical concert rate"
     });
     
@@ -584,7 +582,6 @@ export class MemStorage implements IStorage {
       hourlyRate: 90,
       dayRate: 450,
       eventRate: 300,
-      rateType: "Standard",
       notes: "Standard corporate event rate"
     });
     
@@ -594,7 +591,6 @@ export class MemStorage implements IStorage {
       hourlyRate: 110,
       dayRate: 550,
       eventRate: 380,
-      rateType: "Premium",
       notes: "Premium wedding reception rate"
     });
     
@@ -604,7 +600,6 @@ export class MemStorage implements IStorage {
       hourlyRate: 100,
       dayRate: 500,
       eventRate: 350,
-      rateType: "Standard",
       notes: "Standard private party rate"
     });
     
@@ -614,7 +609,6 @@ export class MemStorage implements IStorage {
       hourlyRate: 130,
       dayRate: 650,
       eventRate: 450,
-      rateType: "Premium",
       notes: "Premium concert performance rate"
     });
 
