@@ -345,31 +345,39 @@ export default function InstrumentManagerPage() {
     mutationFn: async (values: z.infer<typeof musicianTypeSchema>) => {
       const { associatedCategoryIds, ...typeData } = values;
       
-      // Create the musician type
-      const response = await apiRequest("POST", "/api/musician-types", {
-        name: typeData.name,
-        description: typeData.description,
-        defaultRate: typeData.defaultRate,
-        isDefault: typeData.isDefault || false,
-      });
-      
-      const newType = await response.json();
-      
-      // Associate with categories if provided
-      if (associatedCategoryIds && associatedCategoryIds.length > 0) {
-        // This would typically be handled by the backend in the route handler
-        // But we're including it here for clarity
-        for (const categoryId of associatedCategoryIds) {
-          // The backend will handle this association
+      try {
+        // Create the musician type
+        const response = await apiRequest("POST", "/api/musician-types", {
+          name: typeData.name,
+          description: typeData.description,
+          defaultRate: typeData.defaultRate,
+          isDefault: typeData.isDefault || false,
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || `Server returned ${response.status}: ${response.statusText}`);
         }
+        
+        const newType = await response.json();
+        
+        // Associate with categories if provided
+        if (associatedCategoryIds && associatedCategoryIds.length > 0) {
+          // This would typically be handled by the backend in the route handler
+          // For now, we'll just log that we have categories to associate
+          console.log(`Would associate type with categories: ${associatedCategoryIds.join(', ')}`);
+        }
+        
+        return newType;
+      } catch (err: any) {
+        console.error("Error adding musician type:", err);
+        throw new Error(err.message || "Failed to add musician type");
       }
-      
-      return newType;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Musician type added",
-        description: "The musician type has been added successfully",
+        description: `The musician type "${data.name}" has been added successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/musician-types"] });
       setIsAddMusicianTypeOpen(false);
@@ -772,8 +780,13 @@ export default function InstrumentManagerPage() {
                                 variant="ghost" 
                                 size="sm"
                                 onClick={() => handleDeleteMusicianType(type.id)}
+                                disabled={deleteMusicianTypeMutation.isPending && deleteMusicianTypeMutation.variables === type.id}
                               >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                                {deleteMusicianTypeMutation.isPending && deleteMusicianTypeMutation.variables === type.id ? (
+                                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                )}
                               </Button>
                             </div>
                           </TableCell>
