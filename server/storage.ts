@@ -179,7 +179,8 @@ export class MemStorage implements IStorage {
   private plannerSlots: Map<number, PlannerSlot>;
   private plannerAssignments: Map<number, PlannerAssignment>;
   private monthlyInvoices: Map<number, MonthlyInvoice>;
-  private settings: Map<string, Settings>;
+  private settings: Map<number, Settings>;
+  private emailTemplates: Map<number, EmailTemplate>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -198,6 +199,7 @@ export class MemStorage implements IStorage {
   private currentPlannerAssignmentId: number;
   private currentMonthlyInvoiceId: number;
   private currentSettingsId: number;
+  private currentEmailTemplateId: number;
 
   constructor() {
     // Initialize maps
@@ -217,6 +219,7 @@ export class MemStorage implements IStorage {
     this.plannerAssignments = new Map();
     this.monthlyInvoices = new Map();
     this.settings = new Map();
+    this.emailTemplates = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
@@ -235,6 +238,7 @@ export class MemStorage implements IStorage {
     this.currentPlannerAssignmentId = 1;
     this.currentMonthlyInvoiceId = 1;
     this.currentSettingsId = 1;
+    this.currentEmailTemplateId = 1;
     
     // Initialize with default admin user
     this.createUser({
@@ -290,6 +294,25 @@ export class MemStorage implements IStorage {
       hourlyRate: 900,
       description: "Beautiful beachfront resort for weddings and special occasions",
       rating: 4.7
+    });
+    
+    // Initialize with default email templates
+    this.createEmailTemplate({
+      name: "Monthly Assignment Email",
+      subject: "Your Performance Schedule for {{month}} {{year}}",
+      htmlContent: "<!DOCTYPE html><html><body><div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\"><h2>Hello {{musicianName}},</h2><p>We're pleased to share your performance schedule for {{month}} {{year}}.</p><h3>Your Scheduled Performances:</h3><table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\"><tr style=\"background-color: #f2f2f2;\"><th style=\"padding: 8px; text-align: left; border: 1px solid #ddd;\">Date</th><th style=\"padding: 8px; text-align: left; border: 1px solid #ddd;\">Venue</th><th style=\"padding: 8px; text-align: left; border: 1px solid #ddd;\">Time</th></tr>{{#each assignments}}<tr><td style=\"padding: 8px; text-align: left; border: 1px solid #ddd;\">{{date}}</td><td style=\"padding: 8px; text-align: left; border: 1px solid #ddd;\">{{venue}}</td><td style=\"padding: 8px; text-align: left; border: 1px solid #ddd;\">{{startTime}} - {{endTime}}</td></tr>{{/each}}</table><p>Please confirm your availability for these dates as soon as possible by replying to this email.</p><p>If you have any questions or concerns, please don't hesitate to contact us.</p><p>Best regards,<br>The VAMP Team</p></div></body></html>",
+      textContent: "Hello {{musicianName}},\n\nWe're pleased to share your performance schedule for {{month}} {{year}}.\n\nYour Scheduled Performances:\n{{#each assignments}}\n- Date: {{date}}\n  Venue: {{venue}}\n  Time: {{startTime}} - {{endTime}}\n{{/each}}\n\nPlease confirm your availability for these dates as soon as possible by replying to this email.\n\nIf you have any questions or concerns, please don't hesitate to contact us.\n\nBest regards,\nThe VAMP Team",
+      description: "Template for sending monthly performance schedules to musicians",
+      isDefault: true
+    });
+    
+    this.createEmailTemplate({
+      name: "Contract Confirmation",
+      subject: "Contract Confirmation for {{venueName}} on {{date}}",
+      htmlContent: "<!DOCTYPE html><html><body><div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\"><h2>Hello {{musicianName}},</h2><p>We're pleased to confirm your booking at <strong>{{venueName}}</strong> on <strong>{{date}}</strong> from <strong>{{startTime}}</strong> to <strong>{{endTime}}</strong>.</p><h3>Performance Details:</h3><ul><li><strong>Venue:</strong> {{venueName}}</li><li><strong>Address:</strong> {{venueAddress}}</li><li><strong>Date:</strong> {{date}}</li><li><strong>Time:</strong> {{startTime}} - {{endTime}}</li><li><strong>Fee:</strong> ${{fee}}</li></ul><p>Please review the attached contract and sign it at your earliest convenience.</p><p>If you have any questions or concerns, please don't hesitate to contact us.</p><p>Best regards,<br>The VAMP Team</p></div></body></html>",
+      textContent: "Hello {{musicianName}},\n\nWe're pleased to confirm your booking at {{venueName}} on {{date}} from {{startTime}} to {{endTime}}.\n\nPerformance Details:\n- Venue: {{venueName}}\n- Address: {{venueAddress}}\n- Date: {{date}}\n- Time: {{startTime}} - {{endTime}}\n- Fee: ${{fee}}\n\nPlease review the attached contract and sign it at your earliest convenience.\n\nIf you have any questions or concerns, please don't hesitate to contact us.\n\nBest regards,\nThe VAMP Team",
+      description: "Template for sending contract confirmations to musicians",
+      isDefault: true
     });
   }
 
@@ -1308,6 +1331,86 @@ export class MemStorage implements IStorage {
     };
     this.settings.set(settings.id, updatedSettings);
     return updatedSettings;
+  }
+  
+  // Email template management methods
+  async getEmailTemplates(): Promise<EmailTemplate[]> {
+    return Array.from(this.emailTemplates.values());
+  }
+  
+  async getEmailTemplate(id: number): Promise<EmailTemplate | undefined> {
+    return this.emailTemplates.get(id);
+  }
+  
+  async getEmailTemplateByName(name: string): Promise<EmailTemplate | undefined> {
+    return Array.from(this.emailTemplates.values()).find(
+      (template) => template.name === name
+    );
+  }
+  
+  async createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate> {
+    const id = this.currentEmailTemplateId++;
+    const now = new Date();
+    const newTemplate: EmailTemplate = {
+      ...template,
+      id,
+      createdAt: now,
+      updatedAt: null
+    };
+    this.emailTemplates.set(id, newTemplate);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Created",
+      entityType: "EmailTemplate",
+      entityId: id,
+      timestamp: now,
+      details: { templateName: newTemplate.name }
+    });
+    
+    return newTemplate;
+  }
+  
+  async updateEmailTemplate(id: number, data: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined> {
+    const template = await this.getEmailTemplate(id);
+    if (!template) return undefined;
+    
+    const updatedTemplate: EmailTemplate = {
+      ...template,
+      ...data,
+      updatedAt: new Date()
+    };
+    this.emailTemplates.set(id, updatedTemplate);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Updated",
+      entityType: "EmailTemplate",
+      entityId: id,
+      timestamp: new Date(),
+      details: { templateName: updatedTemplate.name }
+    });
+    
+    return updatedTemplate;
+  }
+  
+  async deleteEmailTemplate(id: number): Promise<boolean> {
+    const template = await this.getEmailTemplate(id);
+    if (!template) return false;
+    
+    // Create activity before deletion
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Deleted",
+      entityType: "EmailTemplate",
+      entityId: id,
+      timestamp: new Date(),
+      details: { templateName: template.name }
+    });
+    
+    return this.emailTemplates.delete(id);
   }
 }
 
