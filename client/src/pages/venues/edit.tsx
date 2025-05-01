@@ -52,11 +52,11 @@ export default function EditVenuePage({ id }: { id: number }) {
 
   const updateMutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const res = await apiRequest("PUT", `/api/venues/${id}`, values);
+      const res = await apiRequest(`/api/venues/${id}`, "PUT", values);
       if (!res.ok) {
         throw new Error("Failed to update venue");
       }
-      return await res.json();
+      return res;
     },
     onSuccess: () => {
       toast({

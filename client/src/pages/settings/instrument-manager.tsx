@@ -441,7 +441,7 @@ export default function InstrumentManagerPage() {
   const deleteMusicianTypeMutation = useMutation({
     mutationFn: async (typeId: number) => {
       try {
-        const response = await apiRequest("DELETE", `/api/musician-types/${typeId}`);
+        const response = await apiRequest(`/api/musician-types/${typeId}`, "DELETE");
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => null);

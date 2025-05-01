@@ -51,8 +51,8 @@ export default function AddVenuePage() {
 
   const createVenueMutation = useMutation({
     mutationFn: async (values: VenueFormValues) => {
-      const res = await apiRequest("POST", "/api/venues", values);
-      return res.json();
+      const res = await apiRequest("/api/venues", "POST", values);
+      return res;
     },
     onSuccess: () => {
       toast({
