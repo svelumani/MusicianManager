@@ -25,16 +25,12 @@ const eventFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   paxCount: z.coerce.number().min(1, "Pax count must be at least 1"),
   venueId: z.coerce.number(),
-  eventType: z.enum(["One Day", "Multi-day (continuous)", "Multi-day (occurrence)"]),
-  startDate: z.date(),
-  endDate: z.date().optional(),
-  eventDates: z.array(z.date()).optional(),
+  eventType: z.enum(["One Day", "Multi-day"]),
+  startDate: z.date().optional(),
+  eventDates: z.array(z.date()),
   status: z.string().default("pending"),
-  categoryIds: z.array(z.coerce.number()), // Now optional
-  musicianTypeId: z.coerce.number(), // Now required
-  totalPayment: z.coerce.number().optional(),
-  advancePayment: z.coerce.number().optional(),
-  secondPayment: z.coerce.number().optional(),
+  categoryIds: z.array(z.coerce.number()), // Optional
+  musicianTypeIds: z.array(z.coerce.number()), // Multi-select musician types
   notes: z.string().optional(),
 });
 
@@ -73,11 +69,8 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       startDate: new Date(),
       status: "pending",
       categoryIds: [],
-      musicianTypeId: 0,
+      musicianTypeIds: [],
       eventDates: [],
-      totalPayment: 0,
-      advancePayment: 0,
-      secondPayment: 0,
       notes: "",
     },
   });
@@ -90,9 +83,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       // Format the values to match the API schema
       const apiValues = {
         ...values,
-        startDate: values.startDate.toISOString(),
-        endDate: values.endDate ? values.endDate.toISOString() : undefined,
-        eventDates: values.eventDates?.map(date => date.toISOString()),
+        eventDates: values.eventDates.map(date => date.toISOString()),
       };
       
       const res = await apiRequest("/api/events", "POST", apiValues);
@@ -147,12 +138,10 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     // Format dates as ISO strings for the API
     const formattedValues = {
       ...values,
-      startDate: values.startDate.toISOString(),
-      endDate: values.endDate ? values.endDate.toISOString() : undefined,
-      eventDates: values.eventDates?.map(date => date.toISOString()),
+      eventDates: values.eventDates.map(date => date.toISOString()),
     };
     
-    createEventMutation.mutate(formattedValues as any);
+    createEventMutation.mutate(formattedValues);
   }
 
   const isLoading = isLoadingVenues || isLoadingCategories || isLoadingMusicianTypes;
@@ -248,239 +237,119 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="One Day">One Day</SelectItem>
-                    <SelectItem value="Multi-day (continuous)">Multi-day (continuous)</SelectItem>
-                    <SelectItem value="Multi-day (occurrence)">Multi-day (occurrence)</SelectItem>
+                    <SelectItem value="Multi-day">Multi-day</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
+        </div>
 
-          <FormField
-            control={form.control}
-            name="startDate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Event Date *</FormLabel>
+        {/* Event Dates Selection */}
+        <FormField
+          control={form.control}
+          name="eventDates"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Event Dates *</FormLabel>
+              <div className="border rounded-md p-4">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className="w-full pl-3 text-left font-normal"
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
+                    <Button variant="outline" className="w-full justify-start">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {selectedDates.length === 0
+                        ? "Select dates"
+                        : `${selectedDates.length} date${selectedDates.length > 1 ? "s" : ""} selected`}
+                    </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
+                      mode="multiple"
+                      selected={selectedDates}
+                      onSelect={(dates) => {
+                        if (dates) setSelectedDates(dates as Date[]);
+                      }}
                       initialFocus
+                      className="rounded-md border"
                     />
                   </PopoverContent>
                 </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* Musician Type Selection - Required */}
-        <FormField
-          control={form.control}
-          name="musicianTypeId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Musician Type *</FormLabel>
-              <Select
-                value={field.value ? field.value.toString() : ""}
-                onValueChange={(value) => field.onChange(parseInt(value))}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select musician type" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {musicianTypes?.map((type) => (
-                    <SelectItem key={type.id} value={type.id.toString()}>
-                      {type.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                
+                {/* Display selected dates with remove option */}
+                {selectedDates.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {selectedDates.map((date, index) => (
+                      <Badge 
+                        key={index} 
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                      >
+                        {format(date, "MMM d, yyyy")}
+                        <X 
+                          className="h-3 w-3 cursor-pointer" 
+                          onClick={() => {
+                            const newDates = selectedDates.filter((_, i) => i !== index);
+                            setSelectedDates(newDates);
+                          }}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Multi-day date selection for "Multi-day (occurrence)" */}
-        {eventType === "Multi-day (occurrence)" && (
-          <FormField
-            control={form.control}
-            name="eventDates"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Event Dates *</FormLabel>
-                <div className="border rounded-md p-4">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDates.length === 0
-                          ? "Select dates"
-                          : `${selectedDates.length} date${selectedDates.length > 1 ? "s" : ""} selected`}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="multiple"
-                        selected={selectedDates}
-                        onSelect={(dates) => {
-                          if (dates) setSelectedDates(dates as Date[]);
-                        }}
-                        initialFocus
-                        className="rounded-md border"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  
-                  {/* Display selected dates with remove option */}
-                  {selectedDates.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {selectedDates.map((date, index) => (
-                        <Badge 
-                          key={index} 
-                          variant="secondary"
-                          className="flex items-center gap-1"
+        {/* Musician Types - Multiple Selection */}
+        <FormField
+          control={form.control}
+          name="musicianTypeIds"
+          render={() => (
+            <FormItem>
+              <div className="mb-4">
+                <FormLabel>Musician Types Needed *</FormLabel>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {musicianTypes?.map((type) => (
+                  <FormField
+                    key={type.id}
+                    control={form.control}
+                    name="musicianTypeIds"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={type.id}
+                          className="flex flex-row items-start space-x-3 space-y-0"
                         >
-                          {format(date, "MMM d, yyyy")}
-                          <X 
-                            className="h-3 w-3 cursor-pointer" 
-                            onClick={() => {
-                              const newDates = selectedDates.filter((_, i) => i !== index);
-                              setSelectedDates(newDates);
-                            }}
-                          />
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        {/* End date selection for "Multi-day (continuous)" */}
-        {eventType === "Multi-day (continuous)" && (
-          <FormField
-            control={form.control}
-            name="endDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>End Date *</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className="w-full pl-3 text-left font-normal"
-                      >
-                        {field.value ? (
-                          format(field.value, "PPP")
-                        ) : (
-                          <span>Pick end date</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      initialFocus
-                      disabled={(date) => date < form.getValues().startDate}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
-        {/* Financial Information */}
-        <div className="space-y-4 border rounded-md p-4">
-          <h3 className="text-lg font-medium">Financial Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <FormField
-              control={form.control}
-              name="totalPayment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Payment</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="advancePayment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Advance Payment</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="secondPayment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Second Payment</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(type.id)}
+                              onCheckedChange={(checked) => {
+                                const currentValues = field.value || [];
+                                return checked
+                                  ? field.onChange([...currentValues, type.id])
+                                  : field.onChange(
+                                      currentValues.filter((value) => value !== type.id)
+                                    );
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal cursor-pointer">
+                            {type.title}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Notes Field */}
         <FormField
