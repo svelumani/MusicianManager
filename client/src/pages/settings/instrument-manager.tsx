@@ -397,22 +397,32 @@ export default function InstrumentManagerPage() {
     mutationFn: async ({ typeId, values }: { typeId: number, values: z.infer<typeof musicianTypeSchema> }) => {
       const { associatedCategoryIds, ...typeData } = values;
       
-      // Update the musician type
-      const response = await apiRequest("PUT", `/api/musician-types/${typeId}`, {
-        name: typeData.name,
-        description: typeData.description,
-        defaultRate: typeData.defaultRate,
-        isDefault: typeData.isDefault,
-        categoryIds: associatedCategoryIds || [],
-      });
-      
-      const updatedType = await response.json();
-      return updatedType;
+      try {
+        // Update the musician type
+        const response = await apiRequest("PUT", `/api/musician-types/${typeId}`, {
+          name: typeData.name,
+          description: typeData.description,
+          defaultRate: typeData.defaultRate,
+          isDefault: typeData.isDefault,
+          categoryIds: associatedCategoryIds || [],
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || `Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        const updatedType = await response.json();
+        return updatedType;
+      } catch (err: any) {
+        console.error("Error updating musician type:", err);
+        throw new Error(err.message || "Failed to update musician type");
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Musician type updated",
-        description: "The musician type has been updated successfully",
+        description: `The musician type "${data.name}" has been updated successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/musician-types"] });
       setIsEditMusicianTypeOpen(false);
@@ -430,13 +440,34 @@ export default function InstrumentManagerPage() {
   // Mutation for deleting a musician type
   const deleteMusicianTypeMutation = useMutation({
     mutationFn: async (typeId: number) => {
-      await apiRequest("DELETE", `/api/musician-types/${typeId}`);
-      return typeId;
+      try {
+        const response = await apiRequest("DELETE", `/api/musician-types/${typeId}`);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null);
+          throw new Error(errorData?.message || `Server returned ${response.status}: ${response.statusText}`);
+        }
+        
+        return typeId;
+      } catch (err: any) {
+        console.error("Error deleting musician type:", err);
+        throw new Error(err.message || "Failed to delete musician type");
+      }
     },
-    onSuccess: () => {
+    onSuccess: (typeId) => {
+      // Find the name of the deleted type to show in the toast
+      let typeName = "Musician type";
+      if (apiMusicianTypes) {
+        const deletedType = apiMusicianTypes.find(t => t.id === typeId);
+        if (deletedType) typeName = deletedType.name;
+      } else {
+        const deletedType = musicianTypes.find(t => t.id === typeId);
+        if (deletedType) typeName = deletedType.name;
+      }
+      
       toast({
         title: "Musician type deleted",
-        description: "The musician type has been deleted successfully",
+        description: `"${typeName}" has been deleted successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/musician-types"] });
     },
@@ -1112,7 +1143,14 @@ export default function InstrumentManagerPage() {
                   type="submit"
                   disabled={addMusicianTypeMutation.isPending}
                 >
-                  {addMusicianTypeMutation.isPending ? "Adding..." : "Add Musician Type"}
+                  {addMusicianTypeMutation.isPending ? (
+                    <>
+                      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Musician Type"
+                  )}
                 </Button>
               </DialogFooter>
             </form>
@@ -1236,7 +1274,14 @@ export default function InstrumentManagerPage() {
                   type="submit"
                   disabled={editMusicianTypeMutation.isPending}
                 >
-                  {editMusicianTypeMutation.isPending ? "Saving..." : "Save Changes"}
+                  {editMusicianTypeMutation.isPending ? (
+                    <>
+                      <span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
                 </Button>
               </DialogFooter>
             </form>
