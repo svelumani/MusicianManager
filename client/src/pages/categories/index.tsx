@@ -16,13 +16,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Tag, Trash2, Music, Building, Calendar } from "lucide-react";
+import { Search, Plus, Tag, Trash2, Music, Building, Calendar, Mic } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import type { MusicianCategory, VenueCategory, EventCategory } from "@shared/schema";
+import type { MusicianCategory, VenueCategory, EventCategory, MusicianType } from "@shared/schema";
 
-type CategoryType = "musician" | "venue" | "event";
+type CategoryType = "musician" | "venue" | "event" | "musician-type";
 
 export default function CategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -41,19 +41,23 @@ export default function CategoriesPage() {
   const { data: eventCategories, isLoading: isLoadingEvent } = useQuery<EventCategory[]>({
     queryKey: ["/api/event-categories"],
   });
+  
+  const { data: musicianTypes, isLoading: isLoadingMusicianType } = useQuery<MusicianType[]>({
+    queryKey: ["/api/musician-types"],
+  });
 
   // Active categories based on selected tab
-  const activeCategories = categoryType === "musician" 
-    ? musicianCategories 
-    : categoryType === "venue" 
-      ? venueCategories 
-      : eventCategories;
+  const activeCategories = 
+    categoryType === "musician" ? musicianCategories :
+    categoryType === "venue" ? venueCategories :
+    categoryType === "event" ? eventCategories :
+    musicianTypes;
   
-  const isLoading = categoryType === "musician" 
-    ? isLoadingMusician 
-    : categoryType === "venue" 
-      ? isLoadingVenue 
-      : isLoadingEvent;
+  const isLoading = 
+    categoryType === "musician" ? isLoadingMusician :
+    categoryType === "venue" ? isLoadingVenue :
+    categoryType === "event" ? isLoadingEvent :
+    isLoadingMusicianType;
 
   const filteredCategories = activeCategories?.filter(category => 
     category.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -61,11 +65,11 @@ export default function CategoriesPage() {
   );
 
   const getApiPath = (id?: number) => {
-    const basePath = categoryType === "musician" 
-      ? "/api/musician-categories" 
-      : categoryType === "venue" 
-        ? "/api/venue-categories" 
-        : "/api/event-categories";
+    const basePath = 
+      categoryType === "musician" ? "/api/musician-categories" :
+      categoryType === "venue" ? "/api/venue-categories" :
+      categoryType === "event" ? "/api/event-categories" :
+      "/api/musician-types";
     
     return id ? `${basePath}/${id}` : basePath;
   };
@@ -111,6 +115,7 @@ export default function CategoriesPage() {
       case "musician": return <Music className="h-12 w-12 text-gray-400 mb-4" />;
       case "venue": return <Building className="h-12 w-12 text-gray-400 mb-4" />;
       case "event": return <Calendar className="h-12 w-12 text-gray-400 mb-4" />;
+      case "musician-type": return <Mic className="h-12 w-12 text-gray-400 mb-4" />;
       default: return <Tag className="h-12 w-12 text-gray-400 mb-4" />;
     }
   };
@@ -120,6 +125,7 @@ export default function CategoriesPage() {
       case "musician": return "Musician";
       case "venue": return "Venue";
       case "event": return "Event";
+      case "musician-type": return "Musician Type";
       default: return "Category";
     }
   };

@@ -574,6 +574,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error deleting event category" });
     }
   });
+  
+  // Musician Type routes
+  apiRouter.get("/musician-types", isAuthenticated, async (req, res) => {
+    try {
+      const types = await storage.getMusicianTypes();
+      res.json(types);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician types" });
+    }
+  });
+
+  apiRouter.get("/musician-types/:id", isAuthenticated, async (req, res) => {
+    try {
+      const type = await storage.getMusicianType(parseInt(req.params.id));
+      if (!type) {
+        return res.status(404).json({ message: "Musician type not found" });
+      }
+      res.json(type);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician type" });
+    }
+  });
+
+  apiRouter.post("/musician-types", isAuthenticated, async (req, res) => {
+    try {
+      const typeData = insertMusicianTypeSchema.parse(req.body);
+      const type = await storage.createMusicianType(typeData);
+      res.status(201).json(type);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician type data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating musician type" });
+    }
+  });
+
+  apiRouter.put("/musician-types/:id", isAuthenticated, async (req, res) => {
+    try {
+      const typeData = insertMusicianTypeSchema.partial().parse(req.body);
+      const type = await storage.updateMusicianType(parseInt(req.params.id), typeData);
+      if (!type) {
+        return res.status(404).json({ message: "Musician type not found" });
+      }
+      res.json(type);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician type data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating musician type" });
+    }
+  });
+
+  apiRouter.delete("/musician-types/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMusicianType(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Musician type not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting musician type" });
+    }
+  });
 
   // Musician routes
   apiRouter.get("/musicians", isAuthenticated, async (req, res) => {
