@@ -105,6 +105,14 @@ export interface IStorage {
   updateMusician(id: number, data: Partial<InsertMusician>): Promise<Musician | undefined>;
   deleteMusician(id: number): Promise<boolean>;
   
+  // Musician Pay Rates management
+  getMusicianPayRates(): Promise<MusicianPayRate[]>;
+  getMusicianPayRate(id: number): Promise<MusicianPayRate | undefined>;
+  getMusicianPayRatesByMusicianId(musicianId: number): Promise<MusicianPayRate[]>;
+  createMusicianPayRate(payRate: InsertMusicianPayRate): Promise<MusicianPayRate>;
+  updateMusicianPayRate(id: number, data: Partial<InsertMusicianPayRate>): Promise<MusicianPayRate | undefined>;
+  deleteMusicianPayRate(id: number): Promise<boolean>;
+  
   // Availability management
   getAvailability(musicianId: number, month: string): Promise<Availability[]>;
   getMusicianAvailabilityForDate(musicianId: number, date: Date): Promise<Availability | undefined>;
@@ -327,6 +335,7 @@ export class MemStorage implements IStorage {
   private currentVenueCategoryId: number;
   private currentEventCategoryId: number;
   private currentMusicianId: number;
+  private currentMusicianPayRateId: number;
   private currentAvailabilityId: number;
   private currentEventId: number;
   private currentBookingId: number;
@@ -359,6 +368,7 @@ export class MemStorage implements IStorage {
     this.venueCategories = new Map();
     this.eventCategories = new Map();
     this.musicians = new Map();
+    this.musicianPayRates = new Map();
     this.availability = new Map();
     this.events = new Map();
     this.bookings = new Map();
@@ -390,6 +400,7 @@ export class MemStorage implements IStorage {
     this.currentVenueCategoryId = 1;
     this.currentEventCategoryId = 1;
     this.currentMusicianId = 1;
+    this.currentMusicianPayRateId = 1;
     this.currentAvailabilityId = 1;
     this.currentEventId = 1;
     this.currentBookingId = 1;
@@ -2202,6 +2213,92 @@ export class MemStorage implements IStorage {
     };
   }
   
+  // ---- Musician Pay Rates Management Methods ----
+  
+  async getMusicianPayRates(): Promise<MusicianPayRate[]> {
+    return Array.from(this.musicianPayRates.values());
+  }
+
+  async getMusicianPayRate(id: number): Promise<MusicianPayRate | undefined> {
+    return this.musicianPayRates.get(id);
+  }
+
+  async getMusicianPayRatesByMusicianId(musicianId: number): Promise<MusicianPayRate[]> {
+    return Array.from(this.musicianPayRates.values()).filter(rate => rate.musicianId === musicianId);
+  }
+
+  async createMusicianPayRate(payRate: InsertMusicianPayRate): Promise<MusicianPayRate> {
+    const newPayRate: MusicianPayRate = {
+      id: this.currentMusicianPayRateId++,
+      ...payRate,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.musicianPayRates.set(newPayRate.id, newPayRate);
+    
+    // Add an activity log entry
+    await this.createActivity({
+      type: "pay-rate-created",
+      message: `Pay rate added for musician ID ${payRate.musicianId} (${payRate.rateType})`,
+      userId: 1, // Default to admin for now
+      timestamp: new Date(),
+      entityId: newPayRate.id,
+      entityType: "musician-pay-rate"
+    });
+    
+    return newPayRate;
+  }
+
+  async updateMusicianPayRate(id: number, data: Partial<InsertMusicianPayRate>): Promise<MusicianPayRate | undefined> {
+    const existingPayRate = this.musicianPayRates.get(id);
+    if (!existingPayRate) {
+      return undefined;
+    }
+    
+    const updatedPayRate: MusicianPayRate = {
+      ...existingPayRate,
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    this.musicianPayRates.set(id, updatedPayRate);
+    
+    // Add an activity log entry
+    await this.createActivity({
+      type: "pay-rate-updated",
+      message: `Pay rate updated for musician ID ${updatedPayRate.musicianId} (${updatedPayRate.rateType})`,
+      userId: 1, // Default to admin for now
+      timestamp: new Date(),
+      entityId: updatedPayRate.id,
+      entityType: "musician-pay-rate"
+    });
+    
+    return updatedPayRate;
+  }
+
+  async deleteMusicianPayRate(id: number): Promise<boolean> {
+    const payRate = this.musicianPayRates.get(id);
+    if (!payRate) {
+      return false;
+    }
+    
+    const deleted = this.musicianPayRates.delete(id);
+    
+    if (deleted) {
+      // Add an activity log entry
+      await this.createActivity({
+        type: "pay-rate-deleted",
+        message: `Pay rate deleted for musician ID ${payRate.musicianId} (${payRate.rateType})`,
+        userId: 1, // Default to admin for now
+        timestamp: new Date(),
+        entityId: id,
+        entityType: "musician-pay-rate"
+      });
+    }
+    
+    return deleted;
+  }
+
   // ---- Performance Metrics Management Methods ----
   
   async getPerformanceMetrics(musicianId: number): Promise<PerformanceMetric | undefined> {
