@@ -332,7 +332,7 @@ export default function SharedAvailabilityView() {
               <span>Available</span>
             </div>
             <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-gray-300 mr-2"></div>
+              <div className="w-3 h-3 rounded-full bg-red-50 mr-2"></div>
               <span>Unavailable</span>
             </div>
             <div className="flex items-center">
@@ -380,7 +380,7 @@ export default function SharedAvailabilityView() {
             }}
             modifiersClassNames={{
               available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
-              unavailable: "bg-gray-200 hover:bg-gray-300 text-gray-700",
+              unavailable: "bg-red-50 hover:bg-red-100 text-red-700",
               booked: "bg-green-100 hover:bg-green-200 text-green-900",
               selected: "bg-primary text-primary-foreground font-bold ring-2 ring-primary",
               future: "",
@@ -411,7 +411,7 @@ export default function SharedAvailabilityView() {
               <Button
                 onClick={() => updateAvailability(false)}
                 variant="outline"
-                className="flex-1 border-gray-300 text-gray-700"
+                className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
                 disabled={isUpdating}
               >
                 {isUpdating ? (
@@ -431,7 +431,7 @@ export default function SharedAvailabilityView() {
                 <h3 className="font-medium">How to use this calendar</h3>
                 <p className="mt-1 text-gray-700">
                   This calendar shows the musician's availability for the selected month. 
-                  Blue dates indicate available dates, gray dates indicate unavailability, 
+                  Blue dates indicate available dates, red dates indicate unavailability, 
                   and green dates are already booked.
                 </p>
                 <p className="mt-2 text-gray-700">
