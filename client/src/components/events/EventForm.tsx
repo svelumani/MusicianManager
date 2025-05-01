@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -56,8 +56,18 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
   // State to track selected dates for multi-day events
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   
-  // State to track selected musicians
-  const [selectedMusicians, setSelectedMusicians] = useState<number[]>([]);
+  // State to track selected musicians with date assignments
+  // Structure: { dateString: [musicianId1, musicianId2, ...], ... }
+  const [musicianAssignments, setMusicianAssignments] = useState<Record<string, number[]>>({});
+  
+  // Derived state: flat array of all selected musicians across all dates
+  const selectedMusicians = useMemo(() => {
+    const allMusicians = new Set<number>();
+    Object.values(musicianAssignments).forEach(musicians => {
+      musicians.forEach(id => allMusicians.add(id));
+    });
+    return Array.from(allMusicians);
+  }, [musicianAssignments]);
   
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
@@ -90,7 +100,8 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     musicianTypeIds: number[];
     notes?: string;
     eventDates: string[];
-    musicianIds?: number[]; // Add selected musicians
+    musicianIds?: number[]; // All selected musicians
+    musicianAssignments?: Record<string, number[]>; // Date-specific musician assignments
   };
   
   const createEventMutation = useMutation<any, Error, EventApiValues>({
@@ -144,15 +155,49 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     }
   };
   
-  // Handle musician selection/deselection
-  const toggleMusicianSelection = (musicianId: number) => {
-    const isSelected = selectedMusicians.includes(musicianId);
-    
-    if (isSelected) {
-      setSelectedMusicians(prev => prev.filter(id => id !== musicianId));
-    } else {
-      setSelectedMusicians(prev => [...prev, musicianId]);
+  // Add a state to track the currently active date for assignments
+  const [activeDate, setActiveDate] = useState<Date | null>(null);
+  
+  // When selectedDates changes, set the active date to the first date if not already set
+  useEffect(() => {
+    if (selectedDates.length > 0 && !activeDate) {
+      setActiveDate(selectedDates[0]);
+    } else if (selectedDates.length === 0) {
+      // If all dates are removed, clear the active date
+      setActiveDate(null);
     }
+  }, [selectedDates, activeDate]);
+  
+  // Handle musician selection/deselection for a specific date
+  const toggleMusicianSelection = (musicianId: number, date: Date = activeDate!) => {
+    if (!date) return; // Make sure we have a date
+    
+    const dateKey = date.toISOString();
+    setMusicianAssignments(prev => {
+      const newAssignments = { ...prev };
+      
+      // Initialize the array for this date if it doesn't exist
+      if (!newAssignments[dateKey]) {
+        newAssignments[dateKey] = [];
+      }
+      
+      // Check if musician is already assigned to this date
+      const isAssigned = newAssignments[dateKey].includes(musicianId);
+      
+      if (isAssigned) {
+        // Remove the musician from this date
+        newAssignments[dateKey] = newAssignments[dateKey].filter(id => id !== musicianId);
+        // If the array is empty, we can remove the key
+        if (newAssignments[dateKey].length === 0) {
+          delete newAssignments[dateKey];
+        }
+      } else {
+        // Add the musician to this date
+        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
+      }
+      
+      return newAssignments;
+    });
   };
 
   function onSubmit(values: EventFormValues) {
@@ -166,6 +211,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       notes: values.notes,
       eventDates: values.eventDates.map(date => date.toISOString()),
       musicianIds: selectedMusicians.length > 0 ? selectedMusicians : undefined,
+      musicianAssignments: Object.keys(musicianAssignments).length > 0 ? musicianAssignments : undefined,
     };
     
     createEventMutation.mutate(formattedValues);
@@ -364,35 +410,87 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
               </div>
             ) : availableMusicians && availableMusicians.length > 0 ? (
               <div className="space-y-6">
-                {/* Show summary of selected musicians if any */}
-                {selectedMusicians.length > 0 && (
-                  <div className="mb-6 p-4 border rounded-md bg-primary/5">
-                    <h4 className="text-md font-medium mb-2">Selected Musicians ({selectedMusicians.length})</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedMusicians.map(id => {
-                        const musician = availableMusicians?.find(m => m.id === id);
-                        if (!musician) return null;
-                        
-                        return (
-                          <Badge 
-                            key={`selected-${id}`}
-                            variant="default"
-                            className="flex items-center gap-1 px-3 py-1.5"
-                          >
-                            {musician.name}
-                            <X 
-                              className="h-3 w-3 cursor-pointer ml-1" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleMusicianSelection(id);
-                              }}
-                            />
-                          </Badge>
-                        );
-                      })}
-                    </div>
+                {/* Date selector for musician assignments */}
+                <div className="mb-6 p-4 border rounded-md">
+                  <h4 className="text-md font-medium mb-2">Select Musicians for Each Date</h4>
+                  
+                  {/* Date tabs */}
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {selectedDates.map((date, index) => (
+                      <Button
+                        key={`date-tab-${index}`}
+                        variant={activeDate && date.toISOString() === activeDate.toISOString() ? "default" : "outline"}
+                        onClick={() => setActiveDate(date)}
+                        className="text-sm"
+                      >
+                        {format(date, "MMM d, yyyy")}
+                      </Button>
+                    ))}
                   </div>
-                )}
+                  
+                  {/* Show currently selected musicians for active date */}
+                  {activeDate && (
+                    <div className="mb-4 p-3 bg-muted rounded-md">
+                      <h5 className="text-sm font-medium mb-2">
+                        Musicians for {format(activeDate, "MMMM d, yyyy")}
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
+                        {musicianAssignments[activeDate.toISOString()]?.map(musicianId => {
+                          const musician = availableMusicians?.find(m => m.id === musicianId);
+                          if (!musician) return null;
+                          
+                          return (
+                            <Badge 
+                              key={`selected-${musicianId}-${activeDate.toISOString()}`}
+                              variant="default"
+                              className="flex items-center gap-1 px-3 py-1.5"
+                            >
+                              {musician.name}
+                              <X 
+                                className="h-3 w-3 cursor-pointer ml-1" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleMusicianSelection(musicianId, activeDate);
+                                }}
+                              />
+                            </Badge>
+                          );
+                        }) || (
+                          <div className="text-sm text-muted-foreground">No musicians selected for this date</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Summary of all selections */}
+                  {selectedMusicians.length > 0 && (
+                    <div className="mt-4 pt-4 border-t">
+                      <h5 className="text-sm font-medium mb-2">All Selected Musicians ({selectedMusicians.length})</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMusicians.map(id => {
+                          const musician = availableMusicians?.find(m => m.id === id);
+                          if (!musician) return null;
+                          
+                          // Count how many dates this musician is assigned to
+                          const assignedDatesCount = Object.values(musicianAssignments).reduce(
+                            (count, musicians) => musicians.includes(id) ? count + 1 : count, 
+                            0
+                          );
+                          
+                          return (
+                            <Badge 
+                              key={`selected-summary-${id}`}
+                              variant="secondary"
+                              className="flex items-center gap-1 px-3 py-1.5"
+                            >
+                              {musician.name} ({assignedDatesCount} date{assignedDatesCount !== 1 ? 's' : ''})
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Group musicians by type */}
                 {selectedMusicianTypes.map(typeId => {
@@ -407,16 +505,24 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                         {musiciansOfType.map((musician) => {
                           // Create a unique key for each musician
                           const musicianKey = `musician-${musician.id}`;
-                          // Check if this musician is already selected
-                          const isSelected = selectedMusicians.includes(musician.id)
+                          // Check if this musician is already selected for any date
+                          const isSelectedAnywhere = selectedMusicians.includes(musician.id);
+                          
+                          // Check if this musician is selected for the currently active date
+                          const isSelectedForActiveDate = activeDate && 
+                            musicianAssignments[activeDate.toISOString()]?.includes(musician.id);
                           
                           return (
                             <Card 
                               key={musicianKey} 
                               className={`overflow-hidden cursor-pointer transition-colors ${
-                                isSelected ? 'border-primary bg-primary/5' : ''
+                                isSelectedForActiveDate 
+                                  ? 'border-primary bg-primary/5' 
+                                  : isSelectedAnywhere 
+                                    ? 'border-yellow-400 bg-yellow-50/10'
+                                    : ''
                               }`}
-                              onClick={() => toggleMusicianSelection(musician.id)}
+                              onClick={() => activeDate && toggleMusicianSelection(musician.id, activeDate)}
                             >
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-4">
@@ -451,8 +557,8 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                                   <div onClick={(e) => e.stopPropagation()}>
                                     <Checkbox
                                       id={musicianKey}
-                                      checked={isSelected}
-                                      onCheckedChange={() => toggleMusicianSelection(musician.id)}
+                                      checked={isSelectedForActiveDate}
+                                      onCheckedChange={() => activeDate && toggleMusicianSelection(musician.id, activeDate)}
                                     />
                                   </div>
                                 </div>
