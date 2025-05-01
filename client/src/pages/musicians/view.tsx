@@ -136,6 +136,12 @@ export default function ViewMusicianPage() {
               View Performance Metrics
             </Button>
             <Button 
+              className="w-full bg-blue-600 hover:bg-blue-700" 
+              onClick={() => navigate(`/musicians/${musician.id}/availability`)}
+            >
+              View Availability Calendar
+            </Button>
+            <Button 
               variant="outline" 
               className="w-full"
               onClick={() => navigate("/musicians")}

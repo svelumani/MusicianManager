@@ -19,6 +19,7 @@ import MusiciansPage from "@/pages/musicians/index";
 import AddMusicianPage from "@/pages/musicians/add";
 import ViewMusicianPage from "@/pages/musicians/view";
 import MusicianPerformancePage from "@/pages/musicians/performance";
+import MusicianAvailabilityPage from "@/pages/musicians/availability";
 import EventsPage from "@/pages/events/index";
 import AddEventPage from "@/pages/events/add";
 import InviteMusicianPage from "@/pages/events/invite";
