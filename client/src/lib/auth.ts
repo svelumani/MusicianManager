@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useLocation } from "wouter";
-import { apiRequest } from "./queryClient";
+import { apiRequest, getQueryFn } from "./queryClient";
 import { queryClient } from "./queryClient";
 
 export type User = {
@@ -38,7 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (res.status === 200) {
           const data = await res.json();
-          setUser(data.user);
+          if (data && data.user) {
+            setUser(data.user);
+          } else if (data) {
+            setUser(data);
+          }
         }
       } catch (err) {
         console.error("Auth check failed:", err);
@@ -55,9 +59,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const res = await apiRequest("POST", "/api/auth/login", { username, password });
-      const data = await res.json();
-      setUser(data.user);
+      const data = await apiRequest("/api/auth/login", "POST", { username, password });
+      if (data && data.user) {
+        setUser(data.user);
+      } else {
+        setUser(data);
+      }
       setLocation("/");
     } catch (err) {
       console.error("Login failed:", err);
@@ -71,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
 
     try {
-      await apiRequest("POST", "/api/auth/logout", {});
+      await apiRequest("/api/auth/logout", "POST");
       setUser(null);
       // Clear all queries from the cache
       queryClient.clear();
