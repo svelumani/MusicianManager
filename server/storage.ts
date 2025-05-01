@@ -2509,4 +2509,7 @@ export class MemStorage implements IStorage {
   }
 }
 
+// TODO: In the future, we'll implement database persistence
+// For now, we'll continue using in-memory storage while we work on the DB implementation
+// This approach allows us to make progress on other features immediately
 export const storage = new MemStorage();
