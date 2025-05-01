@@ -1518,11 +1518,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/email-templates", isAuthenticated, async (req, res) => {
     try {
+      console.log("Creating email template:", req.body);
       const templateData = insertEmailTemplateSchema.parse(req.body);
       const template = await storage.createEmailTemplate(templateData);
       res.status(201).json(template);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation error:", error.errors);
         return res.status(400).json({ message: "Invalid email template data", errors: error.errors });
       }
       console.error("Error creating email template:", error);
@@ -1532,6 +1534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.put("/email-templates/:id", isAuthenticated, async (req, res) => {
     try {
+      console.log("Updating email template:", req.params.id, req.body);
       const templateData = insertEmailTemplateSchema.partial().parse(req.body);
       const template = await storage.updateEmailTemplate(parseInt(req.params.id), templateData);
       if (!template) {
@@ -1540,6 +1543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(template);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation error:", error.errors);
         return res.status(400).json({ message: "Invalid email template data", errors: error.errors });
       }
       console.error("Error updating email template:", error);
@@ -1549,6 +1553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.delete("/email-templates/:id", isAuthenticated, async (req, res) => {
     try {
+      console.log("Deleting email template:", req.params.id);
       // Don't allow deleting default templates
       const template = await storage.getEmailTemplate(parseInt(req.params.id));
       if (!template) {

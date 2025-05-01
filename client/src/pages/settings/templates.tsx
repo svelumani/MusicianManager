@@ -237,20 +237,12 @@ const EmailTemplatesPage = () => {
   // Fetch all templates
   const { data: templates, isLoading, error } = useQuery({
     queryKey: ["/api/email-templates"],
-    queryFn: async () => {
-      const response = await fetch("/api/email-templates");
-      if (!response.ok) {
-        throw new Error("Failed to fetch templates");
-      }
-      return response.json();
-    },
   });
 
   // Create new template
   const createMutation = useMutation({
     mutationFn: async (data: TemplateFormValues) => {
-      const response = await apiRequest("POST", "/api/email-templates", data);
-      return response.json();
+      return await apiRequest("/api/email-templates", "POST", data);
     },
     onSuccess: () => {
       toast({
@@ -273,8 +265,7 @@ const EmailTemplatesPage = () => {
   // Update existing template
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: TemplateFormValues }) => {
-      const response = await apiRequest("PUT", `/api/email-templates/${id}`, data);
-      return response.json();
+      return await apiRequest(`/api/email-templates/${id}`, "PUT", data);
     },
     onSuccess: () => {
       toast({
@@ -297,8 +288,7 @@ const EmailTemplatesPage = () => {
   // Delete template
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await apiRequest("DELETE", `/api/email-templates/${id}`);
-      return response.json();
+      return await apiRequest(`/api/email-templates/${id}`, "DELETE");
     },
     onSuccess: () => {
       toast({
