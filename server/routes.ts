@@ -9,7 +9,8 @@ import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
 import { format } from "date-fns";
 import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "./services/settings";
-import { sendMusicianAssignmentEmail } from "./services/email";
+import { sendMusicianAssignmentEmail, initializeSendGrid } from "./services/email";
+import sgMail from '@sendgrid/mail';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -1420,24 +1421,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const result = await sendMusicianAssignmentEmail(
-        to,
-        "Test Recipient",
-        [
-          {
-            date: "May 15, 2025",
-            venue: "Test Venue",
-            startTime: "7:00 PM",
-            endTime: "10:00 PM",
-            fee: 150
-          }
-        ]
-      );
+      // Check if email settings are configured
+      const emailSettings = await getEmailSettings() as any;
+      if (!emailSettings?.data?.enabled || !emailSettings?.data?.apiKey || !emailSettings?.data?.from) {
+        return res.status(400).json({
+          success: false,
+          message: "Email is not properly configured. Please configure email settings first."
+        });
+      }
       
-      if (result) {
-        res.json({ success: true, message: "Test email sent successfully" });
+      // Initialize SendGrid
+      initializeSendGrid(emailSettings.data.apiKey);
+      
+      // Option 1: Send simple email
+      if (req.query.simple === 'true') {
+        // Prepare email message
+        const msg: {
+          to: string;
+          from: string;
+          subject: string;
+          text: string;
+          html: string;
+          replyTo?: string;
+        } = {
+          to,
+          from: emailSettings.data.from,
+          subject,
+          text: content,
+          html: content.replace(/\n/g, '<br>')
+        };
+        
+        // Add reply-to if configured
+        if (emailSettings.data.replyTo) {
+          msg.replyTo = emailSettings.data.replyTo;
+        }
+        
+        // Send email
+        await sgMail.send(msg);
+        
+        res.json({ 
+          success: true, 
+          message: "Simple test email sent successfully" 
+        });
       } else {
-        res.status(500).json({ success: false, message: "Failed to send test email" });
+        // Option 2: Send sample performance schedule email
+        const result = await sendMusicianAssignmentEmail(
+          to,
+          "Test Recipient",
+          [
+            {
+              date: "May 15, 2025",
+              venue: "Test Venue",
+              startTime: "7:00 PM",
+              endTime: "10:00 PM",
+              fee: 150
+            }
+          ]
+        );
+        
+        if (result) {
+          res.json({ success: true, message: "Test schedule email sent successfully" });
+        } else {
+          res.status(500).json({ success: false, message: "Failed to send test email" });
+        }
       }
     } catch (error) {
       console.error("Error sending test email:", error);
