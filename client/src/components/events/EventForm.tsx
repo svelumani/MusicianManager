@@ -18,7 +18,7 @@ import { CalendarIcon, PlusCircle, X, Check, Star } from "lucide-react";
 import { insertEventSchema } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Venue, Category, MusicianType, Musician } from "@shared/schema";
+import type { Venue, MusicianType, Musician } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -47,9 +47,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     queryKey: ["/api/venues"],
   });
 
-  const { data: categories, isLoading: isLoadingCategories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
-  });
+
 
   const { data: musicianTypes, isLoading: isLoadingMusicianTypes } = useQuery<MusicianType[]>({
     queryKey: ["/api/musician-types"],
@@ -80,20 +78,21 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     enabled: selectedMusicianTypes.length > 0,
   });
 
-  const createEventMutation = useMutation({
-    mutationFn: async (values: EventFormValues) => {
-      // Create a new object with the formatted values to avoid type issues
-      const apiValues = {
-        name: values.name,
-        paxCount: values.paxCount,
-        venueId: values.venueId,
-        status: values.status,
-        musicianTypeIds: values.musicianTypeIds,
-        notes: values.notes,
-        eventDates: values.eventDates.map(date => date.toISOString()),
-      };
-      
-      const res = await apiRequest("/api/events", "POST", apiValues);
+  // Define the API value type to avoid type issues
+  type EventApiValues = {
+    name: string;
+    paxCount: number;
+    venueId: number;
+    status: string;
+    musicianTypeIds: number[];
+    notes?: string;
+    eventDates: string[];
+  };
+  
+  const createEventMutation = useMutation<any, Error, EventApiValues>({
+    mutationFn: async (values: EventApiValues) => {
+      // No need to further transform the dates since they're already strings
+      const res = await apiRequest("/api/events", "POST", values);
       return res;
     },
     onSuccess: () => {
@@ -142,16 +141,21 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
   };
 
   function onSubmit(values: EventFormValues) {
-    // Format dates as ISO strings for the API
-    const formattedValues = {
-      ...values,
+    // Create a new object with the formatted values to match our EventApiValues type
+    const formattedValues: EventApiValues = {
+      name: values.name,
+      paxCount: values.paxCount,
+      venueId: values.venueId,
+      status: values.status,
+      musicianTypeIds: values.musicianTypeIds,
+      notes: values.notes,
       eventDates: values.eventDates.map(date => date.toISOString()),
     };
     
     createEventMutation.mutate(formattedValues);
   }
 
-  const isLoading = isLoadingVenues || isLoadingCategories || isLoadingMusicianTypes;
+  const isLoading = isLoadingVenues || isLoadingMusicianTypes;
 
   if (isLoading) {
     return (
