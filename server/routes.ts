@@ -1193,23 +1193,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Planner not found" });
       }
       
-      // If sendEmails is true, we would integrate with email service here
+      // If sendEmails is true, send emails to musicians
       if (sendEmails) {
-        console.log(`Would send emails with message: ${emailMessage}`);
-        // TODO: Integrate with email service when available
-        // In a real implementation, we would:
-        // 1. Get all musicians with assignments (as in the /by-musician endpoint)
-        // 2. For each musician, generate a personalized email with their assignments
-        // 3. Send the email using SendGrid or another service
+        // Import the email service dynamically to avoid issues if SendGrid isn't configured
+        const { isSendGridConfigured, sendMusicianAssignmentEmail } = await import('./services/email');
+        
+        if (!isSendGridConfigured()) {
+          console.warn("SendGrid API key not configured. Emails will not be sent.");
+          
+          // Check if SENDGRID_API_KEY is available
+          if (!process.env.SENDGRID_API_KEY) {
+            return res.status(400).json({ 
+              success: false, 
+              message: "SendGrid API key not configured. Please set the SENDGRID_API_KEY environment variable.",
+              planner
+            });
+          }
+        }
+        
+        // Get all musicians with assignments using the same logic as /by-musician endpoint
+        const slots = await storage.getPlannerSlots(plannerId);
+        
+        if (slots && slots.length > 0) {
+          // Get all assignments for these slots
+          const slotIds = slots.map(slot => slot.id);
+          const assignments = [];
+          
+          for (const slotId of slotIds) {
+            const slotAssignments = await storage.getPlannerAssignments(slotId);
+            assignments.push(...slotAssignments);
+          }
+          
+          if (assignments.length > 0) {
+            // Group by musician ID
+            const musicianMap: Record<number, any> = {};
+            
+            for (const assignment of assignments) {
+              const slot = slots.find(s => s.id === assignment.slotId);
+              if (!slot) continue;
+              
+              const musician = await storage.getMusician(assignment.musicianId);
+              if (!musician) continue;
+              
+              const venue = await storage.getVenue(slot.venueId);
+              
+              if (!musicianMap[musician.id]) {
+                musicianMap[musician.id] = {
+                  musicianId: musician.id,
+                  musicianName: musician.name,
+                  musicianEmail: musician.email,
+                  assignments: [],
+                  totalFee: 0
+                };
+              }
+              
+              const assignmentDetails = {
+                id: assignment.id,
+                date: format(new Date(slot.date), 'MMM d, yyyy'),
+                venueName: venue ? venue.name : 'Unknown Venue',
+                venueId: slot.venueId,
+                fee: assignment.actualFee || musician.payRate,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                status: assignment.status
+              };
+              
+              musicianMap[musician.id].assignments.push(assignmentDetails);
+              musicianMap[musician.id].totalFee += assignmentDetails.fee || 0;
+            }
+            
+            // Send email to each musician
+            const emailPromises = Object.values(musicianMap).map(async (musicianData: any) => {
+              if (!musicianData.musicianEmail) return null;
+              
+              return sendMusicianAssignmentEmail(
+                musicianData.musicianEmail,
+                musicianData.musicianName,
+                format(new Date(planner.month), 'MMMM yyyy'),
+                musicianData.assignments,
+                emailMessage
+              );
+            });
+            
+            await Promise.all(emailPromises);
+          }
+        }
       }
       
       // Create activity log entry
       await storage.createActivity({
         userId: (req.user as any).id,
         action: "finalize_planner",
-        resourceType: "planner",
-        resourceId: plannerId,
-        description: `Finalized monthly planner: ${planner.name}`,
+        entityType: "planner",
+        entityId: plannerId,
+        details: { description: `Finalized monthly planner: ${planner.name}` },
         timestamp: new Date()
       });
       
