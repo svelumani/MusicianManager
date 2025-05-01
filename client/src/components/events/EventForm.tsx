@@ -557,25 +557,31 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
                                   <div onClick={(e) => e.stopPropagation()}>
                                     <Checkbox
                                       id={musicianKey}
-                                      checked={isSelectedForActiveDate}
+                                      checked={isSelectedForActiveDate || false}
                                       onCheckedChange={() => activeDate && toggleMusicianSelection(musician.id, activeDate)}
                                     />
                                   </div>
                                 </div>
                                 
-                                {/* Show which dates this musician is available for */}
+                                {/* Show which dates this musician is assigned to */}
                                 <div className="mt-3">
-                                  <p className="text-xs text-muted-foreground mb-1">Available dates:</p>
+                                  <p className="text-xs text-muted-foreground mb-1">Date assignments:</p>
                                   <div className="flex flex-wrap gap-1">
-                                    {selectedDates.map((date, idx) => (
-                                      <Badge 
-                                        key={idx}
-                                        variant={idx % 2 === 0 ? "outline" : "secondary"}
-                                        className="text-xs"
-                                      >
-                                        {format(date, "MMM d")}
-                                      </Badge>
-                                    ))}
+                                    {selectedDates.map((date, idx) => {
+                                      // Check if musician is assigned to this date
+                                      const isAssignedToDate = musicianAssignments[date.toISOString()]?.includes(musician.id) || false;
+                                      
+                                      return (
+                                        <Badge 
+                                          key={idx}
+                                          variant={isAssignedToDate ? "default" : "outline"}
+                                          className={`text-xs cursor-pointer ${isAssignedToDate ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                          onClick={() => toggleMusicianSelection(musician.id, date)}
+                                        >
+                                          {format(date, "MMM d")}
+                                        </Badge>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               </CardContent>
