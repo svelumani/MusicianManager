@@ -41,12 +41,11 @@ export function ShareLinkManager({ musicianId, musicianName }: ShareLinkProps) {
   // Create new share link
   const createLinkMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest(
-        "POST", 
+      return await apiRequest(
         `/api/musicians/${musicianId}/availability-share`,
+        "POST",
         { expiryDays: parseInt(expiryDays) }
       );
-      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/musicians/${musicianId}/availability-share`] });
@@ -69,12 +68,11 @@ export function ShareLinkManager({ musicianId, musicianName }: ShareLinkProps) {
   // Delete share link
   const deleteLinkMutation = useMutation({
     mutationFn: async (linkId: number) => {
-      const res = await apiRequest(
+      return await apiRequest(
+        `/api/musicians/${musicianId}/availability-share/${linkId}`,
         "DELETE", 
-        `/api/musicians/${musicianId}/availability-share/${linkId}`, 
         null
       );
-      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/musicians/${musicianId}/availability-share`] });
