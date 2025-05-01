@@ -1,7 +1,7 @@
 import sgMail from '@sendgrid/mail';
 
 // Initialize SendGrid with API key if available
-const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 if (SENDGRID_API_KEY) {
   sgMail.setApiKey(SENDGRID_API_KEY);
 }

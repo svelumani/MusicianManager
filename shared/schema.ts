@@ -2,6 +2,9 @@ import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, js
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Define JSON type for TypeScript
+export type Json = any;
+
 // User model for admin authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -273,6 +276,22 @@ export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+
+// Application Settings model
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  type: text("type").notNull().unique(), // email, notifications, etc.
+  data: jsonb("data").notNull(), // JSON data for the specific settings type
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertSettingsSchema = createInsertSchema(settings).pick({
+  type: true,
+  data: true,
+});
+
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 
 // Monthly Planner model
 export const monthlyPlanners = pgTable("monthly_planners", {
