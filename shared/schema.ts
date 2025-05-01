@@ -53,14 +53,41 @@ export const insertVenueSchema = createInsertSchema(venues).pick({
   rating: true,
 });
 
-// Music category model
-export const categories = pgTable("categories", {
+// Musician category model
+export const musicianCategories = pgTable("musician_categories", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
+  // Additional fields can be added here
 });
 
-export const insertCategorySchema = createInsertSchema(categories).pick({
+export const insertMusicianCategorySchema = createInsertSchema(musicianCategories).pick({
+  title: true,
+  description: true,
+});
+
+// Venue category model
+export const venueCategories = pgTable("venue_categories", {
+  id: serial("id").primaryKey(), 
+  title: text("title").notNull(),
+  description: text("description"),
+  // Additional fields can be added here
+});
+
+export const insertVenueCategorySchema = createInsertSchema(venueCategories).pick({
+  title: true,
+  description: true,
+});
+
+// Event category model
+export const eventCategories = pgTable("event_categories", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  // Additional fields can be added here
+});
+
+export const insertEventCategorySchema = createInsertSchema(eventCategories).pick({
   title: true,
   description: true,
 });
@@ -73,7 +100,7 @@ export const musicians = pgTable("musicians", {
   phone: text("phone").notNull(),
   type: text("type").notNull(), // e.g., Pianist, Guitarist, Vocalist
   payRate: doublePrecision("pay_rate").notNull(),
-  categoryId: integer("category_id").notNull(), // Foreign key to categories
+  categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
   instruments: text("instruments").array(),
   profileImage: text("profile_image"),
   bio: text("bio"),
@@ -121,7 +148,7 @@ export const events = pgTable("events", {
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
-  categoryIds: integer("category_ids").array(), // Foreign keys to categories
+  categoryIds: integer("category_ids").array(), // Foreign keys to event_categories
 });
 
 export const insertEventSchema = createInsertSchema(events).pick({
@@ -250,8 +277,22 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Venue = typeof venues.$inferSelect;
 export type InsertVenue = z.infer<typeof insertVenueSchema>;
 
-export type Category = typeof categories.$inferSelect;
-export type InsertCategory = z.infer<typeof insertCategorySchema>;
+// Category types
+export type MusicianCategory = typeof musicianCategories.$inferSelect;
+export type InsertMusicianCategory = z.infer<typeof insertMusicianCategorySchema>;
+
+export type VenueCategory = typeof venueCategories.$inferSelect;
+export type InsertVenueCategory = z.infer<typeof insertVenueCategorySchema>;
+
+export type EventCategory = typeof eventCategories.$inferSelect;
+export type InsertEventCategory = z.infer<typeof insertEventCategorySchema>;
+
+// Legacy category type (for backwards compatibility)
+// This will keep existing code working until we can update references
+export const categories = musicianCategories;
+export const insertCategorySchema = insertMusicianCategorySchema;
+export type Category = MusicianCategory;
+export type InsertCategory = InsertMusicianCategory;
 
 export type Musician = typeof musicians.$inferSelect;
 export type InsertMusician = z.infer<typeof insertMusicianSchema>;
@@ -319,7 +360,7 @@ export const plannerSlots = pgTable("planner_slots", {
   plannerId: integer("planner_id").notNull(), // Foreign key to monthly_planners
   date: timestamp("date").notNull(),
   venueId: integer("venue_id").notNull(), // Foreign key to venues
-  categoryId: integer("category_id").notNull(), // Foreign key to categories
+  categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   description: text("description"),
@@ -447,7 +488,7 @@ export const insertMusicianTypeSchema = createInsertSchema(musicianTypes).pick({
 export const musicianTypeCategories = pgTable("musician_type_categories", {
   id: serial("id").primaryKey(),
   musicianTypeId: integer("musician_type_id").notNull(), // Foreign key to musician_types
-  categoryId: integer("category_id").notNull(), // Foreign key to categories
+  categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
 });
 
 export const insertMusicianTypeCategorySchema = createInsertSchema(musicianTypeCategories).pick({
