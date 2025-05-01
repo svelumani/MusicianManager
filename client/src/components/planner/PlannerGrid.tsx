@@ -62,12 +62,13 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     enabled: !!plannerSlots && plannerSlots.length > 0,
   });
 
-  // Query to get musicians
+  // Query to get musicians with proper typing
   const {
     data: musicians,
     isLoading: isMusiciansLoading,
-  } = useQuery({
+  } = useQuery<any[]>({
     queryKey: ['/api/musicians'],
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   // Create a new planner slot
@@ -114,14 +115,14 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Get musician name by ID
   const getMusicianName = (musicianId: number) => {
-    if (!musicians) return "Unknown Musician";
+    if (!musicians || !Array.isArray(musicians)) return "Unknown Musician";
     const musician = musicians.find((m: any) => m.id === musicianId);
     return musician ? musician.name : "Unknown Musician";
   };
 
   // Get musician by ID
   const getMusician = (musicianId: number) => {
-    if (!musicians) return null;
+    if (!musicians || !Array.isArray(musicians)) return null;
     return musicians.find((m: any) => m.id === musicianId);
   };
 
