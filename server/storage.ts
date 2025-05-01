@@ -1836,7 +1836,12 @@ export class MemStorage implements IStorage {
       ratings = ratings.filter(r => r.plannerAssignmentId === plannerAssignmentId);
     }
     
-    return ratings.sort((a, b) => b.ratedAt.getTime() - a.ratedAt.getTime());
+    return ratings.sort((a, b) => {
+      // Ensure we're working with Date objects
+      const dateA = a.ratedAt instanceof Date ? a.ratedAt : new Date(a.ratedAt);
+      const dateB = b.ratedAt instanceof Date ? b.ratedAt : new Date(b.ratedAt);
+      return dateB.getTime() - dateA.getTime();
+    });
   }
   
   async getPerformanceRating(id: number): Promise<PerformanceRating | undefined> {
@@ -1845,10 +1850,15 @@ export class MemStorage implements IStorage {
   
   async createPerformanceRating(rating: InsertPerformanceRating): Promise<PerformanceRating> {
     const id = this.currentPerformanceRatingId++;
+    // Ensure we're working with a Date object for ratedAt
+    const ratedAt = rating.ratedAt ? 
+      (rating.ratedAt instanceof Date ? rating.ratedAt : new Date(rating.ratedAt)) : 
+      new Date();
+      
     const newRating: PerformanceRating = { 
       ...rating, 
       id,
-      ratedAt: rating.ratedAt || new Date()
+      ratedAt
     };
     
     this.performanceRatings.set(id, newRating);
