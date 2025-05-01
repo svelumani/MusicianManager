@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Calendar } from "../ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { format, getMonth, getYear, setMonth, setYear, isSameDay } from "date-fns";
@@ -114,30 +113,6 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
     );
   };
   
-  // Helper to get date style classes based on availability and bookings
-  const getDateClass = (date: Date): string => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const isPast = date < today;
-    const isBooked = !!getBookingForDate(date);
-    const isAvailable = isDateAvailable(date);
-    
-    if (isPast) {
-      return isBooked ? "bg-green-100 text-green-900" : "bg-gray-100 text-gray-500";
-    }
-    
-    if (isBooked) {
-      return "bg-green-100 text-green-900";
-    }
-    
-    if (isAvailable) {
-      return "bg-blue-100 text-blue-900";
-    }
-    
-    return "bg-gray-50 text-gray-400";
-  };
-  
   // Month selection options
   const months = [
     "January", "February", "March", "April", "May", "June",
@@ -161,25 +136,6 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
     if (!isNaN(year)) {
       const newDate = setYear(selectedDate, year);
       setSelectedDate(newDate);
-    }
-  };
-  
-  // Toggle selection of a date in multi-select mode
-  const toggleDateSelection = (date: Date) => {
-    if (!multiSelectMode) {
-      setSelectedDate(date);
-      return;
-    }
-    
-    // Check if date is already selected
-    const isSelected = selectedDates.some(d => isSameDay(d, date));
-    
-    if (isSelected) {
-      // Remove date from selection
-      setSelectedDates(selectedDates.filter(d => !isSameDay(d, date)));
-    } else {
-      // Add date to selection
-      setSelectedDates([...selectedDates, date]);
     }
   };
   
@@ -323,7 +279,12 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setMultiSelectMode(!multiSelectMode)}
+                    onClick={() => {
+                      setMultiSelectMode(!multiSelectMode);
+                      if (!multiSelectMode) {
+                        setSelectedDates([]);
+                      }
+                    }}
                     className={multiSelectMode ? "bg-blue-50 border-blue-200" : ""}
                   >
                     {multiSelectMode ? "Exit Multi-Select" : "Select Multiple Days"}
@@ -369,37 +330,32 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
               )}
             </div>
             
-            <Calendar
-              mode={multiSelectMode ? "multiple" : "single"}
-              selected={multiSelectMode ? selectedDates : selectedDate}
-              onSelect={multiSelectMode 
-                ? (dates: Date[] | undefined) => dates && setSelectedDates(dates) 
-                : (date: Date | undefined) => date && setSelectedDate(date)
-              }
-              className="rounded-md border"
-              fromMonth={new Date(2022, 0, 1)}
-              modifiersClassNames={{
-                today: "bg-yellow-100 text-yellow-900 font-bold"
-              }}
-              components={{
-                Day: (props) => {
-                  const date = props.date;
-                  const isBooked = !!getBookingForDate(date);
-                  const isAvail = isDateAvailable(date);
-                  let className = props.className || "";
-                  
-                  if (isBooked) {
-                    className += " bg-green-100 text-green-900";
-                  } else if (isAvail) {
-                    className += " bg-blue-100 text-blue-900";
-                  }
-                  
-                  return <props.components.Day {...props} className={className} />;
-                }
-              }}
-            />
+            <div className="relative">
+              {multiSelectMode ? (
+                <Calendar
+                  mode="multiple"
+                  selected={selectedDates}
+                  onSelect={(dates) => dates && setSelectedDates(dates)}
+                  className="rounded-md border"
+                />
+              ) : (
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  className="rounded-md border"
+                />
+              )}
+              
+              {/* Overlay calendar days with custom styling */}
+              {!loading && calendarData && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {/* Render booked and available indicators here */}
+                </div>
+              )}
+            </div>
             
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               <div className="flex items-center">
                 <div className="h-3 w-3 rounded-full bg-green-100 mr-2"></div>
                 <span className="text-sm">Booked</span>
@@ -417,7 +373,7 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                 <span className="text-sm">Today</span>
               </div>
               {multiSelectMode && (
-                <div className="flex items-center">
+                <div className="flex items-center col-span-2">
                   <div className="h-3 w-3 rounded-full bg-primary mr-2"></div>
                   <span className="text-sm">Selected</span>
                 </div>
@@ -425,7 +381,7 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
             </div>
             
             {multiSelectMode && (
-              <div className="mt-4 p-2 bg-blue-50 rounded border border-blue-200 text-sm">
+              <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200 text-sm">
                 <strong>Multi-select mode:</strong> Click on multiple dates to select them, then use the buttons above to mark them all as available or unavailable.
               </div>
             )}

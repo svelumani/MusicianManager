@@ -474,6 +474,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching musician availability calendar" });
     }
   });
+  
+  // Update musician availability
+  apiRouter.post("/musicians/:musicianId/availability", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId } = req.params;
+      const { date, isAvailable } = req.body;
+      
+      if (!date) {
+        return res.status(400).json({ message: "Date is required" });
+      }
+      
+      if (typeof isAvailable !== 'boolean') {
+        return res.status(400).json({ message: "isAvailable must be a boolean" });
+      }
+      
+      // Parse date and extract month/year
+      const dateObj = new Date(date);
+      const month = dateObj.getMonth() + 1; // 0-based to 1-based
+      const year = dateObj.getFullYear();
+      const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+      
+      // Create or update availability
+      const availability = await storage.updateAvailabilityForDate(
+        parseInt(musicianId), 
+        date,
+        isAvailable,
+        monthStr,
+        year
+      );
+      
+      res.json(availability);
+    } catch (error) {
+      console.error("Error updating musician availability:", error);
+      res.status(500).json({ message: "Error updating musician availability" });
+    }
+  });
 
   apiRouter.post("/availability", isAuthenticated, async (req, res) => {
     try {
