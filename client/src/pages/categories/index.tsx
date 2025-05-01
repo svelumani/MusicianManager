@@ -72,8 +72,8 @@ export default function CategoriesPage() {
 
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", getApiPath(id), undefined);
-      return res.json();
+      const res = await apiRequest(getApiPath(id), "DELETE");
+      return res;
     },
     onSuccess: () => {
       toast({
