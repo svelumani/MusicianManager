@@ -1107,6 +1107,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error generating invoices", error: (error as Error).message });
     }
   });
+  
+  // Get assignments grouped by musician for a planner
+  apiRouter.get("/planner-assignments/by-musician", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
+      
+      if (!plannerId) {
+        return res.status(400).json({ message: "plannerId is required" });
+      }
+      
+      // Get all slots for the planner
+      const slots = await storage.getPlannerSlots(plannerId);
+      
+      if (!slots || slots.length === 0) {
+        return res.json({});
+      }
+      
+      // Get all assignments for these slots
+      const slotIds = slots.map(slot => slot.id);
+      const assignments = [];
+      
+      for (const slotId of slotIds) {
+        const slotAssignments = await storage.getPlannerAssignments(slotId);
+        assignments.push(...slotAssignments);
+      }
+      
+      if (assignments.length === 0) {
+        return res.json({});
+      }
+      
+      // Group by musician ID
+      const musicianMap: Record<number, any> = {};
+      
+      for (const assignment of assignments) {
+        const slot = slots.find(s => s.id === assignment.slotId);
+        if (!slot) continue;
+        
+        const musician = await storage.getMusician(assignment.musicianId);
+        if (!musician) continue;
+        
+        const venue = await storage.getVenue(slot.venueId);
+        
+        if (!musicianMap[musician.id]) {
+          musicianMap[musician.id] = {
+            musicianId: musician.id,
+            musicianName: musician.name,
+            assignments: [],
+            totalFee: 0
+          };
+        }
+        
+        const assignmentDetails = {
+          id: assignment.id,
+          date: slot.date,
+          venueName: venue ? venue.name : 'Unknown Venue',
+          venueId: slot.venueId,
+          fee: assignment.actualFee || musician.payRate,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          status: assignment.status
+        };
+        
+        musicianMap[musician.id].assignments.push(assignmentDetails);
+        musicianMap[musician.id].totalFee += assignmentDetails.fee || 0;
+      }
+      
+      res.json(musicianMap);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching assignments by musician" });
+    }
+  });
+  
+  // Finalize a planner and optionally send emails
+  apiRouter.post("/planners/:id/finalize", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = parseInt(req.params.id);
+      const { sendEmails, emailMessage } = req.body;
+      
+      // Update planner status to finalized
+      const planner = await storage.updateMonthlyPlanner(plannerId, { status: "finalized" });
+      
+      if (!planner) {
+        return res.status(404).json({ message: "Planner not found" });
+      }
+      
+      // If sendEmails is true, we would integrate with email service here
+      if (sendEmails) {
+        console.log(`Would send emails with message: ${emailMessage}`);
+        // TODO: Integrate with email service when available
+        // In a real implementation, we would:
+        // 1. Get all musicians with assignments (as in the /by-musician endpoint)
+        // 2. For each musician, generate a personalized email with their assignments
+        // 3. Send the email using SendGrid or another service
+      }
+      
+      // Create activity log entry
+      await storage.createActivity({
+        userId: (req.user as any).id,
+        action: "finalize_planner",
+        resourceType: "planner",
+        resourceId: plannerId,
+        description: `Finalized monthly planner: ${planner.name}`,
+        timestamp: new Date()
+      });
+      
+      res.json({ success: true, planner });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error finalizing planner" });
+    }
+  });
 
   apiRouter.post("/monthly-invoices/:id/finalize", isAuthenticated, async (req, res) => {
     try {

@@ -9,7 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MonthlyPlanner, Venue, Category, PlannerSlot, PlannerAssignment, Musician } from "@/types";
-import AssignMusicianDialog from "./AssignMusicianDialog";
+import InlineMusicianSelect from "./InlineMusicianSelect";
+import FinalizeMonthlyPlanner from "./FinalizeMonthlyPlanner";
+import { Calendar, Send } from "lucide-react";
 
 interface PlannerGridProps {
   planner: any; // MonthlyPlanner
@@ -23,13 +25,15 @@ const STATUS_COLORS = {
   "contract-sent": "bg-blue-100",
   "contract-signed": "bg-green-100",
   "needs-clarification": "bg-yellow-100",
-  "overseas-performer": "bg-purple-100"
+  "overseas-performer": "bg-purple-100",
+  "finalized": "bg-green-50"
 };
 
 const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGridProps) => {
   const { toast } = useToast();
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<{ date: Date; venueId: number } | null>(null);
+  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
+  const [activePopover, setActivePopover] = useState<string | null>(null);
+  const [selectedCell, setSelectedCell] = useState<{ date: Date; venueId: number } | null>(null);
 
   // Parse the selected month
   const [year, month] = selectedMonth.split("-").map(Number);
@@ -126,35 +130,19 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     return musicians.find((m: any) => m.id === musicianId);
   };
 
-  // Handle cell click to create/edit slot
+  // Handle cell click to show the inline musician select
   const handleCellClick = (date: Date, venueId: number) => {
-    setSelectedSlot({ date, venueId });
+    const cellId = `${date.toISOString()}-${venueId}`;
     
-    // Check if slot already exists
-    const existingSlot = getSlotByDateAndVenue(date, venueId);
-    
-    if (existingSlot) {
-      // If slot exists, show assign dialog
-      setShowAssignDialog(true);
-    } else {
-      // If slot doesn't exist, create it first
-      // Use an actual Date object and handle the conversion properly with parseISO
-      // We need to wrap the date properly for server zod validation
-      const slotData = {
-        plannerId: planner.id,
-        date: new Date(date), // Create a proper Date object
-        venueId,
-        categoryId: categories[0]?.id || 1, // Default category
-        startTime: "19:00",
-        endTime: "22:00",
-        status: "open",
-        description: "",
-        fee: null
-      };
-      
-      console.log("Creating slot with date:", slotData.date);
-      createSlotMutation.mutate(slotData);
+    // If already open, close it
+    if (activePopover === cellId) {
+      setActivePopover(null);
+      return;
     }
+    
+    // Open this popover and close any others
+    setActivePopover(cellId);
+    setSelectedCell({ date, venueId });
   };
 
   // Calculate total amount for a slot
