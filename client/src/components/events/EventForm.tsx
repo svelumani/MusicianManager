@@ -56,6 +56,9 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
   // State to track selected dates for multi-day events
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   
+  // State to track selected musicians
+  const [selectedMusicians, setSelectedMusicians] = useState<number[]>([]);
+  
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
     defaultValues: {
@@ -87,6 +90,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     musicianTypeIds: number[];
     notes?: string;
     eventDates: string[];
+    musicianIds?: number[]; // Add selected musicians
   };
   
   const createEventMutation = useMutation<any, Error, EventApiValues>({
@@ -150,6 +154,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       musicianTypeIds: values.musicianTypeIds,
       notes: values.notes,
       eventDates: values.eventDates.map(date => date.toISOString()),
+      musicianIds: selectedMusicians.length > 0 ? selectedMusicians : undefined,
     };
     
     createEventMutation.mutate(formattedValues);
@@ -338,53 +343,152 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
         />
         
         {/* Available Musicians Section */}
-        {selectedMusicianTypes.length > 0 && (
+        {selectedMusicianTypes.length > 0 && selectedDates.length > 0 && (
           <div className="mt-6">
-            <h3 className="text-lg font-medium mb-4">Available Musicians</h3>
+            <h3 className="text-lg font-medium mb-4">Musician Invitations</h3>
             
             {isLoadingMusicians ? (
               <div className="flex justify-center p-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
             ) : availableMusicians && availableMusicians.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {availableMusicians.map((musician) => (
-                  <Card key={musician.id} className="overflow-hidden">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-4">
-                        <Avatar>
-                          <AvatarImage
-                            src={musician.profileImage || undefined}
-                            alt={musician.name}
-                          />
-                          <AvatarFallback>{musician.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="font-medium">{musician.name}</div>
-                          <div className="text-sm text-muted-foreground flex items-center">
-                            {musician.rating && (
-                              <div className="flex items-center mr-2">
-                                {Array.from({ length: 5 }).map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-3 w-3 ${
-                                      i < musician.rating! ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {musicianTypes?.find(t => t.id === musician.typeId)?.title}
-                          </div>
-                        </div>
+              <div className="space-y-6">
+                {/* Show summary of selected musicians if any */}
+                {selectedMusicians.length > 0 && (
+                  <div className="mb-6 p-4 border rounded-md bg-primary/5">
+                    <h4 className="text-md font-medium mb-2">Selected Musicians ({selectedMusicians.length})</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedMusicians.map(id => {
+                        const musician = availableMusicians?.find(m => m.id === id);
+                        if (!musician) return null;
+                        
+                        return (
+                          <Badge 
+                            key={`selected-${id}`}
+                            variant="default"
+                            className="flex items-center gap-1 px-3 py-1.5"
+                          >
+                            {musician.name}
+                            <X 
+                              className="h-3 w-3 cursor-pointer ml-1" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedMusicians(prev => prev.filter(mId => mId !== id));
+                              }}
+                            />
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Group musicians by type */}
+                {selectedMusicianTypes.map(typeId => {
+                  const musicianType = musicianTypes?.find(t => t.id === typeId);
+                  const musiciansOfType = availableMusicians.filter(m => m.typeId === typeId);
+                  
+                  return (
+                    <div key={typeId} className="space-y-3">
+                      <h4 className="text-md font-medium">{musicianType?.title}</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {musiciansOfType.map((musician) => {
+                          // Create a unique key for each musician
+                          const musicianKey = `musician-${musician.id}`;
+                          // Check if this musician is already selected
+                          const isSelected = selectedMusicians.includes(musician.id)
+                          
+                          return (
+                            <Card 
+                              key={musicianKey} 
+                              className={`overflow-hidden cursor-pointer transition-colors ${
+                                isSelected ? 'border-primary bg-primary/5' : ''
+                              }`}
+                              onClick={() => {
+                                setSelectedMusicians(prev => {
+                                  if (isSelected) {
+                                    return prev.filter(id => id !== musician.id);
+                                  } else {
+                                    return [...prev, musician.id];
+                                  }
+                                });
+                              }}
+                            >
+                              <CardContent className="p-4">
+                                <div className="flex items-center gap-4">
+                                  <Avatar>
+                                    <AvatarImage
+                                      src={musician.profileImage || undefined}
+                                      alt={musician.name}
+                                    />
+                                    <AvatarFallback>{musician.name.charAt(0)}</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1">
+                                    <div className="font-medium">{musician.name}</div>
+                                    <div className="text-sm text-muted-foreground flex items-center">
+                                      {musician.rating && (
+                                        <div className="flex items-center mr-2">
+                                          {Array.from({ length: 5 }).map((_, i) => (
+                                            <Star
+                                              key={i}
+                                              className={`h-3 w-3 ${
+                                                i < musician.rating! ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                                              }`}
+                                            />
+                                          ))}
+                                        </div>
+                                      )}
+                                      {/* Display musician type instead of instruments since it's not in our schema yet */}
+                                      <Badge variant="outline" className="mr-1 text-xs">
+                                        {musicianTypes?.find(t => t.id === musician.typeId)?.title}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Checkbox
+                                      id={musicianKey}
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) => {
+                                        setSelectedMusicians(prev => {
+                                          if (checked) {
+                                            return [...prev, musician.id];
+                                          } else {
+                                            return prev.filter(id => id !== musician.id);
+                                          }
+                                        });
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {/* Show which dates this musician is available for */}
+                                <div className="mt-3">
+                                  <p className="text-xs text-muted-foreground mb-1">Available dates:</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {selectedDates.map((date, idx) => (
+                                      <Badge 
+                                        key={idx}
+                                        variant={idx % 2 === 0 ? "outline" : "secondary"}
+                                        className="text-xs"
+                                      >
+                                        {format(date, "MMM d")}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center p-6 bg-muted rounded-md">
-                <p className="text-muted-foreground">No musicians available for the selected type(s)</p>
+                <p className="text-muted-foreground">No musicians available for the selected type(s) and date(s)</p>
               </div>
             )}
           </div>
