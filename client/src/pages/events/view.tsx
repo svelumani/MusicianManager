@@ -5,11 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Edit, User, Users, MapPin, FileText, Briefcase, Clock, Calendar } from "lucide-react";
+import { CalendarDays, Edit, User, Users, MapPin, FileText, Briefcase, Clock, Calendar, Music } from "lucide-react";
 import { format } from "date-fns";
 import type { Event as EventType, Venue, Musician } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+// Extended event type to include musician assignments
+interface EventWithAssignments extends EventType {
+  musicianAssignments?: Record<string, number[]>;
+}
 
 export default function ViewEventPage() {
   const { toast } = useToast();
@@ -23,7 +30,7 @@ export default function ViewEventPage() {
     data: event, 
     isLoading: isLoadingEvent,
     error: eventError
-  } = useQuery<EventType>({
+  } = useQuery<EventWithAssignments>({
     queryKey: [`/api/events/${eventId}`],
     enabled: !isNaN(eventId),
   });
@@ -249,18 +256,109 @@ export default function ViewEventPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Musician assignments will be displayed here once they are added.
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => navigate(`/events/${eventId}/invite`)}
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Invite Musicians
-                </Button>
-              </div>
+              {event.musicianAssignments && Object.keys(event.musicianAssignments).length > 0 ? (
+                <div className="space-y-6">
+                  {event.eventDates?.map((dateStr, index) => {
+                    const date = new Date(dateStr);
+                    const formattedDate = format(date, 'yyyy-MM-dd');
+                    const assignedMusicians = event.musicianAssignments?.[formattedDate] || [];
+                    
+                    return (
+                      <div key={index} className="space-y-3">
+                        <h3 className="text-lg font-medium flex items-center">
+                          <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+                          {format(date, 'EEEE, MMMM d, yyyy')}
+                        </h3>
+                        
+                        {assignedMusicians.length > 0 ? (
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Musician</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {assignedMusicians.map((musicianId) => {
+                                const musician = musicians?.find(m => m.id === musicianId);
+                                return (
+                                  <TableRow key={musicianId}>
+                                    <TableCell>
+                                      <div className="flex items-center gap-2">
+                                        <Avatar className="h-8 w-8">
+                                          {musician?.profileImage ? (
+                                            <AvatarImage src={musician.profileImage} alt={musician?.name || "Musician"} />
+                                          ) : (
+                                            <AvatarFallback>
+                                              {musician?.name?.charAt(0) || "M"}
+                                            </AvatarFallback>
+                                          )}
+                                        </Avatar>
+                                        <div>
+                                          <p className="font-medium">{musician?.name || "Unknown Musician"}</p>
+                                          <p className="text-xs text-muted-foreground">{musician?.email || ""}</p>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      {/* Show musician type - we'll need to fetch this data */}
+                                      <Badge variant="outline">
+                                        <Music className="h-3 w-3 mr-1" />
+                                        {musician?.typeId ? `Type ${musician.typeId}` : "Unknown"}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline">Pending</Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                      <div className="flex gap-2">
+                                        <Button 
+                                          size="sm" 
+                                          variant="ghost"
+                                          onClick={() => navigate(`/musicians/${musicianId}`)}
+                                        >
+                                          <User className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No musicians assigned for this date.</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  <div className="mt-4">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => navigate(`/events/${eventId}/invite`)}
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Invite More Musicians
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    No musicians have been assigned to this event yet.
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate(`/events/${eventId}/invite`)}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Invite Musicians
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
