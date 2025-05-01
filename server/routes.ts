@@ -109,6 +109,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(401).json({ message: "Not authenticated" });
     }
   });
+  
+  // Registration route (will be protected in production)
+  apiRouter.post("/auth/register", async (req, res) => {
+    try {
+      const userData = insertUserSchema.parse(req.body);
+      const existingUser = await storage.getUserByUsername(userData.username);
+      
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+      
+      const user = await storage.createUser(userData);
+      res.status(201).json({ user });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating user" });
+    }
+  });
 
   // Dashboard routes
   apiRouter.get("/dashboard/metrics", isAuthenticated, async (req, res) => {
