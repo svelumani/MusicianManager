@@ -142,6 +142,11 @@ function Router() {
           <InstrumentManagerPage />
         </AppLayout>
       </Route>
+      <Route path="/settings/musician-types">
+        <AppLayout>
+          <InstrumentManagerPage />
+        </AppLayout>
+      </Route>
       <Route path="/settings/email">
         <AppLayout>
           <EmailSettingsPage />

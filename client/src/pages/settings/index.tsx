@@ -7,7 +7,7 @@ import { Settings, Music, Tag, User, CreditCard, Clock, Mail, FileText } from "l
 const settingsSections = [
   {
     id: "instrument-manager",
-    title: "Instrument & Category Manager",
+    title: "Instruments & Categories",
     description: "Manage musical categories and their associated instruments",
     icon: <Music className="h-8 w-8" />,
     color: "text-blue-500 bg-blue-100",
@@ -32,7 +32,6 @@ const settingsSections = [
     description: "Configure types of musicians available in the system",
     icon: <User className="h-8 w-8" />,
     color: "text-green-500 bg-green-100",
-    comingSoon: true,
   },
   {
     id: "payment-settings",
