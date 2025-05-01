@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useLocation } from "wouter";
-import { apiRequest, getQueryFn } from "./queryClient";
+import { apiRequest } from "./queryClient";
 import { queryClient } from "./queryClient";
 
 export type User = {

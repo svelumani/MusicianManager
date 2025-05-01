@@ -92,8 +92,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
 
   // Authentication routes
-  apiRouter.post("/auth/login", passport.authenticate("local"), (req, res) => {
-    res.json({ user: req.user });
+  apiRouter.post("/auth/login", (req, res, next) => {
+    console.log("Login attempt:", req.body);
+    passport.authenticate("local", (err, user, info) => {
+      if (err) {
+        console.error("Auth error:", err);
+        return next(err);
+      }
+      if (!user) {
+        console.log("Auth failed:", info);
+        return res.status(401).json({ message: info?.message || "Authentication failed" });
+      }
+      
+      req.login(user, (err) => {
+        if (err) {
+          console.error("Login error:", err);
+          return next(err);
+        }
+        console.log("Login successful for:", user.username);
+        return res.json({ user });
+      });
+    })(req, res, next);
   });
 
   apiRouter.post("/auth/logout", (req, res) => {
@@ -128,6 +147,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error(error);
       res.status(500).json({ message: "Error creating user" });
+    }
+  });
+  
+  // Admin creation route (FOR DEVELOPMENT ONLY)
+  apiRouter.post("/auth/setup-admin", async (req, res) => {
+    try {
+      // Check if admin already exists
+      const existingAdmin = await storage.getUserByUsername("admin");
+      if (existingAdmin) {
+        return res.json({ message: "Admin user already exists", user: existingAdmin });
+      }
+      
+      // Create admin user
+      const adminUser = await storage.createUser({
+        username: "admin",
+        password: "admin123",
+        name: "Admin User",
+        email: "admin@vamp.com",
+        role: "admin",
+        profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+      });
+      
+      res.status(201).json({ message: "Admin user created successfully", user: adminUser });
+    } catch (error) {
+      console.error("Error creating admin:", error);
+      res.status(500).json({ message: "Error creating admin user" });
     }
   });
 
