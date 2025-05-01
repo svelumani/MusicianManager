@@ -465,43 +465,163 @@ export class MemStorage implements IStorage {
     this.createMusicianType({ title: "Violinist", description: "Violin players primarily for classical music" });
     
     // Initialize with sample musicians
-    this.createMusician({
+    const musician1 = this.createMusician({
       name: "Sarah Johnson",
       email: "sarah@musician.com",
       profileImage: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&h=300&q=80",
-      type: "Solo",
+      typeId: 1, // Pianist
       rating: 4.8,
       phone: "555-123-4567",
-      payRate: 200,
       categoryId: 1, // Jazz
       instruments: ["Piano", "Saxophone"],
       bio: "Sarah is an accomplished jazz pianist with over 10 years of experience performing in top venues across the country. Her unique style blends traditional jazz elements with contemporary influences."
     });
     
-    this.createMusician({
+    // Add pay rates for each event category
+    this.createMusicianPayRate({
+      musicianId: musician1.id,
+      eventCategoryId: 1, // Corporate
+      hourlyRate: 100,
+      dayRate: 500,
+      eventRate: 350,
+      rateType: "Standard",
+      notes: "Regular corporate bookings rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician1.id,
+      eventCategoryId: 2, // Wedding
+      hourlyRate: 120,
+      dayRate: 600,
+      eventRate: 400,
+      rateType: "Premium",
+      notes: "Weekend premium rate for weddings"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician1.id,
+      eventCategoryId: 3, // Private Party
+      hourlyRate: 90,
+      dayRate: 450,
+      eventRate: 300,
+      rateType: "Standard",
+      notes: "Standard private event rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician1.id,
+      eventCategoryId: 4, // Concert
+      hourlyRate: 150,
+      dayRate: 700,
+      eventRate: 500,
+      rateType: "Premium",
+      notes: "Premium rate for concerts and public performances"
+    });
+    
+    const musician2 = this.createMusician({
       name: "Michael Chen",
       email: "michael@musician.com",
       profileImage: "https://images.unsplash.com/photo-1542103749-8ef59b94f47e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&h=300&q=80",
-      type: "Solo",
+      typeId: 4, // Violinist
       rating: 4.9,
       phone: "555-987-6543",
-      payRate: 250,
       categoryId: 2, // Classical
       instruments: ["Violin", "Piano"],
       bio: "Michael is a classically trained violinist who has performed with several symphony orchestras. His repertoire spans from baroque to contemporary classical pieces."
     });
     
-    this.createMusician({
+    // Add pay rates for Michael
+    this.createMusicianPayRate({
+      musicianId: musician2.id,
+      eventCategoryId: 1, // Corporate
+      hourlyRate: 120,
+      dayRate: 600,
+      eventRate: 400,
+      rateType: "Standard",
+      notes: "Classical corporate events rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician2.id,
+      eventCategoryId: 2, // Wedding
+      hourlyRate: 150,
+      dayRate: 700,
+      eventRate: 500,
+      rateType: "Premium",
+      notes: "Premium wedding ceremony rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician2.id,
+      eventCategoryId: 3, // Private Party
+      hourlyRate: 120,
+      dayRate: 550,
+      eventRate: 350,
+      rateType: "Standard",
+      notes: "Standard private event rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician2.id,
+      eventCategoryId: 4, // Concert
+      hourlyRate: 180,
+      dayRate: 800,
+      eventRate: 600,
+      rateType: "Premium",
+      notes: "Premium classical concert rate"
+    });
+    
+    const musician3 = this.createMusician({
       name: "Olivia Martinez",
       email: "olivia@musician.com",
       profileImage: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&h=300&q=80",
-      type: "Solo",
+      typeId: 3, // Vocalist
       rating: 4.7,
       phone: "555-456-7890",
-      payRate: 180,
       categoryId: 4, // Pop (ID 4 based on createCategory order above)
       instruments: ["Vocals", "Guitar"],
       bio: "Olivia is a charismatic vocalist and guitarist specializing in contemporary pop music. Her energetic performances and wide vocal range make her perfect for events requiring audience engagement."
+    });
+    
+    // Add pay rates for Olivia
+    this.createMusicianPayRate({
+      musicianId: musician3.id,
+      eventCategoryId: 1, // Corporate
+      hourlyRate: 90,
+      dayRate: 450,
+      eventRate: 300,
+      rateType: "Standard",
+      notes: "Standard corporate event rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician3.id,
+      eventCategoryId: 2, // Wedding
+      hourlyRate: 110,
+      dayRate: 550,
+      eventRate: 380,
+      rateType: "Premium",
+      notes: "Premium wedding reception rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician3.id,
+      eventCategoryId: 3, // Private Party
+      hourlyRate: 100,
+      dayRate: 500,
+      eventRate: 350,
+      rateType: "Standard",
+      notes: "Standard private party rate"
+    });
+    
+    this.createMusicianPayRate({
+      musicianId: musician3.id,
+      eventCategoryId: 4, // Concert
+      hourlyRate: 130,
+      dayRate: 650,
+      eventRate: 450,
+      rateType: "Premium",
+      notes: "Premium concert performance rate"
     });
 
     // Initialize with sample venues
