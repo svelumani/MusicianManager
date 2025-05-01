@@ -57,7 +57,10 @@ export default function AddMusicianPage() {
 
   const createMusicianMutation = useMutation({
     mutationFn: async (values: MusicianFormValues) => {
-      const res = await apiRequest("POST", "/api/musicians", values);
+      const res = await apiRequest("POST", "/api/auth/musicians", values);
+      if (!res.ok) {
+        throw new Error("Failed to create musician");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -65,7 +68,7 @@ export default function AddMusicianPage() {
         title: "Musician created",
         description: "The musician has been created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/musicians"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/musicians"] });
       navigate("/musicians");
     },
     onError: (error) => {
