@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Music, Search, Plus, Star } from "lucide-react";
-import type { Musician, Category } from "@shared/schema";
+import type { Musician, Category, MusicianType } from "@shared/schema";
 
 export default function MusiciansPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -20,15 +20,24 @@ export default function MusiciansPage() {
   const { data: categories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
   });
+  
+  const { data: musicianTypes } = useQuery<MusicianType[]>({
+    queryKey: ["/api/musician-types"],
+  });
 
   const getCategoryName = (categoryId: number) => {
     const category = categories?.find(c => c.id === categoryId);
     return category ? category.title : "Unknown";
   };
+  
+  const getMusicianTypeName = (typeId: number) => {
+    const type = musicianTypes?.find(t => t.id === typeId);
+    return type ? type.title : "Unknown";
+  };
 
   const filteredMusicians = musicians?.filter(musician => 
     musician.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    musician.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    getMusicianTypeName(musician.typeId).toLowerCase().includes(searchQuery.toLowerCase()) ||
     getCategoryName(musician.categoryId).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -97,7 +106,7 @@ export default function MusiciansPage() {
                           <span className="font-medium">{musician.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{musician.type}</TableCell>
+                      <TableCell>{getMusicianTypeName(musician.typeId)}</TableCell>
                       <TableCell>{getCategoryName(musician.categoryId)}</TableCell>
                       <TableCell>
                         <div className="text-sm">
@@ -105,7 +114,7 @@ export default function MusiciansPage() {
                           <div className="text-gray-500">{musician.phone}</div>
                         </div>
                       </TableCell>
-                      <TableCell>${musician.payRate.toFixed(2)}</TableCell>
+                      <TableCell>Multiple rates</TableCell>
                       <TableCell>
                         {musician.rating ? (
                           <div className="flex items-center">
