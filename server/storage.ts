@@ -438,6 +438,12 @@ export class MemStorage implements IStorage {
     this.createEventCategory({ title: "Private Party", description: "Private celebrations and special occasions" });
     this.createEventCategory({ title: "Concert", description: "Public concerts and performances" });
     
+    // Initialize with musician types
+    this.createMusicianType({ title: "Pianist", description: "Piano players of various genres" });
+    this.createMusicianType({ title: "Guitarist", description: "Guitar players including acoustic, electric, and bass" });
+    this.createMusicianType({ title: "Vocalist", description: "Singers of various genres and styles" });
+    this.createMusicianType({ title: "Violinist", description: "Violin players primarily for classical music" });
+    
     // Initialize with sample musicians
     this.createMusician({
       name: "Sarah Johnson",
@@ -1915,8 +1921,49 @@ export class MemStorage implements IStorage {
     return Array.from(this.musicianTypes.values());
   }
   
+  // Musician Types
+  async getMusicianTypes(): Promise<MusicianType[]> {
+    return [...this.musicianTypes.values()];
+  }
+
   async getMusicianType(id: number): Promise<MusicianType | undefined> {
     return this.musicianTypes.get(id);
+  }
+
+  async createMusicianType(musicianType: InsertMusicianType): Promise<MusicianType> {
+    const id = this.getNextId(this.musicianTypes);
+    const newType: MusicianType = {
+      id,
+      title: musicianType.title,
+      description: musicianType.description || null,
+    };
+    this.musicianTypes.set(id, newType);
+    this.logActivity("Created", "MusicianType", id);
+    return newType;
+  }
+
+  async updateMusicianType(id: number, data: Partial<InsertMusicianType>): Promise<MusicianType | undefined> {
+    const existingType = this.musicianTypes.get(id);
+    if (!existingType) {
+      return undefined;
+    }
+    
+    const updatedType = {
+      ...existingType,
+      ...data,
+    };
+    
+    this.musicianTypes.set(id, updatedType);
+    this.logActivity("Updated", "MusicianType", id);
+    return updatedType;
+  }
+
+  async deleteMusicianType(id: number): Promise<boolean> {
+    const success = this.musicianTypes.delete(id);
+    if (success) {
+      this.logActivity("Deleted", "MusicianType", id);
+    }
+    return success;
   }
   
   async getMusicianTypeCategories(musicianTypeId: number): Promise<Category[]> {
