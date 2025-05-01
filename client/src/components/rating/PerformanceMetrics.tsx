@@ -30,7 +30,18 @@ export default function PerformanceMetrics({ musicianId }: PerformanceMetricsPro
 
   const recalculateMetricsMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/performance-metrics/${musicianId}/recalculate`, {});
+      const res = await fetch(`/api/performance-metrics/${musicianId}/recalculate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to recalculate metrics");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {

@@ -48,9 +48,19 @@ export default function SkillTagList({ musicianId, readOnly = false }: SkillTagL
   // Add tag to musician
   const addTagMutation = useMutation({
     mutationFn: async (tagId: number) => {
-      const res = await apiRequest("POST", `/api/musicians/${musicianId}/skill-tags`, {
-        skillTagId: tagId,
+      const res = await fetch(`/api/musicians/${musicianId}/skill-tags`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ skillTagId: tagId }),
+        credentials: 'include',
       });
+      
+      if (!res.ok) {
+        throw new Error("Failed to add skill tag");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -72,8 +82,16 @@ export default function SkillTagList({ musicianId, readOnly = false }: SkillTagL
   // Remove tag from musician
   const removeTagMutation = useMutation({
     mutationFn: async (musicianTagId: number) => {
-      const res = await apiRequest("DELETE", `/api/musicians/${musicianId}/skill-tags/${musicianTagId}`);
-      return res.ok;
+      const res = await fetch(`/api/musicians/${musicianId}/skill-tags/${musicianTagId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to remove skill tag");
+      }
+      
+      return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/musicians", musicianId, "skill-tags"] });
@@ -94,7 +112,19 @@ export default function SkillTagList({ musicianId, readOnly = false }: SkillTagL
   // Endorse a skill
   const endorseMutation = useMutation({
     mutationFn: async (skillTagId: number) => {
-      const res = await apiRequest("POST", `/api/musicians/${musicianId}/skill-tags/${skillTagId}/endorse`, {});
+      const res = await fetch(`/api/musicians/${musicianId}/skill-tags/${skillTagId}/endorse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to endorse skill");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -116,7 +146,19 @@ export default function SkillTagList({ musicianId, readOnly = false }: SkillTagL
   // Create a new tag
   const createTagMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await apiRequest("POST", "/api/skill-tags", { name });
+      const res = await fetch("/api/skill-tags", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name }),
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to create skill tag");
+      }
+      
       return await res.json();
     },
     onSuccess: (newTag) => {
