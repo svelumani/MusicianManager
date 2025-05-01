@@ -345,7 +345,10 @@ export class MemStorage implements IStorage {
     // Initialize maps
     this.users = new Map();
     this.venues = new Map();
-    this.categories = new Map();
+    this.categories = new Map(); // Legacy categories
+    this.musicianCategories = new Map();
+    this.venueCategories = new Map();
+    this.eventCategories = new Map();
     this.musicians = new Map();
     this.availability = new Map();
     this.events = new Map();
@@ -374,6 +377,9 @@ export class MemStorage implements IStorage {
     this.currentUserId = 1;
     this.currentVenueId = 1;
     this.currentCategoryId = 1;
+    this.currentMusicianCategoryId = 1;
+    this.currentVenueCategoryId = 1;
+    this.currentEventCategoryId = 1;
     this.currentMusicianId = 1;
     this.currentAvailabilityId = 1;
     this.currentEventId = 1;
@@ -408,11 +414,29 @@ export class MemStorage implements IStorage {
       profileImage: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
     });
     
-    // Initialize with some default categories
+    // Initialize with some default categories (legacy)
     this.createCategory({ title: "Jazz", description: "Jazz musicians including pianists, saxophonists, and more" });
     this.createCategory({ title: "Classical", description: "Classical musicians including pianists, violinists, and more" });
     this.createCategory({ title: "Rock", description: "Rock musicians including guitarists, drummers, and vocalists" });
     this.createCategory({ title: "Pop", description: "Pop musicians including vocalists, guitarists, and more" });
+    
+    // Initialize with musician categories
+    this.createMusicianCategory({ title: "Jazz", description: "Jazz musicians including pianists, saxophonists, and more" });
+    this.createMusicianCategory({ title: "Classical", description: "Classical musicians including pianists, violinists, and more" });
+    this.createMusicianCategory({ title: "Rock", description: "Rock musicians including guitarists, drummers, and vocalists" });
+    this.createMusicianCategory({ title: "Pop", description: "Pop musicians including vocalists, guitarists, and more" });
+    
+    // Initialize with venue categories
+    this.createVenueCategory({ title: "Hotel", description: "Hotels and resorts with event spaces" });
+    this.createVenueCategory({ title: "Bar & Lounge", description: "Bars, lounges, and nightclubs" });
+    this.createVenueCategory({ title: "Restaurant", description: "Restaurants and dining establishments" });
+    this.createVenueCategory({ title: "Concert Hall", description: "Dedicated music venues and concert halls" });
+    
+    // Initialize with event categories
+    this.createEventCategory({ title: "Corporate", description: "Corporate events, conferences, and gatherings" });
+    this.createEventCategory({ title: "Wedding", description: "Wedding ceremonies and receptions" });
+    this.createEventCategory({ title: "Private Party", description: "Private celebrations and special occasions" });
+    this.createEventCategory({ title: "Concert", description: "Public concerts and performances" });
     
     // Initialize with sample musicians
     this.createMusician({
@@ -687,7 +711,7 @@ export class MemStorage implements IStorage {
     return this.venues.delete(id);
   }
   
-  // Category management methods
+  // Category management methods (legacy)
   async getCategories(): Promise<Category[]> {
     return Array.from(this.categories.values());
   }
@@ -714,6 +738,93 @@ export class MemStorage implements IStorage {
   
   async deleteCategory(id: number): Promise<boolean> {
     return this.categories.delete(id);
+  }
+  
+  // Musician Category management methods
+  async getMusicianCategories(): Promise<MusicianCategory[]> {
+    return Array.from(this.musicianCategories.values());
+  }
+  
+  async getMusicianCategory(id: number): Promise<MusicianCategory | undefined> {
+    return this.musicianCategories.get(id);
+  }
+  
+  async createMusicianCategory(category: InsertMusicianCategory): Promise<MusicianCategory> {
+    const id = this.currentMusicianCategoryId++;
+    const newCategory: MusicianCategory = { ...category, id };
+    this.musicianCategories.set(id, newCategory);
+    return newCategory;
+  }
+  
+  async updateMusicianCategory(id: number, data: Partial<InsertMusicianCategory>): Promise<MusicianCategory | undefined> {
+    const category = await this.getMusicianCategory(id);
+    if (!category) return undefined;
+    
+    const updatedCategory = { ...category, ...data };
+    this.musicianCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+  
+  async deleteMusicianCategory(id: number): Promise<boolean> {
+    return this.musicianCategories.delete(id);
+  }
+  
+  // Venue Category management methods
+  async getVenueCategories(): Promise<VenueCategory[]> {
+    return Array.from(this.venueCategories.values());
+  }
+  
+  async getVenueCategory(id: number): Promise<VenueCategory | undefined> {
+    return this.venueCategories.get(id);
+  }
+  
+  async createVenueCategory(category: InsertVenueCategory): Promise<VenueCategory> {
+    const id = this.currentVenueCategoryId++;
+    const newCategory: VenueCategory = { ...category, id };
+    this.venueCategories.set(id, newCategory);
+    return newCategory;
+  }
+  
+  async updateVenueCategory(id: number, data: Partial<InsertVenueCategory>): Promise<VenueCategory | undefined> {
+    const category = await this.getVenueCategory(id);
+    if (!category) return undefined;
+    
+    const updatedCategory = { ...category, ...data };
+    this.venueCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+  
+  async deleteVenueCategory(id: number): Promise<boolean> {
+    return this.venueCategories.delete(id);
+  }
+  
+  // Event Category management methods
+  async getEventCategories(): Promise<EventCategory[]> {
+    return Array.from(this.eventCategories.values());
+  }
+  
+  async getEventCategory(id: number): Promise<EventCategory | undefined> {
+    return this.eventCategories.get(id);
+  }
+  
+  async createEventCategory(category: InsertEventCategory): Promise<EventCategory> {
+    const id = this.currentEventCategoryId++;
+    const newCategory: EventCategory = { ...category, id };
+    this.eventCategories.set(id, newCategory);
+    return newCategory;
+  }
+  
+  async updateEventCategory(id: number, data: Partial<InsertEventCategory>): Promise<EventCategory | undefined> {
+    const category = await this.getEventCategory(id);
+    if (!category) return undefined;
+    
+    const updatedCategory = { ...category, ...data };
+    this.eventCategories.set(id, updatedCategory);
+    return updatedCategory;
+  }
+  
+  async deleteEventCategory(id: number): Promise<boolean> {
+    return this.eventCategories.delete(id);
   }
   
   // Musician management methods
