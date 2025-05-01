@@ -1,12 +1,15 @@
 import {
-  users, venues, categories, musicians, availability, 
-  events, bookings, payments, collections, expenses, 
+  users, venues, categories, musicianCategories, venueCategories, eventCategories,
+  musicians, availability, events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
   settings, emailTemplates, musicianTypes, musicianTypeCategories,
   performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
   improvementPlans, improvementActions, availabilityShareLinks,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
+  type MusicianCategory, type InsertMusicianCategory,
+  type VenueCategory, type InsertVenueCategory,
+  type EventCategory, type InsertEventCategory,
   type Musician, type InsertMusician, type Availability, 
   type InsertAvailability, type Event, type InsertEvent, 
   type Booking, type InsertBooking, type Payment, type InsertPayment, 
@@ -67,12 +70,33 @@ export interface IStorage {
   updateVenue(id: number, data: Partial<InsertVenue>): Promise<Venue | undefined>;
   deleteVenue(id: number): Promise<boolean>;
   
-  // Category management
+  // Category management (legacy)
   getCategories(): Promise<Category[]>;
   getCategory(id: number): Promise<Category | undefined>;
   createCategory(category: InsertCategory): Promise<Category>;
   updateCategory(id: number, data: Partial<InsertCategory>): Promise<Category | undefined>;
   deleteCategory(id: number): Promise<boolean>;
+  
+  // Musician Category management
+  getMusicianCategories(): Promise<MusicianCategory[]>;
+  getMusicianCategory(id: number): Promise<MusicianCategory | undefined>;
+  createMusicianCategory(category: InsertMusicianCategory): Promise<MusicianCategory>;
+  updateMusicianCategory(id: number, data: Partial<InsertMusicianCategory>): Promise<MusicianCategory | undefined>;
+  deleteMusicianCategory(id: number): Promise<boolean>;
+  
+  // Venue Category management
+  getVenueCategories(): Promise<VenueCategory[]>;
+  getVenueCategory(id: number): Promise<VenueCategory | undefined>;
+  createVenueCategory(category: InsertVenueCategory): Promise<VenueCategory>;
+  updateVenueCategory(id: number, data: Partial<InsertVenueCategory>): Promise<VenueCategory | undefined>;
+  deleteVenueCategory(id: number): Promise<boolean>;
+  
+  // Event Category management
+  getEventCategories(): Promise<EventCategory[]>;
+  getEventCategory(id: number): Promise<EventCategory | undefined>;
+  createEventCategory(category: InsertEventCategory): Promise<EventCategory>;
+  updateEventCategory(id: number, data: Partial<InsertEventCategory>): Promise<EventCategory | undefined>;
+  deleteEventCategory(id: number): Promise<boolean>;
   
   // Musician management
   getMusicians(): Promise<Musician[]>;
@@ -258,7 +282,10 @@ export interface IStorage {
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private venues: Map<number, Venue>;
-  private categories: Map<number, Category>;
+  private categories: Map<number, Category>; // Legacy categories
+  private musicianCategories: Map<number, MusicianCategory>;
+  private venueCategories: Map<number, VenueCategory>;
+  private eventCategories: Map<number, EventCategory>;
   private musicians: Map<number, Musician>;
   private availability: Map<number, Availability>;
   private events: Map<number, Event>;
@@ -287,6 +314,9 @@ export class MemStorage implements IStorage {
   private currentUserId: number;
   private currentVenueId: number;
   private currentCategoryId: number;
+  private currentMusicianCategoryId: number;
+  private currentVenueCategoryId: number;
+  private currentEventCategoryId: number;
   private currentMusicianId: number;
   private currentAvailabilityId: number;
   private currentEventId: number;
