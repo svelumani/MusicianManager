@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Plus, ThumbsUp, X } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+//import { apiRequest } from "@/lib/queryClient";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -277,7 +277,7 @@ export default function SkillTagList({ musicianId, readOnly = false }: SkillTagL
         {musicianTags?.length > 0 ? (
           musicianTags.map((tag: MusicianSkillTag) => (
             <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
-              {allTags?.find(t => t.id === tag.skillTagId)?.name || `Skill #${tag.skillTagId}`}
+              {allTags?.find((t: SkillTag) => t.id === tag.skillTagId)?.name || `Skill #${tag.skillTagId}`}
               {tag.endorsementCount > 0 && (
                 <span className="ml-1 bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-xs">
                   {tag.endorsementCount}

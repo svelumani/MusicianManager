@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Loader2, RefreshCw } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+//import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import { PerformanceMetric } from "@shared/schema";
 
