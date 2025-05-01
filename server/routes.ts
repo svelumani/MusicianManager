@@ -1703,6 +1703,376 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Performance Ratings
+  apiRouter.get("/performance-ratings", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId, bookingId, plannerAssignmentId } = req.query;
+      
+      const ratings = await storage.getPerformanceRatings(
+        musicianId ? parseInt(musicianId as string) : undefined,
+        bookingId ? parseInt(bookingId as string) : undefined,
+        plannerAssignmentId ? parseInt(plannerAssignmentId as string) : undefined
+      );
+      
+      res.json(ratings);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching performance ratings" });
+    }
+  });
+  
+  apiRouter.get("/performance-ratings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const rating = await storage.getPerformanceRating(parseInt(req.params.id));
+      if (!rating) {
+        return res.status(404).json({ message: "Rating not found" });
+      }
+      res.json(rating);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching performance rating" });
+    }
+  });
+  
+  apiRouter.post("/performance-ratings", isAuthenticated, async (req, res) => {
+    try {
+      const rating = await storage.createPerformanceRating(req.body);
+      res.status(201).json(rating);
+    } catch (error) {
+      console.error(error);
+      res.status(400).json({ message: "Failed to create rating", error: error.message });
+    }
+  });
+  
+  apiRouter.put("/performance-ratings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const updatedRating = await storage.updatePerformanceRating(parseInt(req.params.id), req.body);
+      if (!updatedRating) {
+        return res.status(404).json({ message: "Rating not found" });
+      }
+      res.json(updatedRating);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error updating performance rating" });
+    }
+  });
+  
+  apiRouter.delete("/performance-ratings/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deletePerformanceRating(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Rating not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting performance rating" });
+    }
+  });
+  
+  // Performance Metrics
+  apiRouter.get("/performance-metrics/:musicianId", isAuthenticated, async (req, res) => {
+    try {
+      const metrics = await storage.getPerformanceMetrics(parseInt(req.params.musicianId));
+      if (metrics) {
+        res.json(metrics);
+      } else {
+        res.status(404).json({ message: "Metrics not found" });
+      }
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching performance metrics" });
+    }
+  });
+  
+  apiRouter.post("/performance-metrics/:musicianId/recalculate", isAuthenticated, async (req, res) => {
+    try {
+      const metrics = await storage.updateMusicianRatingMetrics(parseInt(req.params.musicianId));
+      if (metrics) {
+        res.json(metrics);
+      } else {
+        res.status(404).json({ message: "Failed to calculate metrics" });
+      }
+    } catch (error) {
+      console.error(error);
+      res.status(400).json({ message: "Failed to update metrics", error: error.message });
+    }
+  });
+  
+  // Musician Average Ratings
+  apiRouter.get("/musicians/:id/average-ratings", isAuthenticated, async (req, res) => {
+    try {
+      const averages = await storage.getMusicianAverageRatings(parseInt(req.params.id));
+      res.json(averages);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching average ratings" });
+    }
+  });
+  
+  // Skill Tags
+  apiRouter.get("/skill-tags", isAuthenticated, async (req, res) => {
+    try {
+      const tags = await storage.getSkillTags();
+      res.json(tags);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching skill tags" });
+    }
+  });
+  
+  apiRouter.get("/skill-tags/:id", isAuthenticated, async (req, res) => {
+    try {
+      const tag = await storage.getSkillTag(parseInt(req.params.id));
+      if (!tag) {
+        return res.status(404).json({ message: "Skill tag not found" });
+      }
+      res.json(tag);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching skill tag" });
+    }
+  });
+  
+  apiRouter.post("/skill-tags", isAuthenticated, async (req, res) => {
+    try {
+      const tag = await storage.createSkillTag(req.body);
+      res.status(201).json(tag);
+    } catch (error) {
+      console.error(error);
+      res.status(400).json({ message: "Failed to create skill tag", error: error.message });
+    }
+  });
+  
+  apiRouter.put("/skill-tags/:id", isAuthenticated, async (req, res) => {
+    try {
+      const updatedTag = await storage.updateSkillTag(parseInt(req.params.id), req.body);
+      if (!updatedTag) {
+        return res.status(404).json({ message: "Skill tag not found" });
+      }
+      res.json(updatedTag);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error updating skill tag" });
+    }
+  });
+  
+  apiRouter.delete("/skill-tags/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteSkillTag(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Skill tag not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting skill tag" });
+    }
+  });
+  
+  // Musician Skill Tags
+  apiRouter.get("/musicians/:id/skill-tags", isAuthenticated, async (req, res) => {
+    try {
+      const tags = await storage.getMusicianSkillTags(parseInt(req.params.id));
+      res.json(tags);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician skill tags" });
+    }
+  });
+  
+  apiRouter.post("/musicians/:id/skill-tags", isAuthenticated, async (req, res) => {
+    try {
+      const musicianId = parseInt(req.params.id);
+      const skillTag = await storage.createMusicianSkillTag({
+        musicianId,
+        skillTagId: req.body.skillTagId,
+        endorsementCount: 0
+      });
+      res.status(201).json(skillTag);
+    } catch (error) {
+      console.error(error);
+      res.status(400).json({ message: "Failed to add skill tag", error: error.message });
+    }
+  });
+  
+  apiRouter.delete("/musicians/:musicianId/skill-tags/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteMusicianSkillTag(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Musician skill tag not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting musician skill tag" });
+    }
+  });
+  
+  apiRouter.post("/musicians/:musicianId/skill-tags/:skillTagId/endorse", isAuthenticated, async (req, res) => {
+    try {
+      const updatedTag = await storage.endorseSkill(
+        parseInt(req.params.musicianId),
+        parseInt(req.params.skillTagId)
+      );
+      
+      if (!updatedTag) {
+        return res.status(404).json({ message: "Skill tag not found" });
+      }
+      res.json(updatedTag);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error endorsing skill" });
+    }
+  });
+  
+  // Improvement Plans
+  apiRouter.get("/improvement-plans", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId } = req.query;
+      
+      const plans = await storage.getImprovementPlans(
+        musicianId ? parseInt(musicianId as string) : undefined
+      );
+      
+      res.json(plans);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching improvement plans" });
+    }
+  });
+  
+  apiRouter.get("/improvement-plans/:id", isAuthenticated, async (req, res) => {
+    try {
+      const plan = await storage.getImprovementPlan(parseInt(req.params.id));
+      if (!plan) {
+        return res.status(404).json({ message: "Improvement plan not found" });
+      }
+      res.json(plan);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching improvement plan" });
+    }
+  });
+  
+  apiRouter.post("/improvement-plans", isAuthenticated, async (req, res) => {
+    try {
+      const plan = await storage.createImprovementPlan(req.body);
+      res.status(201).json(plan);
+    } catch (error) {
+      console.error(error);
+      res.status(400).json({ message: "Failed to create improvement plan", error: error.message });
+    }
+  });
+  
+  apiRouter.put("/improvement-plans/:id", isAuthenticated, async (req, res) => {
+    try {
+      const updatedPlan = await storage.updateImprovementPlan(parseInt(req.params.id), req.body);
+      if (!updatedPlan) {
+        return res.status(404).json({ message: "Improvement plan not found" });
+      }
+      res.json(updatedPlan);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error updating improvement plan" });
+    }
+  });
+  
+  apiRouter.delete("/improvement-plans/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteImprovementPlan(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Improvement plan not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting improvement plan" });
+    }
+  });
+  
+  // Improvement Actions
+  apiRouter.get("/improvement-plans/:planId/actions", isAuthenticated, async (req, res) => {
+    try {
+      const actions = await storage.getImprovementActions(parseInt(req.params.planId));
+      res.json(actions);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching improvement actions" });
+    }
+  });
+  
+  apiRouter.get("/improvement-actions/:id", isAuthenticated, async (req, res) => {
+    try {
+      const action = await storage.getImprovementAction(parseInt(req.params.id));
+      if (!action) {
+        return res.status(404).json({ message: "Improvement action not found" });
+      }
+      res.json(action);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching improvement action" });
+    }
+  });
+  
+  apiRouter.post("/improvement-plans/:planId/actions", isAuthenticated, async (req, res) => {
+    try {
+      const planId = parseInt(req.params.planId);
+      const action = await storage.createImprovementAction({
+        ...req.body,
+        planId
+      });
+      res.status(201).json(action);
+    } catch (error) {
+      console.error(error);
+      res.status(400).json({ message: "Failed to create improvement action", error: error.message });
+    }
+  });
+  
+  apiRouter.put("/improvement-actions/:id", isAuthenticated, async (req, res) => {
+    try {
+      const updatedAction = await storage.updateImprovementAction(parseInt(req.params.id), req.body);
+      if (!updatedAction) {
+        return res.status(404).json({ message: "Improvement action not found" });
+      }
+      res.json(updatedAction);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error updating improvement action" });
+    }
+  });
+  
+  apiRouter.delete("/improvement-actions/:id", isAuthenticated, async (req, res) => {
+    try {
+      const success = await storage.deleteImprovementAction(parseInt(req.params.id));
+      if (!success) {
+        return res.status(404).json({ message: "Improvement action not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting improvement action" });
+    }
+  });
+  
+  apiRouter.post("/improvement-actions/:id/complete", isAuthenticated, async (req, res) => {
+    try {
+      const { feedback } = req.body;
+      const completedAction = await storage.completeImprovementAction(
+        parseInt(req.params.id),
+        feedback
+      );
+      
+      if (!completedAction) {
+        return res.status(404).json({ message: "Improvement action not found" });
+      }
+      res.json(completedAction);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error completing improvement action" });
+    }
+  });
+
   // Mount the API router
   app.use("/api", apiRouter);
 
