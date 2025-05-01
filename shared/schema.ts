@@ -178,8 +178,14 @@ export const events = pgTable("events", {
   eventType: text("event_type").notNull(), // One Day, Multi-day (continuous), Multi-day (occurrence)
   startDate: timestamp("start_date").notNull(),
   endDate: timestamp("end_date"),
+  eventDates: timestamp("event_dates").array(), // Array of dates for multi-day events
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
   categoryIds: integer("category_ids").array(), // Foreign keys to event_categories
+  musicianTypeId: integer("musician_type_id"), // Foreign key to musician_types
+  totalPayment: doublePrecision("total_payment"), // Total payment amount for the event
+  advancePayment: doublePrecision("advance_payment"), // Advance payment received
+  secondPayment: doublePrecision("second_payment"), // Second payment received
+  notes: text("notes"), // Notes about the event
 });
 
 export const insertEventSchema = createInsertSchema(events).pick({
@@ -189,40 +195,82 @@ export const insertEventSchema = createInsertSchema(events).pick({
   eventType: true,
   startDate: true,
   endDate: true,
+  eventDates: true,
   status: true,
   categoryIds: true,
+  musicianTypeId: true,
+  totalPayment: true,
+  advancePayment: true,
+  secondPayment: true,
+  notes: true,
 });
 
-// Booking model (musicians for events)
-export const bookings = pgTable("bookings", {
+// Invitation model (invitations to musicians for events)
+export const invitations = pgTable("invitations", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").notNull(), // Foreign key to events
   musicianId: integer("musician_id").notNull(), // Foreign key to musicians
   invitedAt: timestamp("invited_at").notNull(),
   respondedAt: timestamp("responded_at"),
-  isAccepted: boolean("is_accepted"),
+  status: text("status").notNull().default("invited"), // invited, accepted, rejected
+  responseMessage: text("response_message"),
+  email: text("email").notNull(),
+  messageSubject: text("message_subject").notNull(),
+  messageBody: text("message_body").notNull(),
+  reminders: integer("reminders").default(0), // Number of reminders sent
+  lastReminderAt: timestamp("last_reminder_at"),
+});
+
+export const insertInvitationSchema = createInsertSchema(invitations).pick({
+  eventId: true,
+  musicianId: true,
+  invitedAt: true,
+  respondedAt: true,
+  status: true,
+  responseMessage: true,
+  email: true,
+  messageSubject: true,
+  messageBody: true,
+  reminders: true,
+  lastReminderAt: true,
+});
+
+// Booking model (confirmed musicians for events after contract signing)
+export const bookings = pgTable("bookings", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(), // Foreign key to events
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  invitationId: integer("invitation_id").notNull(), // Foreign key to invitations
   contractSent: boolean("contract_sent").default(false),
   contractSentAt: timestamp("contract_sent_at"),
   contractSigned: boolean("contract_signed").default(false),
   contractSignedAt: timestamp("contract_signed_at"),
   paymentAmount: doublePrecision("payment_amount"),
   paymentStatus: text("payment_status").default("pending"), // pending, paid, partial
+  advancePayment: doublePrecision("advance_payment"),
+  advancePaidAt: timestamp("advance_paid_at"),
+  finalPayment: doublePrecision("final_payment"),
+  finalPaidAt: timestamp("final_paid_at"),
   contractDetails: jsonb("contract_details"),
+  notes: text("notes"),
 });
 
 export const insertBookingSchema = createInsertSchema(bookings).pick({
   eventId: true,
   musicianId: true,
-  invitedAt: true,
-  respondedAt: true,
-  isAccepted: true,
+  invitationId: true,
   contractSent: true,
   contractSentAt: true,
   contractSigned: true,
   contractSignedAt: true,
   paymentAmount: true,
   paymentStatus: true,
+  advancePayment: true,
+  advancePaidAt: true,
+  finalPayment: true,
+  finalPaidAt: true,
   contractDetails: true,
+  notes: true,
 });
 
 // Payment model for musicians
@@ -339,6 +387,9 @@ export type InsertAvailability = z.infer<typeof insertAvailabilitySchema>;
 
 export type Event = typeof events.$inferSelect;
 export type InsertEvent = z.infer<typeof insertEventSchema>;
+
+export type Invitation = typeof invitations.$inferSelect;
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
 
 export type Booking = typeof bookings.$inferSelect;
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
