@@ -31,13 +31,13 @@ export default function RatingCard({
   initialRating,
 }: RatingCardProps) {
   const queryClient = useQueryClient();
-  const [rating, setRating] = useState<number>(initialRating?.rating || 5);
-  const [comment, setComment] = useState<string>(initialRating?.comment || "");
+  const [rating, setRating] = useState<number>(initialRating?.overallRating || 5);
+  const [comment, setComment] = useState<string>(initialRating?.comments || "");
 
   useEffect(() => {
     if (initialRating) {
-      setRating(initialRating.rating);
-      setComment(initialRating.comment || "");
+      setRating(initialRating.overallRating);
+      setComment(initialRating.comments || "");
     }
   }, [initialRating]);
 
@@ -52,8 +52,26 @@ export default function RatingCard({
 
   const createRatingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/performance-ratings", data);
-      return await res.json();
+      try {
+        // Using fetch directly to avoid HTTP token issues
+        const response = await fetch("/api/performance-ratings", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+          credentials: "include"
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (err) {
+        console.error("Error saving rating:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       toast({
@@ -75,8 +93,26 @@ export default function RatingCard({
 
   const updateRatingMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("PUT", `/api/performance-ratings/${initialRating?.id}`, data);
-      return await res.json();
+      try {
+        // Using fetch directly to avoid HTTP token issues
+        const response = await fetch(`/api/performance-ratings/${initialRating?.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+          credentials: "include"
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        return await response.json();
+      } catch (err) {
+        console.error("Error updating rating:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       toast({
