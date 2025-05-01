@@ -137,9 +137,11 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       setShowAssignDialog(true);
     } else {
       // If slot doesn't exist, create it first
-      createSlotMutation.mutate({
+      // Use an actual Date object and handle the conversion properly with parseISO
+      // We need to wrap the date properly for server zod validation
+      const slotData = {
         plannerId: planner.id,
-        date: date.toISOString(),
+        date: new Date(date), // Create a proper Date object
         venueId,
         categoryId: categories[0]?.id || 1, // Default category
         startTime: "19:00",
@@ -147,7 +149,10 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         status: "open",
         description: "",
         fee: null
-      });
+      };
+      
+      console.log("Creating slot with date:", slotData.date);
+      createSlotMutation.mutate(slotData);
     }
   };
 

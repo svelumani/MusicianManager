@@ -851,14 +851,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/planner-slots", isAuthenticated, async (req, res) => {
     try {
-      const slotData = insertPlannerSlotSchema.parse(req.body);
-      const slot = await storage.createPlannerSlot(slotData);
+      console.log("Creating planner slot with data:", req.body);
+      
+      // Ensure date is properly handled
+      const slotData = {
+        ...req.body,
+        // If date is already a Date object, use it, otherwise try to parse it
+        date: req.body.date instanceof Date ? 
+          req.body.date : 
+          (typeof req.body.date === 'string' ? 
+            new Date(req.body.date) : 
+            req.body.date)
+      };
+      
+      console.log("Modified slot data:", slotData);
+      
+      // Validate with schema
+      const validatedData = insertPlannerSlotSchema.parse(slotData);
+      console.log("Validated slot data:", validatedData);
+      
+      const slot = await storage.createPlannerSlot(validatedData);
+      console.log("Created slot:", slot);
+      
       res.status(201).json(slot);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", error.errors);
         return res.status(400).json({ message: "Invalid slot data", errors: error.errors });
       }
-      console.error(error);
+      console.error("Error creating planner slot:", error);
       res.status(500).json({ message: "Error creating planner slot" });
     }
   });
