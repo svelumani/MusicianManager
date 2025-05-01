@@ -8,6 +8,8 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import MemoryStore from "memorystore";
 import { format } from "date-fns";
+import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "./services/settings";
+import { sendMusicianAssignmentEmail } from "./services/email";
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -95,7 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   apiRouter.post("/auth/login", (req, res, next) => {
     console.log("Login attempt:", req.body);
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
       if (err) {
         console.error("Auth error:", err);
         return next(err);
@@ -1322,6 +1324,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error marking invoice as paid" });
+    }
+  });
+
+  // Settings routes
+  apiRouter.get("/settings/:type", isAuthenticated, async (req, res) => {
+    try {
+      const { type } = req.params;
+      const settings = await getSettings(type);
+      if (settings === null) {
+        return res.json({});
+      }
+      res.json(settings);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ message: "Error fetching settings" });
+    }
+  });
+
+  apiRouter.put("/settings/:type", isAuthenticated, async (req, res) => {
+    try {
+      const { type } = req.params;
+      const settings = await saveSettings(type, req.body);
+      res.json(settings);
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      res.status(500).json({ message: "Error saving settings" });
+    }
+  });
+
+  // Email settings specific routes
+  apiRouter.get("/settings/email/config", isAuthenticated, async (req, res) => {
+    try {
+      const settings = await getEmailSettings() as any;
+      if (settings === null) {
+        return res.json({
+          enabled: false,
+          from: '',
+          replyTo: '',
+          apiKey: ''
+        });
+      }
+      
+      // Don't return the actual API key value, just whether it exists
+      const response = {
+        ...settings,
+        apiKey: settings && settings.apiKey ? '••••••••••••••••••••••' : ''
+      };
+      
+      res.json(response);
+    } catch (error) {
+      console.error("Error fetching email settings:", error);
+      res.status(500).json({ message: "Error fetching email settings" });
+    }
+  });
+
+  apiRouter.put("/settings/email/config", isAuthenticated, async (req, res) => {
+    try {
+      const { enabled, from, replyTo, apiKey } = req.body;
+      
+      // Get existing settings to preserve API key if not changing
+      const existingSettings = await getEmailSettings() as any || {};
+      const newSettings = {
+        enabled: enabled === true,
+        from: from || '',
+        replyTo: replyTo || '',
+        // Only update API key if provided, otherwise keep existing
+        apiKey: apiKey || existingSettings.apiKey || ''
+      };
+      
+      const settings = await saveEmailSettings(newSettings) as any;
+      
+      // Don't return the actual API key value in the response
+      const response = {
+        ...((settings?.data as any) || {}),
+        apiKey: settings?.data?.apiKey ? '••••••••••••••••••••••' : ''
+      };
+      
+      res.json(response);
+    } catch (error) {
+      console.error("Error saving email settings:", error);
+      res.status(500).json({ message: "Error saving email settings" });
+    }
+  });
+  
+  // Send test email route
+  apiRouter.post("/settings/email/test", isAuthenticated, async (req, res) => {
+    try {
+      const { to, subject, content } = req.body;
+      
+      if (!to || !subject || !content) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email address, subject, and content are required" 
+        });
+      }
+      
+      const result = await sendMusicianAssignmentEmail(
+        to,
+        "Test Recipient",
+        [
+          {
+            date: "May 15, 2025",
+            venue: "Test Venue",
+            startTime: "7:00 PM",
+            endTime: "10:00 PM",
+            fee: 150
+          }
+        ]
+      );
+      
+      if (result) {
+        res.json({ success: true, message: "Test email sent successfully" });
+      } else {
+        res.status(500).json({ success: false, message: "Failed to send test email" });
+      }
+    } catch (error) {
+      console.error("Error sending test email:", error);
+      res.status(500).json({ success: false, message: "Error sending test email" });
     }
   });
 
