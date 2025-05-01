@@ -57,12 +57,24 @@ const MonthSelector = ({ value, onChange }: MonthSelectorProps) => {
     label: format(new Date(2000, i, 1), "MMMM"),
   }));
 
-  // Generate an array of years for the dropdown (current year +/- 5 years)
+  // Generate an array of years for the dropdown (current year +5/-2 years)
+  // Extended range to support long-term planning
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 11 }, (_, i) => ({
-    value: (currentYear - 5 + i).toString(),
-    label: (currentYear - 5 + i).toString(),
+  const years = Array.from({ length: 8 }, (_, i) => ({
+    value: (currentYear - 2 + i).toString(),
+    label: (currentYear - 2 + i).toString(),
   }));
+  
+  // Add special years for planning (2025, 2026)
+  if (!years.some(y => y.value === "2025")) {
+    years.push({ value: "2025", label: "2025" });
+  }
+  if (!years.some(y => y.value === "2026")) {
+    years.push({ value: "2026", label: "2026" });
+  }
+  
+  // Sort years in ascending order
+  years.sort((a, b) => parseInt(a.value) - parseInt(b.value));
 
   return (
     <div className="flex items-center gap-2">

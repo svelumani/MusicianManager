@@ -51,20 +51,22 @@ const PlannerPage = () => {
     },
   });
 
-  // Query to get venues
+  // Query to get venues with proper typing
   const {
     data: venues,
     isLoading: isVenuesLoading,
-  } = useQuery({
+  } = useQuery<any[]>({
     queryKey: ['/api/venues'],
+    select: (data) => Array.isArray(data) ? data : [],
   });
   
-  // Query to get categories
+  // Query to get categories with proper typing
   const {
     data: categories,
     isLoading: isCategoriesLoading,
-  } = useQuery({
+  } = useQuery<any[]>({
     queryKey: ['/api/categories'],
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   // Create a new monthly planner
@@ -132,8 +134,27 @@ const PlannerPage = () => {
         <div className="flex items-center gap-4">
           <MonthSelector value={selectedMonth} onChange={setSelectedMonth} />
           {!planner && (
-            <Button onClick={handleCreatePlanner} disabled={createPlannerMutation.isPending}>
-              {createPlannerMutation.isPending ? "Creating..." : "Create Planner"}
+            <Button 
+              onClick={handleCreatePlanner} 
+              disabled={createPlannerMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {createPlannerMutation.isPending ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating...
+                </span>
+              ) : (
+                <>
+                  {currentMonth === 3 && currentYear === 2025 ? 
+                    "Create March 2025 Planner" : 
+                    `Create ${format(new Date(currentYear, currentMonth - 1), 'MMM yyyy')} Planner`
+                  }
+                </>
+              )}
             </Button>
           )}
           {planner && (
@@ -147,21 +168,45 @@ const PlannerPage = () => {
       {planner ? (
         <PlannerGrid 
           planner={planner} 
-          venues={venues || []} 
-          categories={categories || []}
+          venues={Array.isArray(venues) ? venues : []} 
+          categories={Array.isArray(categories) ? categories : []}
           selectedMonth={selectedMonth}
         />
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>No Planner Found</CardTitle>
+            <CardTitle>No Planner Found for {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}</CardTitle>
             <CardDescription>
-              There is no planner for the selected month. Create one to get started.
+              {currentMonth === 3 && currentYear === 2025 ? (
+                <>
+                  <span className="font-semibold text-blue-600">March 2025 planner</span> needs to be created for VAMP schedule management. 
+                  Create it now to start adding venues and musicians.
+                </>
+              ) : (
+                <>
+                  There is no planner for {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}. 
+                  Create one to get started with scheduling for this month.
+                </>
+              )}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button onClick={handleCreatePlanner} disabled={createPlannerMutation.isPending}>
-              {createPlannerMutation.isPending ? "Creating..." : "Create Planner for This Month"}
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={handleCreatePlanner} 
+              disabled={createPlannerMutation.isPending}
+              className="w-full"
+            >
+              {createPlannerMutation.isPending ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating...
+                </span>
+              ) : (
+                <>Create {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')} Planner</>
+              )}
             </Button>
           </CardContent>
         </Card>
