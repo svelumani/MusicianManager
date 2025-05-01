@@ -147,12 +147,10 @@ export default function InstrumentManagerPage() {
       const { instrumentIds, ...categoryData } = values;
       
       // First, create the category
-      const res = await apiRequest("POST", "/api/categories", {
+      const newCategory = await apiRequest("/api/categories", "POST", {
         title: categoryData.title,
         description: categoryData.description || "",
       });
-      
-      const newCategory = await res.json();
       
       // Then, update instrument associations (for a real implementation, this would update 
       // the backend, but here we just update the local state)

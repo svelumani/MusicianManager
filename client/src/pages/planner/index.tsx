@@ -19,10 +19,15 @@ import MonthSelector from "@/components/planner/MonthSelector";
 
 const PlannerPage = () => {
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), "yyyy-MM"));
   
-  // Get current month and year
+  // Default to current date, but we'll allow creating future planners
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // Initialize with current month, or March 2025 as requested
+  const marchDate = new Date(2025, 2, 1); // March is month 2 (zero-indexed)
+  const [selectedMonth, setSelectedMonth] = useState(format(marchDate, "yyyy-MM"));
+  
+  // Get current month and year from selected month string
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
   const currentYear = parseInt(selectedMonth.split("-")[0]);
 

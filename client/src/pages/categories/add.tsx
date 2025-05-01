@@ -35,8 +35,7 @@ export default function AddCategoryPage() {
 
   const createCategoryMutation = useMutation({
     mutationFn: async (values: CategoryFormValues) => {
-      const res = await apiRequest("POST", "/api/categories", values);
-      return res.json();
+      return await apiRequest("/api/categories", "POST", values);
     },
     onSuccess: () => {
       toast({
@@ -47,6 +46,7 @@ export default function AddCategoryPage() {
       navigate("/categories");
     },
     onError: (error) => {
+      console.error("Category creation error:", error);
       toast({
         title: "Failed to create category",
         description: error.message || "An error occurred while creating the category",
