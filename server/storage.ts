@@ -370,6 +370,46 @@ export class MemStorage implements IStorage {
     this.createCategory({ title: "Rock", description: "Rock musicians including guitarists, drummers, and vocalists" });
     this.createCategory({ title: "Pop", description: "Pop musicians including vocalists, guitarists, and more" });
     
+    // Initialize with sample musicians
+    this.createMusician({
+      name: "Sarah Johnson",
+      email: "sarah@musician.com",
+      profileImage: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&h=300&q=80",
+      type: "Solo",
+      rating: 4.8,
+      phone: "555-123-4567",
+      payRate: 200,
+      categoryId: 1, // Jazz
+      instruments: ["Piano", "Saxophone"],
+      bio: "Sarah is an accomplished jazz pianist with over 10 years of experience performing in top venues across the country. Her unique style blends traditional jazz elements with contemporary influences."
+    });
+    
+    this.createMusician({
+      name: "Michael Chen",
+      email: "michael@musician.com",
+      profileImage: "https://images.unsplash.com/photo-1542103749-8ef59b94f47e?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&h=300&q=80",
+      type: "Solo",
+      rating: 4.9,
+      phone: "555-987-6543",
+      payRate: 250,
+      categoryId: 2, // Classical
+      instruments: ["Violin", "Piano"],
+      bio: "Michael is a classically trained violinist who has performed with several symphony orchestras. His repertoire spans from baroque to contemporary classical pieces."
+    });
+    
+    this.createMusician({
+      name: "Olivia Martinez",
+      email: "olivia@musician.com",
+      profileImage: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&h=300&q=80",
+      type: "Solo",
+      rating: 4.7,
+      phone: "555-456-7890",
+      payRate: 180,
+      categoryId: 4, // Pop (ID 4 based on createCategory order above)
+      instruments: ["Vocals", "Guitar"],
+      bio: "Olivia is a charismatic vocalist and guitarist specializing in contemporary pop music. Her energetic performances and wide vocal range make her perfect for events requiring audience engagement."
+    });
+
     // Initialize with sample venues
     this.createVenue({
       name: "Blue Moon Lounge",
