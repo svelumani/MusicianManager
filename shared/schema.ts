@@ -460,3 +460,169 @@ export type InsertMusicianType = z.infer<typeof insertMusicianTypeSchema>;
 
 export type MusicianTypeCategory = typeof musicianTypeCategories.$inferSelect;
 export type InsertMusicianTypeCategory = z.infer<typeof insertMusicianTypeCategorySchema>;
+
+// Performance Rating and Review models
+export const performanceRatings = pgTable("performance_ratings", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  bookingId: integer("booking_id"), // Optional link to specific booking
+  plannerAssignmentId: integer("planner_assignment_id"), // Optional link to planner assignment
+  ratedBy: integer("rated_by").notNull(), // User ID who submitted the rating
+  ratedAt: timestamp("rated_at").notNull().defaultNow(),
+  punctuality: integer("punctuality").notNull(), // 1-5 scale
+  musicianship: integer("musicianship").notNull(), // 1-5 scale
+  professionalism: integer("professionalism").notNull(), // 1-5 scale
+  appearance: integer("appearance").notNull(), // 1-5 scale
+  flexibility: integer("flexibility").notNull(), // 1-5 scale
+  overallRating: doublePrecision("overall_rating").notNull(), // Computed average
+  comments: text("comments"),
+  eventDate: timestamp("event_date").notNull(), // Date of the performance
+  venueId: integer("venue_id"), // Where the performance happened
+});
+
+export const insertPerformanceRatingSchema = createInsertSchema(performanceRatings).pick({
+  musicianId: true,
+  bookingId: true,
+  plannerAssignmentId: true,
+  ratedBy: true,
+  ratedAt: true,
+  punctuality: true,
+  musicianship: true,
+  professionalism: true,
+  appearance: true,
+  flexibility: true,
+  overallRating: true,
+  comments: true,
+  eventDate: true,
+  venueId: true,
+});
+
+// Performance Metrics for tracking musician statistics
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  totalPerformances: integer("total_performances").notNull().default(0),
+  completedPerformances: integer("completed_performances").notNull().default(0),
+  cancelledPerformances: integer("cancelled_performances").notNull().default(0),
+  averageRating: doublePrecision("average_rating"),
+  punctualityAvg: doublePrecision("punctuality_avg"),
+  musicianshipAvg: doublePrecision("musicianship_avg"),
+  professionalismAvg: doublePrecision("professionalism_avg"),
+  appearanceAvg: doublePrecision("appearance_avg"),
+  flexibilityAvg: doublePrecision("flexibility_avg"),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  lastPerformanceDate: timestamp("last_performance_date"),
+  performanceStreak: integer("performance_streak").notNull().default(0),
+  improvementTrend: doublePrecision("improvement_trend"), // Positive or negative trend over time
+});
+
+export const insertPerformanceMetricsSchema = createInsertSchema(performanceMetrics).pick({
+  musicianId: true,
+  totalPerformances: true,
+  completedPerformances: true,
+  cancelledPerformances: true,
+  averageRating: true,
+  punctualityAvg: true,
+  musicianshipAvg: true,
+  professionalismAvg: true,
+  appearanceAvg: true,
+  flexibilityAvg: true,
+  lastUpdated: true,
+  lastPerformanceDate: true,
+  performanceStreak: true,
+  improvementTrend: true,
+});
+
+// Skill Tags for musicians
+export const skillTags = pgTable("skill_tags", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertSkillTagSchema = createInsertSchema(skillTags).pick({
+  name: true,
+  description: true,
+});
+
+// Musician Skill Tags (many-to-many)
+export const musicianSkillTags = pgTable("musician_skill_tags", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  skillTagId: integer("skill_tag_id").notNull(), // Foreign key to skill_tags
+  endorsementCount: integer("endorsement_count").notNull().default(0),
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+});
+
+export const insertMusicianSkillTagSchema = createInsertSchema(musicianSkillTags).pick({
+  musicianId: true,
+  skillTagId: true,
+  endorsementCount: true,
+});
+
+// Performance Improvement Plans
+export const improvementPlans = pgTable("improvement_plans", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  createdBy: integer("created_by").notNull(), // User ID
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  status: text("status").notNull().default("active"), // active, completed, cancelled
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+  notes: text("notes"),
+  goalRating: doublePrecision("goal_rating"), // Target rating to achieve
+});
+
+export const insertImprovementPlanSchema = createInsertSchema(improvementPlans).pick({
+  musicianId: true,
+  createdBy: true,
+  title: true,
+  description: true,
+  startDate: true,
+  endDate: true,
+  status: true,
+  notes: true,
+  goalRating: true,
+});
+
+// Improvement Plan Action Items
+export const improvementActions = pgTable("improvement_actions", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull(), // Foreign key to improvement_plans
+  action: text("action").notNull(),
+  dueDate: timestamp("due_date"),
+  status: text("status").notNull().default("pending"), // pending, in-progress, completed
+  addedAt: timestamp("added_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  feedback: text("feedback"),
+});
+
+export const insertImprovementActionSchema = createInsertSchema(improvementActions).pick({
+  planId: true,
+  action: true,
+  dueDate: true,
+  status: true,
+  feedback: true,
+});
+
+export type PerformanceRating = typeof performanceRatings.$inferSelect;
+export type InsertPerformanceRating = z.infer<typeof insertPerformanceRatingSchema>;
+
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricsSchema>;
+
+export type SkillTag = typeof skillTags.$inferSelect;
+export type InsertSkillTag = z.infer<typeof insertSkillTagSchema>;
+
+export type MusicianSkillTag = typeof musicianSkillTags.$inferSelect;
+export type InsertMusicianSkillTag = z.infer<typeof insertMusicianSkillTagSchema>;
+
+export type ImprovementPlan = typeof improvementPlans.$inferSelect;
+export type InsertImprovementPlan = z.infer<typeof insertImprovementPlanSchema>;
+
+export type ImprovementAction = typeof improvementActions.$inferSelect;
+export type InsertImprovementAction = z.infer<typeof insertImprovementActionSchema>;
