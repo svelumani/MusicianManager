@@ -337,6 +337,22 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                   selected={selectedDates}
                   onSelect={(dates) => dates && setSelectedDates(dates)}
                   className="rounded-md border"
+                  modifiers={{
+                    available: (date) => isDateAvailable(date),
+                    unavailable: (date) => {
+                      if (!calendarData) return false;
+                      const dateStr = format(date, "yyyy-MM-dd");
+                      return calendarData.availability.some(
+                        a => new Date(a.date).toISOString().split('T')[0] === dateStr && !a.isAvailable
+                      );
+                    },
+                    booked: (date) => getBookingForDate(date) !== undefined
+                  }}
+                  modifiersClassNames={{
+                    available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
+                    unavailable: "bg-gray-50 hover:bg-gray-100 text-gray-700",
+                    booked: "bg-green-100 hover:bg-green-200 text-green-900"
+                  }}
                 />
               ) : (
                 <Calendar
@@ -344,14 +360,23 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                   selected={selectedDate}
                   onSelect={(date) => date && setSelectedDate(date)}
                   className="rounded-md border"
+                  modifiers={{
+                    available: (date) => isDateAvailable(date),
+                    unavailable: (date) => {
+                      if (!calendarData) return false;
+                      const dateStr = format(date, "yyyy-MM-dd");
+                      return calendarData.availability.some(
+                        a => new Date(a.date).toISOString().split('T')[0] === dateStr && !a.isAvailable
+                      );
+                    },
+                    booked: (date) => getBookingForDate(date) !== undefined
+                  }}
+                  modifiersClassNames={{
+                    available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
+                    unavailable: "bg-gray-50 hover:bg-gray-100 text-gray-700",
+                    booked: "bg-green-100 hover:bg-green-200 text-green-900"
+                  }}
                 />
-              )}
-              
-              {/* Overlay calendar days with custom styling */}
-              {!loading && calendarData && (
-                <div className="absolute inset-0 pointer-events-none">
-                  {/* Render booked and available indicators here */}
-                </div>
               )}
             </div>
             
