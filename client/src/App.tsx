@@ -92,6 +92,13 @@ function Router() {
           </AppLayout>
         )}
       </Route>
+      <Route path="/musicians/:id/availability">
+        {(params) => (
+          <AppLayout>
+            <MusicianAvailabilityPage />
+          </AppLayout>
+        )}
+      </Route>
       <Route path="/musicians/:id">
         {(params) => (
           <AppLayout>

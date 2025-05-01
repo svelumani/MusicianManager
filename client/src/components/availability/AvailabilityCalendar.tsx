@@ -216,10 +216,13 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
               modifiersClassNames={{
                 today: "bg-yellow-100 text-yellow-900 font-bold",
               }}
-              styles={{
-                day: (date) => ({
-                  className: getDateClass(date),
-                }),
+              modifiers={{
+                booked: (date) => !!getBookingForDate(date),
+                available: (date) => isDateAvailable(date),
+              }}
+              modifiersStyles={{
+                booked: { backgroundColor: "rgb(220, 252, 231)", color: "rgb(20, 83, 45)" },
+                available: { backgroundColor: "rgb(219, 234, 254)", color: "rgb(30, 58, 138)" },
               }}
             />
             

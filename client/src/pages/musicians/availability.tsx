@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { Link } from "wouter";
 import { AvailabilityCalendar } from "@/components/availability/AvailabilityCalendar";
-import { Musician } from "@/types";
+import type { Musician } from "@shared/schema";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 
 const MusicianAvailabilityPage = () => {
-  const { id } = useParams();
-  const musicianId = parseInt(id);
+  const { id } = useParams<{ id: string }>();
+  const musicianId = id ? parseInt(id) : 0;
   const [musician, setMusician] = useState<Musician | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
