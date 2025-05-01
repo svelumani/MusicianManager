@@ -665,6 +665,12 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
   
+  async getVenueEvents(venueId: number): Promise<Event[]> {
+    return Array.from(this.events.values())
+      .filter(e => e.venueId === venueId)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+  }
+  
   // Booking management methods
   async getBookings(eventId?: number): Promise<Booking[]> {
     if (eventId) {

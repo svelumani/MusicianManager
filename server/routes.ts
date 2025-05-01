@@ -280,6 +280,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error deleting venue" });
     }
   });
+  
+  apiRouter.get("/venues/:id/events", isAuthenticated, async (req, res) => {
+    try {
+      const venueId = parseInt(req.params.id);
+      // Check if venue exists first
+      const venue = await storage.getVenue(venueId);
+      if (!venue) {
+        return res.status(404).json({ message: "Venue not found" });
+      }
+      
+      const events = await storage.getVenueEvents(venueId);
+      res.json(events);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching venue events" });
+    }
+  });
 
   // Category routes
   apiRouter.get("/categories", isAuthenticated, async (req, res) => {
