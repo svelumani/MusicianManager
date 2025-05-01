@@ -11,7 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Loader2, Mail, Phone, Star } from "lucide-react";
-import type { Musician, Category } from "@shared/schema";
+import type { Musician, Category, MusicianType, MusicianPayRate } from "@shared/schema";
 
 export default function ViewMusicianPage() {
   const [, navigate] = useLocation();
@@ -29,6 +29,19 @@ export default function ViewMusicianPage() {
 
   const { data: categories } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
+  });
+  
+  const { data: musicianTypes } = useQuery<MusicianType[]>({
+    queryKey: ["/api/musician-types"],
+  });
+  
+  const { data: payRates } = useQuery<MusicianPayRate[]>({
+    queryKey: ["/api/musician-pay-rates", musicianId],
+    queryFn: async () => {
+      const res = await fetch(`/api/musician-pay-rates?musicianId=${musicianId}`);
+      if (!res.ok) throw new Error("Failed to fetch pay rates");
+      return res.json();
+    },
   });
 
   useEffect(() => {
@@ -53,6 +66,11 @@ export default function ViewMusicianPage() {
     const category = categories?.find(c => c.id === categoryId);
     return category ? category.title : "Unknown";
   };
+  
+  const getMusicianTypeName = (typeId: number) => {
+    const type = musicianTypes?.find(t => t.id === typeId);
+    return type ? type.title : "Unknown";
+  };
 
   return (
     <div className="container py-8 space-y-6">
@@ -68,11 +86,15 @@ export default function ViewMusicianPage() {
             Back to Musicians
           </Button>
           <h1 className="text-3xl font-bold">{musician.name}</h1>
-          <p className="text-muted-foreground">{musician.type}</p>
+          <p className="text-muted-foreground">{getMusicianTypeName(musician.typeId)}</p>
         </div>
         <div className="flex items-center gap-1">
           <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-          <span className="text-2xl font-bold">{musician.rating?.toFixed(1) || "N/A"}</span>
+          <span className="text-2xl font-bold">
+            {musician.rating !== null && musician.rating !== undefined
+              ? musician.rating.toFixed(1)
+              : "N/A"}
+          </span>
         </div>
       </div>
 
@@ -90,7 +112,7 @@ export default function ViewMusicianPage() {
               </Avatar>
               <div>
                 <h3 className="text-xl font-semibold">{musician.name}</h3>
-                <p className="text-sm text-muted-foreground">{musician.type}</p>
+                <p className="text-sm text-muted-foreground">{getMusicianTypeName(musician.typeId)}</p>
                 <Badge className="mt-2">{getCategoryName(musician.categoryId)}</Badge>
               </div>
             </div>
@@ -109,8 +131,29 @@ export default function ViewMusicianPage() {
               </div>
               <div className="space-y-2">
                 <h4 className="font-medium">Financial Information</h4>
-                <p><span className="font-medium">Pay Rate:</span> ${musician.payRate.toFixed(2)}/hr</p>
-                <p><span className="font-medium">Instruments:</span> {musician.instruments?.join(", ") || musician.type}</p>
+                <div>
+                  <span className="font-medium">Pay Rates:</span>
+                  {payRates && payRates.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {payRates.map(rate => (
+                        <div key={rate.id} className="text-sm">
+                          <span className="font-medium">{rate.eventCategoryId ? getCategoryName(rate.eventCategoryId) : "Default"}: </span>
+                          {rate.rateType === 'hourly' ? (
+                            <span>${rate.rate.toFixed(2)}/hr</span>
+                          ) : rate.rateType === 'event' ? (
+                            <span>${rate.rate.toFixed(2)}/event</span>
+                          ) : (
+                            <span>${rate.rate.toFixed(2)}/day</span>
+                          )}
+                          {rate.notes && <span className="text-gray-500 ml-1">({rate.notes})</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="ml-1">Multiple rates available</span>
+                  )}
+                </div>
+                <p><span className="font-medium">Instruments:</span> {musician.instruments?.join(", ") || getMusicianTypeName(musician.typeId)}</p>
               </div>
             </div>
 
