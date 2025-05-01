@@ -111,8 +111,7 @@ export const musicians = pgTable("musicians", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
-  type: text("type").notNull(), // e.g., Pianist, Guitarist, Vocalist
-  payRate: doublePrecision("pay_rate").notNull(),
+  typeId: integer("type_id").notNull(), // Foreign key to musician_types
   categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
   instruments: text("instruments").array(),
   profileImage: text("profile_image"),
@@ -124,13 +123,30 @@ export const insertMusicianSchema = createInsertSchema(musicians).pick({
   name: true,
   email: true,
   phone: true,
-  type: true,
-  payRate: true,
+  typeId: true,
   categoryId: true,
   instruments: true,
   profileImage: true,
   bio: true,
   rating: true,
+});
+
+// Musician pay rates model
+export const musicianPayRates = pgTable("musician_pay_rates", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  eventCategoryId: integer("event_category_id").notNull(), // Foreign key to event_categories
+  hourlyRate: doublePrecision("hourly_rate"), // Rate per hour
+  dayRate: doublePrecision("day_rate"), // Rate per day
+  eventRate: doublePrecision("event_rate"), // Rate per event
+});
+
+export const insertMusicianPayRateSchema = createInsertSchema(musicianPayRates).pick({
+  musicianId: true,
+  eventCategoryId: true,
+  hourlyRate: true,
+  dayRate: true,
+  eventRate: true,
 });
 
 // Musician availability model
@@ -312,6 +328,9 @@ export type InsertCategory = InsertMusicianCategory;
 
 export type Musician = typeof musicians.$inferSelect;
 export type InsertMusician = z.infer<typeof insertMusicianSchema>;
+
+export type MusicianPayRate = typeof musicianPayRates.$inferSelect;
+export type InsertMusicianPayRate = z.infer<typeof insertMusicianPayRateSchema>;
 
 export type Availability = typeof availability.$inferSelect;
 export type InsertAvailability = z.infer<typeof insertAvailabilitySchema>;
