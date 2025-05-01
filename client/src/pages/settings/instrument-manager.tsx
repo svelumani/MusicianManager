@@ -30,6 +30,7 @@ interface Instrument {
   categoryIds: number[];
 }
 
+// Local UI representation of musician type
 interface MusicianType {
   id: number;
   name: string;
@@ -174,6 +175,24 @@ export default function InstrumentManagerPage() {
   const { data: apiMusicianTypes, isLoading: isMusicianTypesLoading } = useQuery<SchemaMusician[]>({
     queryKey: ["/api/musician-types"],
   });
+  
+  // Convert API musician types to UI format when data loads
+  useEffect(() => {
+    if (apiMusicianTypes && apiMusicianTypes.length > 0) {
+      // Map API data to our UI format
+      const mappedTypes: MusicianType[] = apiMusicianTypes.map(type => ({
+        id: type.id,
+        name: type.name,
+        description: type.description,
+        defaultRate: type.defaultRate,
+        // For now, we don't have category associations in the API response
+        // In a real implementation, we would fetch these separately
+        associatedCategoryIds: [],
+      }));
+      
+      setMusicianTypes(mappedTypes);
+    }
+  }, [apiMusicianTypes]);
 
   // Filter based on search query
   const filteredCategories = categories?.filter(category => 
@@ -728,15 +747,22 @@ export default function InstrumentManagerPage() {
                                 size="sm"
                                 onClick={() => {
                                   // We need to map between API type and our local type format
-                                  const editType: MusicianType = {
-                                    id: type.id,
-                                    name: type.name,
-                                    description: type.description,
-                                    defaultRate: type.defaultRate,
-                                    // For now, we don't have category associations in the API response
-                                    associatedCategoryIds: [],
-                                  };
-                                  setEditingMusicianType(editType);
+                                  // Check if we're using API data
+                                  if (apiMusicianTypes) {
+                                    // Using API data format (SchemaMusician) - need to convert to UI format (MusicianType)
+                                    const editType: MusicianType = {
+                                      id: type.id,
+                                      name: type.name,
+                                      description: type.description,
+                                      defaultRate: type.defaultRate,
+                                      // For now, we don't have category associations in the API response
+                                      associatedCategoryIds: [],
+                                    };
+                                    setEditingMusicianType(editType);
+                                  } else {
+                                    // Using local state format (MusicianType) - can use directly
+                                    setEditingMusicianType(type as MusicianType);
+                                  }
                                   setIsEditMusicianTypeOpen(true);
                                 }}
                               >
@@ -1069,8 +1095,11 @@ export default function InstrumentManagerPage() {
                 <Button type="button" variant="outline" onClick={() => setIsAddMusicianTypeOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Add Musician Type
+                <Button 
+                  type="submit"
+                  disabled={addMusicianTypeMutation.isPending}
+                >
+                  {addMusicianTypeMutation.isPending ? "Adding..." : "Add Musician Type"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1190,8 +1219,11 @@ export default function InstrumentManagerPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Save Changes
+                <Button 
+                  type="submit"
+                  disabled={editMusicianTypeMutation.isPending}
+                >
+                  {editMusicianTypeMutation.isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </DialogFooter>
             </form>
