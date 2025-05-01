@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+//import { apiRequest } from "@/lib/queryClient";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -112,11 +112,23 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
   // Mutations
   const createPlanMutation = useMutation({
     mutationFn: async (data: z.infer<typeof improvementPlanSchema>) => {
-      const res = await apiRequest("POST", "/api/improvement-plans", {
-        ...data,
-        musicianId,
-        createdAt: new Date().toISOString(),
+      const res = await fetch("/api/improvement-plans", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          musicianId,
+          createdAt: new Date().toISOString(),
+        }),
+        credentials: 'include',
       });
+      
+      if (!res.ok) {
+        throw new Error("Failed to create improvement plan");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -140,10 +152,23 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
   const updatePlanMutation = useMutation({
     mutationFn: async (data: z.infer<typeof improvementPlanSchema>) => {
       if (!selectedPlan) throw new Error("No plan selected");
-      const res = await apiRequest("PUT", `/api/improvement-plans/${selectedPlan.id}`, {
-        ...data,
-        updatedAt: new Date().toISOString(),
+      
+      const res = await fetch(`/api/improvement-plans/${selectedPlan.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...data,
+          updatedAt: new Date().toISOString(),
+        }),
+        credentials: 'include',
       });
+      
+      if (!res.ok) {
+        throw new Error("Failed to update improvement plan");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -166,8 +191,17 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
   const deletePlanMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPlan) throw new Error("No plan selected");
-      const res = await apiRequest("DELETE", `/api/improvement-plans/${selectedPlan.id}`);
-      return res.ok;
+      
+      const res = await fetch(`/api/improvement-plans/${selectedPlan.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to delete improvement plan");
+      }
+      
+      return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/improvement-plans"] });
@@ -190,6 +224,7 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
   const createActionMutation = useMutation({
     mutationFn: async (data: z.infer<typeof improvementActionSchema>) => {
       if (!selectedPlan) throw new Error("No plan selected");
+      
       const payload = {
         ...data,
         planId: selectedPlan.id,
@@ -197,7 +232,20 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
         addedAt: new Date().toISOString(),
         dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
       };
-      const res = await apiRequest("POST", `/api/improvement-plans/${selectedPlan.id}/actions`, payload);
+      
+      const res = await fetch(`/api/improvement-plans/${selectedPlan.id}/actions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to create action item");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -221,7 +269,20 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
   const completeActionMutation = useMutation({
     mutationFn: async (data: z.infer<typeof completionFeedbackSchema>) => {
       if (!selectedAction) throw new Error("No action selected");
-      const res = await apiRequest("POST", `/api/improvement-actions/${selectedAction.id}/complete`, data);
+      
+      const res = await fetch(`/api/improvement-actions/${selectedAction.id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to complete action");
+      }
+      
       return await res.json();
     },
     onSuccess: () => {
@@ -245,8 +306,16 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
 
   const deleteActionMutation = useMutation({
     mutationFn: async (actionId: number) => {
-      const res = await apiRequest("DELETE", `/api/improvement-actions/${actionId}`);
-      return res.ok;
+      const res = await fetch(`/api/improvement-actions/${actionId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to delete action item");
+      }
+      
+      return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/improvement-plans", selectedPlan?.id, "actions"] });
