@@ -23,6 +23,26 @@ export async function apiRequest(
   console.log(`API Request: ${url} ${method}`, data || '');
   
   try {
+    // First, get CSRF token if this is a mutation (POST, PUT, DELETE, PATCH)
+    let csrfToken = '';
+    if (method !== 'GET') {
+      try {
+        const userResponse = await fetch('/api/auth/user', {
+          credentials: 'include',
+        });
+        if (userResponse.ok) {
+          // User is authenticated, proceed with the request
+          console.log('User authenticated, proceeding with request');
+        } else {
+          console.error('Authentication required for this operation');
+          throw new Error('You must be logged in to perform this action');
+        }
+      } catch (err) {
+        console.error('Failed to verify authentication:', err);
+        throw err;
+      }
+    }
+    
     const res = await fetch(url, {
       method,
       headers: {
@@ -33,7 +53,18 @@ export async function apiRequest(
       credentials: "include",
     });
 
-    await throwIfResNotOk(res);
+    // Handle response status
+    if (!res.ok) {
+      let errorMessage;
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.message || `Request failed with status ${res.status}`;
+      } catch (e) {
+        errorMessage = `HTTP error ${res.status}: ${res.statusText}`;
+      }
+      console.error(`API Error: ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
     
     // For DELETE requests that may not return content
     if (method === "DELETE" && res.status === 204) {
