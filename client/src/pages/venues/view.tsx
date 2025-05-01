@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,22 @@ import { Badge } from "@/components/ui/badge";
 import { Building, Calendar, Star, MapPin, Users, Clock, DollarSign, ArrowLeft, Edit, Trash } from "lucide-react";
 import type { Venue, Event } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 
 export default function ViewVenuePage({ id }: { id: number }) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: venue, isLoading: venueLoading, error: venueError } = useQuery<Venue>({
     queryKey: [`/api/venues/${id}`],
@@ -23,6 +35,44 @@ export default function ViewVenuePage({ id }: { id: number }) {
     queryKey: [`/api/venues/${id}/events`],
     enabled: !!venue,
   });
+  
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", `/api/venues/${id}`);
+      return res.ok;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Venue deleted",
+        description: "The venue has been successfully deleted.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
+      navigate("/venues");
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete failed",
+        description: "There was an error deleting the venue. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle edit button click
+  const handleEdit = () => {
+    navigate(`/venues/edit/${id}`);
+  };
+  
+  // Handle delete button click
+  const handleDelete = () => {
+    setShowDeleteDialog(true);
+  };
+  
+  // Confirm delete
+  const confirmDelete = () => {
+    deleteMutation.mutate();
+  };
 
   // Handle error state
   useEffect(() => {
@@ -58,14 +108,46 @@ export default function ViewVenuePage({ id }: { id: number }) {
           <h1 className="text-2xl font-bold">{venue.name}</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleEdit}>
             <Edit className="mr-2 h-4 w-4" /> Edit
           </Button>
-          <Button variant="destructive">
+          <Button variant="destructive" onClick={handleDelete}>
             <Trash className="mr-2 h-4 w-4" /> Delete
           </Button>
         </div>
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this venue?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the venue 
+              "{venue.name}" and remove its data from our servers.
+              {events && events.length > 0 && (
+                <p className="mt-2 text-red-500 font-medium">
+                  Warning: This venue has {events.length} associated events that will also be affected.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <div className="flex items-center">
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Deleting...
+                </div>
+              ) : "Delete Venue"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">

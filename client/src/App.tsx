@@ -14,6 +14,7 @@ import LoginPage from "@/pages/login";
 import VenuesPage from "@/pages/venues/index";
 import AddVenuePage from "@/pages/venues/add";
 import ViewVenuePage from "@/pages/venues/view";
+import EditVenuePage from "@/pages/venues/edit";
 import MusiciansPage from "@/pages/musicians/index";
 import AddMusicianPage from "@/pages/musicians/add";
 import EventsPage from "@/pages/events/index";
@@ -59,6 +60,13 @@ function Router() {
         <AppLayout>
           <AddVenuePage />
         </AppLayout>
+      </Route>
+      <Route path="/venues/edit/:id">
+        {(params) => (
+          <AppLayout>
+            <EditVenuePage id={parseInt(params.id)} />
+          </AppLayout>
+        )}
       </Route>
       <Route path="/venues/:id">
         {(params) => (
