@@ -60,8 +60,8 @@ export default function CategoriesPage() {
     isLoadingMusicianType;
 
   const filteredCategories = activeCategories?.filter(category => 
-    category.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
+    (category?.title?.toLowerCase()?.includes(searchQuery.toLowerCase()) || false) ||
+    (category?.description?.toLowerCase()?.includes(searchQuery.toLowerCase()) || false)
   );
 
   const getApiPath = (id?: number) => {
