@@ -1917,13 +1917,9 @@ export class MemStorage implements IStorage {
   }
 
   // Musician Type management methods
-  async getMusicianTypes(): Promise<MusicianType[]> {
-    return Array.from(this.musicianTypes.values());
-  }
-  
   // Musician Types
   async getMusicianTypes(): Promise<MusicianType[]> {
-    return [...this.musicianTypes.values()];
+    return Array.from(this.musicianTypes.values());
   }
 
   async getMusicianType(id: number): Promise<MusicianType | undefined> {
@@ -1931,14 +1927,22 @@ export class MemStorage implements IStorage {
   }
 
   async createMusicianType(musicianType: InsertMusicianType): Promise<MusicianType> {
-    const id = this.getNextId(this.musicianTypes);
+    const id = this.currentMusicianTypeId++;
     const newType: MusicianType = {
       id,
       title: musicianType.title,
       description: musicianType.description || null,
     };
     this.musicianTypes.set(id, newType);
-    this.logActivity("Created", "MusicianType", id);
+    // Create activity record
+    await this.createActivity({
+      userId: 1, // Default admin
+      action: "Created",
+      entityType: "MusicianType",
+      entityId: id,
+      timestamp: new Date(),
+      details: { type: musicianType.title }
+    });
     return newType;
   }
 
@@ -1954,14 +1958,31 @@ export class MemStorage implements IStorage {
     };
     
     this.musicianTypes.set(id, updatedType);
-    this.logActivity("Updated", "MusicianType", id);
+    // Create activity record
+    await this.createActivity({
+      userId: 1, // Default admin
+      action: "Updated",
+      entityType: "MusicianType",
+      entityId: id,
+      timestamp: new Date(),
+      details: { type: updatedType.title }
+    });
     return updatedType;
   }
 
   async deleteMusicianType(id: number): Promise<boolean> {
+    const typeToDelete = this.musicianTypes.get(id);
     const success = this.musicianTypes.delete(id);
-    if (success) {
-      this.logActivity("Deleted", "MusicianType", id);
+    if (success && typeToDelete) {
+      // Create activity record
+      await this.createActivity({
+        userId: 1, // Default admin
+        action: "Deleted",
+        entityType: "MusicianType",
+        entityId: id,
+        timestamp: new Date(),
+        details: { type: typeToDelete.title }
+      });
     }
     return success;
   }
@@ -1977,78 +1998,11 @@ export class MemStorage implements IStorage {
       .filter(category => categoryIds.includes(category.id));
   }
   
-  async createMusicianType(musicianType: InsertMusicianType): Promise<MusicianType> {
-    const id = this.currentMusicianTypeId++;
-    const now = new Date();
-    const newMusicianType: MusicianType = {
-      ...musicianType,
-      id,
-      createdAt: now,
-      updatedAt: null
-    };
-    this.musicianTypes.set(id, newMusicianType);
-    
-    // Create activity
-    this.createActivity({
-      userId: 1, // Default admin
-      action: "Created",
-      entityType: "MusicianType",
-      entityId: id,
-      timestamp: new Date(),
-      details: { musicianType: newMusicianType.name }
-    });
-    
-    return newMusicianType;
-  }
+  // Second createMusicianType implementation removed to fix duplication issue
   
-  async updateMusicianType(id: number, data: Partial<InsertMusicianType>): Promise<MusicianType | undefined> {
-    const musicianType = await this.getMusicianType(id);
-    if (!musicianType) return undefined;
-    
-    const updatedMusicianType = {
-      ...musicianType,
-      ...data,
-      updatedAt: new Date()
-    };
-    this.musicianTypes.set(id, updatedMusicianType);
-    
-    // Create activity
-    this.createActivity({
-      userId: 1, // Default admin
-      action: "Updated",
-      entityType: "MusicianType",
-      entityId: id,
-      timestamp: new Date(),
-      details: { musicianType: updatedMusicianType.name }
-    });
-    
-    return updatedMusicianType;
-  }
+  // Second updateMusicianType implementation removed to fix duplication issue
   
-  async deleteMusicianType(id: number): Promise<boolean> {
-    const musicianType = await this.getMusicianType(id);
-    if (!musicianType) return false;
-    
-    // Delete all associations first
-    const categoryAssociations = Array.from(this.musicianTypeCategories.values())
-      .filter(mtc => mtc.musicianTypeId === id);
-    
-    for (const assoc of categoryAssociations) {
-      this.musicianTypeCategories.delete(assoc.id);
-    }
-    
-    // Create activity
-    this.createActivity({
-      userId: 1, // Default admin
-      action: "Deleted",
-      entityType: "MusicianType",
-      entityId: id,
-      timestamp: new Date(),
-      details: { musicianType: musicianType.name }
-    });
-    
-    return this.musicianTypes.delete(id);
-  }
+  // Second deleteMusicianType implementation removed to fix duplication issue
   
   async associateMusicianTypeWithCategory(musicianTypeId: number, categoryId: number): Promise<boolean> {
     // Check if the musician type and category exist
