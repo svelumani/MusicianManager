@@ -41,6 +41,16 @@ export interface IStorage {
   updateEmailTemplate(id: number, data: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
   deleteEmailTemplate(id: number): Promise<boolean>;
   
+  // Musician Type management
+  getMusicianTypes(): Promise<MusicianType[]>;
+  getMusicianType(id: number): Promise<MusicianType | undefined>;
+  getMusicianTypeCategories(musicianTypeId: number): Promise<Category[]>;
+  createMusicianType(musicianType: InsertMusicianType): Promise<MusicianType>;
+  updateMusicianType(id: number, data: Partial<InsertMusicianType>): Promise<MusicianType | undefined>;
+  deleteMusicianType(id: number): Promise<boolean>;
+  associateMusicianTypeWithCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
+  removeMusicianTypeCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
+  
   // Venue management
   getVenues(): Promise<Venue[]>;
   getVenue(id: number): Promise<Venue | undefined>;
@@ -335,46 +345,97 @@ export class MemStorage implements IStorage {
       isDefault: true
     });
     
-    // Initialize with sample musician types
-    const pianistType = this.createMusicianType({
+    // Initialize with sample musician types (synchronously since we're in the constructor)
+    const pianistType: MusicianType = {
+      id: this.currentMusicianTypeId++,
       name: "Pianist",
       description: "Professional piano players for various venues and events",
       defaultRate: 200,
-      isDefault: true
-    });
+      isDefault: true,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.musicianTypes.set(pianistType.id, pianistType);
     
-    const vocalistType = this.createMusicianType({
+    const vocalistType: MusicianType = {
+      id: this.currentMusicianTypeId++,
       name: "Vocalist",
       description: "Solo vocalists and singers for events",
       defaultRate: 180,
-      isDefault: true
-    });
+      isDefault: true,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.musicianTypes.set(vocalistType.id, vocalistType);
     
-    const guitaristType = this.createMusicianType({
+    const guitaristType: MusicianType = {
+      id: this.currentMusicianTypeId++,
       name: "Guitarist",
       description: "Acoustic and electric guitar players",
       defaultRate: 150,
-      isDefault: true
-    });
+      isDefault: true,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.musicianTypes.set(guitaristType.id, guitaristType);
     
-    const violinistType = this.createMusicianType({
+    const violinistType: MusicianType = {
+      id: this.currentMusicianTypeId++,
       name: "Violinist",
       description: "Classical and contemporary violin players",
       defaultRate: 190,
-      isDefault: true
+      isDefault: true,
+      createdAt: new Date(),
+      updatedAt: null
+    };
+    this.musicianTypes.set(violinistType.id, violinistType);
+    
+    // Associate musician types with categories (synchronously for constructor)
+    // Pianist - Jazz & Classical
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: pianistType.id,
+      categoryId: 1
     });
     
-    // Associate musician types with categories
-    this.associateMusicianTypeWithCategory(pianistType.id, 1); // Jazz
-    this.associateMusicianTypeWithCategory(pianistType.id, 2); // Classical
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: pianistType.id,
+      categoryId: 2
+    });
     
-    this.associateMusicianTypeWithCategory(vocalistType.id, 3); // Rock
-    this.associateMusicianTypeWithCategory(vocalistType.id, 4); // Pop
+    // Vocalist - Rock & Pop
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: vocalistType.id,
+      categoryId: 3
+    });
     
-    this.associateMusicianTypeWithCategory(guitaristType.id, 3); // Rock
-    this.associateMusicianTypeWithCategory(guitaristType.id, 4); // Pop
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: vocalistType.id,
+      categoryId: 4
+    });
     
-    this.associateMusicianTypeWithCategory(violinistType.id, 2); // Classical
+    // Guitarist - Rock & Pop
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: guitaristType.id,
+      categoryId: 3
+    });
+    
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: guitaristType.id,
+      categoryId: 4
+    });
+    
+    // Violinist - Classical
+    this.musicianTypeCategories.set(this.currentMusicianTypeCategoryId++, {
+      id: this.currentMusicianTypeCategoryId,
+      musicianTypeId: violinistType.id,
+      categoryId: 2
+    });
   }
 
   // User management methods
