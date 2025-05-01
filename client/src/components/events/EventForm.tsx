@@ -14,9 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, PlusCircle, X } from "lucide-react";
+import { CalendarIcon, PlusCircle, X, Check, Star } from "lucide-react";
 import { insertEventSchema } from "@shared/schema";
-import type { Venue, Category, MusicianType } from "@shared/schema";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { Venue, Category, MusicianType, Musician } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -25,11 +27,8 @@ const eventFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   paxCount: z.coerce.number().min(1, "Pax count must be at least 1"),
   venueId: z.coerce.number(),
-  eventType: z.enum(["One Day", "Multi-day"]),
-  startDate: z.date().optional(),
   eventDates: z.array(z.date()),
   status: z.string().default("pending"),
-  categoryIds: z.array(z.coerce.number()), // Optional
   musicianTypeIds: z.array(z.coerce.number()), // Multi-select musician types
   notes: z.string().optional(),
 });
@@ -65,24 +64,32 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       name: "",
       paxCount: 0,
       venueId: 0,
-      eventType: "One Day",
-      startDate: new Date(),
       status: "pending",
-      categoryIds: [],
       musicianTypeIds: [],
       eventDates: [],
       notes: "",
     },
   });
   
-  // Watch the event type to conditionally render fields
-  const eventType = form.watch("eventType");
+  // Watch the musician type selection to find available musicians
+  const selectedMusicianTypes = form.watch("musicianTypeIds");
+  
+  // Query for available musicians based on selected musician types
+  const { data: availableMusicians, isLoading: isLoadingMusicians } = useQuery<Musician[]>({
+    queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes }],
+    enabled: selectedMusicianTypes.length > 0,
+  });
 
   const createEventMutation = useMutation({
     mutationFn: async (values: EventFormValues) => {
-      // Format the values to match the API schema
+      // Create a new object with the formatted values to avoid type issues
       const apiValues = {
-        ...values,
+        name: values.name,
+        paxCount: values.paxCount,
+        venueId: values.venueId,
+        status: values.status,
+        musicianTypeIds: values.musicianTypeIds,
+        notes: values.notes,
         eventDates: values.eventDates.map(date => date.toISOString()),
       };
       
@@ -219,32 +226,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <FormField
-            control={form.control}
-            name="eventType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Event Type *</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select event type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="One Day">One Day</SelectItem>
-                    <SelectItem value="Multi-day">Multi-day</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+
 
         {/* Event Dates Selection */}
         <FormField
@@ -350,6 +332,59 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
             </FormItem>
           )}
         />
+        
+        {/* Available Musicians Section */}
+        {selectedMusicianTypes.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-lg font-medium mb-4">Available Musicians</h3>
+            
+            {isLoadingMusicians ? (
+              <div className="flex justify-center p-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : availableMusicians && availableMusicians.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {availableMusicians.map((musician) => (
+                  <Card key={musician.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Avatar>
+                          <AvatarImage
+                            src={musician.profileImage || undefined}
+                            alt={musician.name}
+                          />
+                          <AvatarFallback>{musician.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="font-medium">{musician.name}</div>
+                          <div className="text-sm text-muted-foreground flex items-center">
+                            {musician.rating && (
+                              <div className="flex items-center mr-2">
+                                {Array.from({ length: 5 }).map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`h-3 w-3 ${
+                                      i < musician.rating! ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {musicianTypes?.find(t => t.id === musician.typeId)?.title}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center p-6 bg-muted rounded-md">
+                <p className="text-muted-foreground">No musicians available for the selected type(s)</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Notes Field */}
         <FormField
@@ -370,53 +405,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
           )}
         />
 
-        {/* Music Categories - Now Optional */}
-        <FormField
-          control={form.control}
-          name="categoryIds"
-          render={() => (
-            <FormItem>
-              <div className="mb-4">
-                <FormLabel>Music Categories (Optional)</FormLabel>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {categories?.map((category) => (
-                  <FormField
-                    key={category.id}
-                    control={form.control}
-                    name="categoryIds"
-                    render={({ field }) => {
-                      return (
-                        <FormItem
-                          key={category.id}
-                          className="flex flex-row items-start space-x-3 space-y-0"
-                        >
-                          <FormControl>
-                            <Checkbox
-                              checked={field.value?.includes(category.id)}
-                              onCheckedChange={(checked) => {
-                                const currentValues = field.value || [];
-                                return checked
-                                  ? field.onChange([...currentValues, category.id])
-                                  : field.onChange(
-                                      currentValues.filter((value) => value !== category.id)
-                                    );
-                              }}
-                            />
-                          </FormControl>
-                          <FormLabel className="font-normal cursor-pointer">
-                            {category.title}
-                          </FormLabel>
-                        </FormItem>
-                      );
-                    }}
-                  />
-                ))}
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
 
         <div className="flex justify-end space-x-2">
           <Button
