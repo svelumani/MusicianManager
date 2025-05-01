@@ -8,23 +8,67 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Tag, Music, X } from "lucide-react";
+import { Search, Plus, Tag, Music, X, Edit, Trash2, Pencil, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import type { Category } from "@shared/schema";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
 
 interface Instrument {
   id: number;
   name: string;
   categoryIds: number[];
 }
+
+interface MusicianType {
+  id: number;
+  name: string;
+  description: string;
+  defaultRate: number;
+  associatedCategoryIds: number[];
+}
+
+// Standard musician types
+const standardMusicianTypes: MusicianType[] = [
+  {
+    id: 1,
+    name: "Solo Performer",
+    description: "Individual musicians who perform alone",
+    defaultRate: 150,
+    associatedCategoryIds: []
+  },
+  {
+    id: 2,
+    name: "Band Member",
+    description: "Musicians who perform as part of a band",
+    defaultRate: 100,
+    associatedCategoryIds: []
+  },
+  {
+    id: 3,
+    name: "Orchestra Performer",
+    description: "Musicians who perform in orchestras",
+    defaultRate: 120,
+    associatedCategoryIds: []
+  },
+  {
+    id: 4,
+    name: "DJ",
+    description: "Disc jockeys who mix and play recorded music",
+    defaultRate: 200,
+    associatedCategoryIds: []
+  }
+];
 
 // Standard instruments that can be chosen for categories
 const standardInstruments: Instrument[] = [
@@ -98,13 +142,27 @@ const newCategorySchema = z.object({
   instrumentIds: z.array(z.number()).optional(),
 });
 
+// Form schema for musician types
+const musicianTypeSchema = z.object({
+  name: z.string().min(2, "Type name must be at least 2 characters"),
+  description: z.string().min(5, "Please provide a brief description"),
+  defaultRate: z.coerce.number().min(1, "Default rate must be at least 1"),
+  associatedCategoryIds: z.array(z.number()).optional(),
+  isDefault: z.boolean().optional(),
+});
+
 export default function InstrumentManagerPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("categories");
   const [instruments, setInstruments] = useState<Instrument[]>(standardInstruments);
+  const [musicianTypes, setMusicianTypes] = useState<MusicianType[]>(standardMusicianTypes);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedMusicianType, setSelectedMusicianType] = useState<MusicianType | null>(null);
   const [isAddInstrumentOpen, setIsAddInstrumentOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [isAddMusicianTypeOpen, setIsAddMusicianTypeOpen] = useState(false);
+  const [isEditMusicianTypeOpen, setIsEditMusicianTypeOpen] = useState(false);
+  const [editingMusicianType, setEditingMusicianType] = useState<MusicianType | null>(null);
   const { toast } = useToast();
   
   // Fetch categories
@@ -120,6 +178,11 @@ export default function InstrumentManagerPage() {
 
   const filteredInstruments = instruments.filter(instrument => 
     instrument.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredMusicianTypes = musicianTypes.filter(type => 
+    type.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    type.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Form for adding a new instrument
@@ -140,6 +203,42 @@ export default function InstrumentManagerPage() {
       instrumentIds: [],
     },
   });
+
+  // Form for adding a new musician type
+  const musicianTypeForm = useForm<z.infer<typeof musicianTypeSchema>>({
+    resolver: zodResolver(musicianTypeSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      defaultRate: 100,
+      associatedCategoryIds: [],
+      isDefault: false,
+    },
+  });
+
+  // Form for editing a musician type
+  const editMusicianTypeForm = useForm<z.infer<typeof musicianTypeSchema>>({
+    resolver: zodResolver(musicianTypeSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      defaultRate: 100,
+      associatedCategoryIds: [],
+      isDefault: false,
+    },
+  });
+
+  // Set up edit form when editing musician type
+  useEffect(() => {
+    if (editingMusicianType) {
+      editMusicianTypeForm.reset({
+        name: editingMusicianType.name,
+        description: editingMusicianType.description,
+        defaultRate: editingMusicianType.defaultRate,
+        associatedCategoryIds: editingMusicianType.associatedCategoryIds,
+      });
+    }
+  }, [editingMusicianType, editMusicianTypeForm]);
 
   // Mutation for adding a new category
   const addCategoryMutation = useMutation({
@@ -210,11 +309,80 @@ export default function InstrumentManagerPage() {
     addCategoryMutation.mutate(values);
   };
 
+  // Handle adding a new musician type
+  const handleAddMusicianType = (values: z.infer<typeof musicianTypeSchema>) => {
+    const newId = musicianTypes.length > 0 
+      ? Math.max(...musicianTypes.map(t => t.id)) + 1 
+      : 1;
+    
+    const newType: MusicianType = {
+      id: newId,
+      name: values.name,
+      description: values.description,
+      defaultRate: values.defaultRate,
+      associatedCategoryIds: values.associatedCategoryIds || [],
+    };
+    
+    setMusicianTypes([...musicianTypes, newType]);
+    setIsAddMusicianTypeOpen(false);
+    toast({
+      title: "Musician type added",
+      description: "The musician type has been added successfully",
+    });
+    musicianTypeForm.reset();
+  };
+
+  // Handle editing a musician type
+  const handleEditMusicianType = (values: z.infer<typeof musicianTypeSchema>) => {
+    if (!editingMusicianType) return;
+    
+    const updatedTypes = musicianTypes.map(type => {
+      if (type.id === editingMusicianType.id) {
+        return {
+          ...type,
+          name: values.name,
+          description: values.description,
+          defaultRate: values.defaultRate,
+          associatedCategoryIds: values.associatedCategoryIds || [],
+        };
+      }
+      return type;
+    });
+    
+    setMusicianTypes(updatedTypes);
+    setIsEditMusicianTypeOpen(false);
+    setEditingMusicianType(null);
+    toast({
+      title: "Musician type updated",
+      description: "The musician type has been updated successfully",
+    });
+  };
+
+  // Handle deleting a musician type
+  const handleDeleteMusicianType = (typeId: number) => {
+    const updatedTypes = musicianTypes.filter(type => type.id !== typeId);
+    setMusicianTypes(updatedTypes);
+    toast({
+      title: "Musician type deleted",
+      description: "The musician type has been deleted successfully",
+    });
+  };
+
   // Get the instruments for a specific category
   const getCategoryInstruments = (categoryId: number) => {
     return instruments.filter(instrument => 
       instrument.categoryIds.includes(categoryId)
     );
+  };
+
+  // Get the categories for a specific musician type
+  const getTypeCategories = (typeId: number) => {
+    const type = musicianTypes.find(t => t.id === typeId);
+    if (!type) return [];
+    
+    return categories?.filter(category => 
+      type.associatedCategoryIds.includes(category.id)
+    ) || [];
   };
 
   // Associate an instrument with a category
@@ -269,6 +437,12 @@ export default function InstrumentManagerPage() {
           <Button onClick={() => setIsAddCategoryOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> Add Category
           </Button>
+          <Button 
+            onClick={() => setIsAddMusicianTypeOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700"
+          >
+            <Plus className="mr-2 h-4 w-4" /> Add Musician Type
+          </Button>
         </div>
       </div>
 
@@ -276,12 +450,17 @@ export default function InstrumentManagerPage() {
         <TabsList className="mb-4">
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="instruments">Instruments</TabsTrigger>
+          <TabsTrigger value="musician-types">Musician Types</TabsTrigger>
         </TabsList>
 
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-medium">
-              {activeTab === "categories" ? "Category Management" : "Instrument Management"}
+              {activeTab === "categories" 
+                ? "Category Management" 
+                : activeTab === "instruments" 
+                  ? "Instrument Management" 
+                  : "Musician Type Management"}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -289,7 +468,13 @@ export default function InstrumentManagerPage() {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
                 <Input
-                  placeholder={`Search ${activeTab === "categories" ? "categories" : "instruments"}...`}
+                  placeholder={`Search ${
+                    activeTab === "categories" 
+                      ? "categories" 
+                      : activeTab === "instruments" 
+                        ? "instruments" 
+                        : "musician types"
+                  }...`}
                   className="pl-8"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -409,6 +594,74 @@ export default function InstrumentManagerPage() {
                     {searchQuery
                       ? `No instruments match "${searchQuery}"`
                       : "Get started by adding your first instrument"}
+                  </p>
+                </div>
+              )}
+            </TabsContent>
+            
+            {/* Musician Types Tab */}
+            <TabsContent value="musician-types" className="mt-0">
+              {filteredMusicianTypes.length > 0 ? (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Default Rate</TableHead>
+                        <TableHead>Associated Categories</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredMusicianTypes.map((type) => (
+                        <TableRow key={type.id}>
+                          <TableCell className="font-medium">{type.name}</TableCell>
+                          <TableCell>{type.description}</TableCell>
+                          <TableCell>${type.defaultRate}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {getTypeCategories(type.id).map(category => (
+                                <Badge key={category.id} variant="outline">
+                                  {category.title}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end space-x-1">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditingMusicianType(type);
+                                  setIsEditMusicianTypeOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleDeleteMusicianType(type.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="h-80 flex flex-col items-center justify-center text-center">
+                  <User className="h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900">No musician types found</h3>
+                  <p className="text-gray-500">
+                    {searchQuery
+                      ? `No musician types match "${searchQuery}"`
+                      : "Get started by adding your first musician type"}
                   </p>
                 </div>
               )}
@@ -588,6 +841,262 @@ export default function InstrumentManagerPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Add Musician Type Dialog */}
+      <Dialog open={isAddMusicianTypeOpen} onOpenChange={setIsAddMusicianTypeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Musician Type</DialogTitle>
+            <DialogDescription>
+              Create a new musician type with associated categories and default rate
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...musicianTypeForm}>
+            <form onSubmit={musicianTypeForm.handleSubmit(handleAddMusicianType)} className="space-y-4">
+              <FormField
+                control={musicianTypeForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="E.g., Solo Performer, Band Member" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={musicianTypeForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe this type of musician" 
+                        className="h-24" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={musicianTypeForm.control}
+                name="defaultRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default Rate (USD)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Suggested default hourly rate for this type of musician
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={musicianTypeForm.control}
+                name="associatedCategoryIds"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Associated Music Categories</FormLabel>
+                    <div className="h-40 overflow-y-auto border rounded-md p-2">
+                      <div className="space-y-2">
+                        {categories?.map((category) => (
+                          <div key={category.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`type-category-${category.id}`}
+                              checked={musicianTypeForm.watch("associatedCategoryIds")?.includes(category.id)}
+                              onCheckedChange={(checked) => {
+                                const currentValues = musicianTypeForm.watch("associatedCategoryIds") || [];
+                                if (checked) {
+                                  musicianTypeForm.setValue("associatedCategoryIds", [...currentValues, category.id]);
+                                } else {
+                                  musicianTypeForm.setValue(
+                                    "associatedCategoryIds",
+                                    currentValues.filter((id) => id !== category.id)
+                                  );
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`type-category-${category.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {category.title}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={musicianTypeForm.control}
+                name="isDefault"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Make Default</FormLabel>
+                      <FormDescription>
+                        Set as a default musician type for new musician profiles
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsAddMusicianTypeOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Add Musician Type
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Musician Type Dialog */}
+      <Dialog open={isEditMusicianTypeOpen} onOpenChange={setIsEditMusicianTypeOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Musician Type</DialogTitle>
+            <DialogDescription>
+              Update the musician type details
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Form {...editMusicianTypeForm}>
+            <form onSubmit={editMusicianTypeForm.handleSubmit(handleEditMusicianType)} className="space-y-4">
+              <FormField
+                control={editMusicianTypeForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="E.g., Solo Performer, Band Member" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editMusicianTypeForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe this type of musician" 
+                        className="h-24" 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editMusicianTypeForm.control}
+                name="defaultRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default Rate (USD)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Suggested default hourly rate for this type of musician
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={editMusicianTypeForm.control}
+                name="associatedCategoryIds"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>Associated Music Categories</FormLabel>
+                    <div className="h-40 overflow-y-auto border rounded-md p-2">
+                      <div className="space-y-2">
+                        {categories?.map((category) => (
+                          <div key={category.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`edit-type-category-${category.id}`}
+                              checked={editMusicianTypeForm.watch("associatedCategoryIds")?.includes(category.id)}
+                              onCheckedChange={(checked) => {
+                                const currentValues = editMusicianTypeForm.watch("associatedCategoryIds") || [];
+                                if (checked) {
+                                  editMusicianTypeForm.setValue("associatedCategoryIds", [...currentValues, category.id]);
+                                } else {
+                                  editMusicianTypeForm.setValue(
+                                    "associatedCategoryIds",
+                                    currentValues.filter((id) => id !== category.id)
+                                  );
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`edit-type-category-${category.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {category.title}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsEditMusicianTypeOpen(false);
+                    setEditingMusicianType(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
       {/* Select Instrument for Category Dialog */}
       <Dialog open={!!selectedCategory} onOpenChange={(open) => !open && setSelectedCategory(null)}>
         <DialogContent>
