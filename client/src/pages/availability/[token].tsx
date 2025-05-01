@@ -56,7 +56,7 @@ export default function SharedAvailabilityView() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [sharedData, setSharedData] = useState<SharedAvailabilityData | null>(null);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [multiSelectMode, setMultiSelectMode] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   
   useEffect(() => {
@@ -354,7 +354,7 @@ export default function SharedAvailabilityView() {
                 ) : (
                   <Square className="h-4 w-4 mr-2" />
                 )}
-                {multiSelectMode ? "Multi-select mode" : "Enable multi-select"}
+                {multiSelectMode ? "Multi-select enabled" : "Enable multi-select"}
               </Button>
             </div>
             <div>
@@ -436,7 +436,7 @@ export default function SharedAvailabilityView() {
                 </p>
                 <p className="mt-2 text-gray-700">
                   To update your availability, click on dates in the calendar (only future dates can be updated).
-                  Enable multi-select mode to select multiple dates at once.
+                  Multi-select mode is enabled by default, allowing you to select multiple dates at once.
                 </p>
               </div>
             </div>
