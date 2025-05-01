@@ -1,6 +1,6 @@
 import {
   users, venues, categories, musicianCategories, venueCategories, eventCategories,
-  musicians, availability, events, bookings, payments, collections, expenses, 
+  musicians, musicianPayRates, availability, events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
   settings, emailTemplates, musicianTypes, musicianTypeCategories,
   performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
@@ -10,7 +10,7 @@ import {
   type MusicianCategory, type InsertMusicianCategory,
   type VenueCategory, type InsertVenueCategory,
   type EventCategory, type InsertEventCategory,
-  type Musician, type InsertMusician, type Availability, 
+  type Musician, type InsertMusician, type MusicianPayRate, type InsertMusicianPayRate, type Availability, 
   type InsertAvailability, type Event, type InsertEvent, 
   type Booking, type InsertBooking, type Payment, type InsertPayment, 
   type Collection, type InsertCollection, type Expense, 
@@ -219,6 +219,14 @@ export interface IStorage {
   associateMusicianTypeWithCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
   removeMusicianTypeCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
   
+  // Musician Pay Rates management
+  getMusicianPayRates(): Promise<MusicianPayRate[]>;
+  getMusicianPayRate(id: number): Promise<MusicianPayRate | undefined>;
+  getMusicianPayRatesByMusicianId(musicianId: number): Promise<MusicianPayRate[]>;
+  createMusicianPayRate(payRate: InsertMusicianPayRate): Promise<MusicianPayRate>;
+  updateMusicianPayRate(id: number, data: Partial<InsertMusicianPayRate>): Promise<MusicianPayRate | undefined>;
+  deleteMusicianPayRate(id: number): Promise<boolean>;
+  
   // Performance Rating management
   getPerformanceRatings(musicianId?: number, bookingId?: number, plannerAssignmentId?: number): Promise<PerformanceRating[]>;
   getPerformanceRating(id: number): Promise<PerformanceRating | undefined>;
@@ -302,6 +310,7 @@ export class MemStorage implements IStorage {
   private emailTemplates: Map<number, EmailTemplate>;
   private musicianTypes: Map<number, MusicianType>;
   private musicianTypeCategories: Map<number, MusicianTypeCategory>;
+  private musicianPayRates: Map<number, MusicianPayRate>;
   private performanceRatings: Map<number, PerformanceRating>;
   private performanceMetrics: Map<number, PerformanceMetric>;
   private skillTags: Map<number, SkillTag>;

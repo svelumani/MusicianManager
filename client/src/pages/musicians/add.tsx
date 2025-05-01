@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { insertMusicianSchema, insertMusicianPayRateSchema } from "@shared/schema";
 import type { MusicianCategory, MusicianType, EventCategory } from "@shared/schema";
 import { Loader2, Trash2, PlusCircle } from "lucide-react";
+import { useEffect } from "react";
 
 // Create a schema for the pay rate items
 const payRateSchema = z.object({
@@ -86,7 +87,7 @@ export default function AddMusicianPage() {
   });
 
   // Update pay rates when event categories load
-  React.useEffect(() => {
+  useEffect(() => {
     if (eventCategories && eventCategories.length > 0 && fields.length === 0) {
       eventCategories.forEach(category => {
         append({

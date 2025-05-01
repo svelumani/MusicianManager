@@ -20,6 +20,7 @@ import {
   insertVenueCategorySchema,
   insertEventCategorySchema,
   insertMusicianSchema,
+  insertMusicianPayRateSchema,
   insertAvailabilitySchema,
   insertEventSchema,
   insertBookingSchema,
@@ -2380,6 +2381,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Musician Pay Rates
+  apiRouter.get("/musician-pay-rates", isAuthenticated, async (req, res) => {
+    try {
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      const payRates = musicianId 
+        ? await storage.getMusicianPayRatesByMusicianId(musicianId)
+        : await storage.getMusicianPayRates();
+      res.json(payRates);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician pay rates" });
+    }
+  });
+
+  apiRouter.get("/musician-pay-rates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const payRate = await storage.getMusicianPayRate(parseInt(req.params.id));
+      if (!payRate) {
+        return res.status(404).json({ message: "Musician pay rate not found" });
+      }
+      res.json(payRate);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician pay rate" });
+    }
+  });
+
+  apiRouter.post("/musician-pay-rates", isAuthenticated, async (req, res) => {
+    try {
+      const payRateData = insertMusicianPayRateSchema.parse(req.body);
+      const payRate = await storage.createMusicianPayRate(payRateData);
+      res.status(201).json(payRate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician pay rate data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating musician pay rate" });
+    }
+  });
+
+  apiRouter.put("/musician-pay-rates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const payRateData = insertMusicianPayRateSchema.partial().parse(req.body);
+      const payRate = await storage.updateMusicianPayRate(parseInt(req.params.id), payRateData);
+      if (!payRate) {
+        return res.status(404).json({ message: "Musician pay rate not found" });
+      }
+      res.json(payRate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician pay rate data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating musician pay rate" });
+    }
+  });
+
+  apiRouter.delete("/musician-pay-rates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMusicianPayRate(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Musician pay rate not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting musician pay rate" });
+    }
+  });
+
   // Skill Tags
   apiRouter.get("/skill-tags", isAuthenticated, async (req, res) => {
     try {
