@@ -2,7 +2,7 @@ import {
   users, venues, categories, musicians, availability, 
   events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
-  settings, emailTemplates,
+  settings, emailTemplates, musicianTypes, musicianTypeCategories,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type Musician, type InsertMusician, type Availability, 
@@ -15,7 +15,9 @@ import {
   type PlannerAssignment, type InsertPlannerAssignment,
   type MonthlyInvoice, type InsertMonthlyInvoice,
   type Settings, type InsertSettings,
-  type EmailTemplate, type InsertEmailTemplate
+  type EmailTemplate, type InsertEmailTemplate,
+  type MusicianType, type InsertMusicianType,
+  type MusicianTypeCategory, type InsertMusicianTypeCategory
 } from "@shared/schema";
 
 // Define the storage interface
@@ -161,6 +163,16 @@ export interface IStorage {
   generateMonthlyInvoices(plannerId: number): Promise<MonthlyInvoice[]>;
   finalizeMonthlyInvoice(id: number): Promise<MonthlyInvoice | undefined>;
   markMonthlyInvoiceAsPaid(id: number, notes?: string): Promise<MonthlyInvoice | undefined>;
+  
+  // Musician Types management
+  getMusicianTypes(): Promise<MusicianType[]>;
+  getMusicianType(id: number): Promise<MusicianType | undefined>;
+  getMusicianTypeCategories(musicianTypeId: number): Promise<Category[]>;
+  createMusicianType(musicianType: InsertMusicianType): Promise<MusicianType>;
+  updateMusicianType(id: number, data: Partial<InsertMusicianType>): Promise<MusicianType | undefined>;
+  deleteMusicianType(id: number): Promise<boolean>;
+  associateMusicianTypeWithCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
+  removeMusicianTypeCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -181,6 +193,8 @@ export class MemStorage implements IStorage {
   private monthlyInvoices: Map<number, MonthlyInvoice>;
   private settings: Map<number, Settings>;
   private emailTemplates: Map<number, EmailTemplate>;
+  private musicianTypes: Map<number, MusicianType>;
+  private musicianTypeCategories: Map<number, MusicianTypeCategory>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -200,6 +214,8 @@ export class MemStorage implements IStorage {
   private currentMonthlyInvoiceId: number;
   private currentSettingsId: number;
   private currentEmailTemplateId: number;
+  private currentMusicianTypeId: number;
+  private currentMusicianTypeCategoryId: number;
 
   constructor() {
     // Initialize maps
@@ -220,6 +236,8 @@ export class MemStorage implements IStorage {
     this.monthlyInvoices = new Map();
     this.settings = new Map();
     this.emailTemplates = new Map();
+    this.musicianTypes = new Map();
+    this.musicianTypeCategories = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;

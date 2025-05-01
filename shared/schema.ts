@@ -424,3 +424,39 @@ export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).pick
 
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+
+// Musician Types model
+export const musicianTypes = pgTable("musician_types", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull(),
+  defaultRate: doublePrecision("default_rate").notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+});
+
+export const insertMusicianTypeSchema = createInsertSchema(musicianTypes).pick({
+  name: true,
+  description: true,
+  defaultRate: true,
+  isDefault: true,
+});
+
+// Musician Type Categories (many-to-many association table)
+export const musicianTypeCategories = pgTable("musician_type_categories", {
+  id: serial("id").primaryKey(),
+  musicianTypeId: integer("musician_type_id").notNull(), // Foreign key to musician_types
+  categoryId: integer("category_id").notNull(), // Foreign key to categories
+});
+
+export const insertMusicianTypeCategorySchema = createInsertSchema(musicianTypeCategories).pick({
+  musicianTypeId: true,
+  categoryId: true,
+});
+
+export type MusicianType = typeof musicianTypes.$inferSelect;
+export type InsertMusicianType = z.infer<typeof insertMusicianTypeSchema>;
+
+export type MusicianTypeCategory = typeof musicianTypeCategories.$inferSelect;
+export type InsertMusicianTypeCategory = z.infer<typeof insertMusicianTypeCategorySchema>;

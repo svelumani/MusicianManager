@@ -14,7 +14,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Plus, Tag, Music, X, Edit, Trash2, Pencil, Save } from "lucide-react";
+import { Search, Plus, Tag, Music, X, Edit, Trash2, Pencil, Save, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
