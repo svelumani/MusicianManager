@@ -18,6 +18,7 @@ import EditVenuePage from "@/pages/venues/edit";
 import MusiciansPage from "@/pages/musicians/index";
 import AddMusicianPage from "@/pages/musicians/add";
 import ViewMusicianPage from "@/pages/musicians/view";
+import EditMusicianPage from "@/pages/musicians/edit";
 import MusicianPerformancePage from "@/pages/musicians/performance";
 import MusicianAvailabilityPage from "@/pages/musicians/availability";
 import EventsPage from "@/pages/events/index";
@@ -97,6 +98,13 @@ function Router() {
         {(params) => (
           <AppLayout>
             <MusicianAvailabilityPage />
+          </AppLayout>
+        )}
+      </Route>
+      <Route path="/musicians/:id/edit">
+        {(params) => (
+          <AppLayout>
+            <EditMusicianPage />
           </AppLayout>
         )}
       </Route>

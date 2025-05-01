@@ -185,6 +185,12 @@ export default function ViewMusicianPage() {
               View Availability Calendar
             </Button>
             <Button 
+              className="w-full bg-green-600 hover:bg-green-700" 
+              onClick={() => navigate(`/musicians/${musician.id}/edit`)}
+            >
+              Edit Musician
+            </Button>
+            <Button 
               variant="outline" 
               className="w-full"
               onClick={() => navigate("/musicians")}
