@@ -27,12 +27,16 @@ export default function ViewMusicianPage() {
     },
   });
 
-  const { data: categories } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+  const { data: musicianCategories } = useQuery<Category[]>({
+    queryKey: ["/api/musician-categories"],
   });
   
   const { data: musicianTypes } = useQuery<MusicianType[]>({
     queryKey: ["/api/musician-types"],
+  });
+  
+  const { data: eventCategories } = useQuery<Category[]>({
+    queryKey: ["/api/event-categories"],
   });
   
   const { data: payRates } = useQuery<MusicianPayRate[]>({
@@ -62,14 +66,19 @@ export default function ViewMusicianPage() {
     return null;
   }
 
-  const getCategoryName = (categoryId: number) => {
-    const category = categories?.find(c => c.id === categoryId);
+  const getMusicianCategoryName = (categoryId: number) => {
+    const category = musicianCategories?.find(c => c.id === categoryId);
     return category ? category.title : "Unknown";
   };
   
   const getMusicianTypeName = (typeId: number) => {
     const type = musicianTypes?.find(t => t.id === typeId);
     return type ? type.title : "Unknown";
+  };
+  
+  const getEventCategoryName = (categoryId: number) => {
+    const category = eventCategories?.find(c => c.id === categoryId);
+    return category ? category.title : "Unknown";
   };
 
   return (
@@ -113,7 +122,7 @@ export default function ViewMusicianPage() {
               <div>
                 <h3 className="text-xl font-semibold">{musician.name}</h3>
                 <p className="text-sm text-muted-foreground">{getMusicianTypeName(musician.typeId)}</p>
-                <Badge className="mt-2">{getCategoryName(musician.categoryId)}</Badge>
+                <Badge className="mt-2">{getMusicianCategoryName(musician.categoryId)}</Badge>
               </div>
             </div>
 
@@ -149,7 +158,7 @@ export default function ViewMusicianPage() {
                           {payRates.map(rate => (
                             <tr key={rate.id} className="hover:bg-muted/30">
                               <td className="px-3 py-3 font-medium whitespace-nowrap">
-                                {rate.eventCategoryId ? getCategoryName(rate.eventCategoryId) : "Default"}
+                                {rate.eventCategoryId ? getEventCategoryName(rate.eventCategoryId) : "Default"}
                               </td>
                               <td className="px-3 py-3 text-center whitespace-nowrap">
                                 {rate.hourlyRate !== null && rate.hourlyRate !== undefined && rate.hourlyRate !== 0
