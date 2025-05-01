@@ -1060,14 +1060,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/events", isAuthenticated, async (req, res) => {
     try {
+      console.log("Creating event with data:", req.body);
+      
+      // Parse the incoming data with our enhanced schema
       const eventData = insertEventSchema.parse(req.body);
+      
+      // Store the musician assignments separately since they're not part of the database schema
+      const musicianAssignments = eventData.musicianAssignments;
+      delete eventData.musicianAssignments;
+      
+      // Create the event
       const event = await storage.createEvent(eventData);
+      
+      // If we have musician assignments, process them (this would create invitations or other records)
+      if (musicianAssignments && Object.keys(musicianAssignments).length > 0) {
+        // In a full implementation, you would create invitation records here
+        console.log("Musician assignments for event:", musicianAssignments);
+        
+        // For now, just log the assignments and return success
+        // TODO: Implement actual invitations based on assignments
+      }
+      
       res.status(201).json(event);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Validation error:", error.errors);
         return res.status(400).json({ message: "Invalid event data", errors: error.errors });
       }
-      console.error(error);
+      console.error("Error creating event:", error);
       res.status(500).json({ message: "Error creating event" });
     }
   });

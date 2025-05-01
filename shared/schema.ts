@@ -188,22 +188,31 @@ export const events = pgTable("events", {
   notes: text("notes"), // Notes about the event
 });
 
-export const insertEventSchema = createInsertSchema(events).pick({
-  name: true,
-  paxCount: true,
-  venueId: true,
-  eventType: true,
-  startDate: true,
-  endDate: true,
-  eventDates: true,
-  status: true,
-  categoryIds: true,
-  musicianTypeId: true,
-  totalPayment: true,
-  advancePayment: true,
-  secondPayment: true,
-  notes: true,
-});
+export const insertEventSchema = createInsertSchema(events)
+  .pick({
+    name: true,
+    paxCount: true,
+    venueId: true,
+    eventType: true,
+    startDate: true,
+    endDate: true,
+    eventDates: true,
+    status: true,
+    categoryIds: true,
+    musicianTypeId: true,
+    totalPayment: true,
+    advancePayment: true,
+    secondPayment: true,
+    notes: true,
+  })
+  .extend({
+    // Additional fields for our extended functionality
+    musicianTypeIds: z.array(z.number()).optional(),
+    musicianIds: z.array(z.number()).optional(),
+    // Date-specific musician assignments
+    // Format: { "2023-01-01T00:00:00.000Z": [1, 2, 3] }
+    musicianAssignments: z.record(z.string(), z.array(z.number())).optional(),
+  });
 
 // Invitation model (invitations to musicians for events)
 export const invitations = pgTable("invitations", {
