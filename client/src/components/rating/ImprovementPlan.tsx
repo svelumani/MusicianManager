@@ -42,7 +42,7 @@ const improvementPlanSchema = z.object({
 const improvementActionSchema = z.object({
   action: z.string().min(5, "Action must be at least 5 characters"),
   dueDate: z.string().optional(),
-  description: z.string().optional(),
+  feedback: z.string().optional(),
 });
 
 const completionFeedbackSchema = z.object({
@@ -97,7 +97,7 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
     defaultValues: {
       action: "",
       dueDate: "",
-      description: "",
+      feedback: "",
     },
   });
 
@@ -552,10 +552,10 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
                               />
                               <FormField
                                 control={actionForm.control}
-                                name="description"
+                                name="feedback"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Description (Optional)</FormLabel>
+                                    <FormLabel>Additional Notes (Optional)</FormLabel>
                                     <FormControl>
                                       <Textarea
                                         placeholder="Additional details about this action"
@@ -625,12 +625,7 @@ export default function ImprovementPlan({ musicianId, readOnly = false }: Improv
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-2 pl-6">
-                              {action.description && (
-                                <div>
-                                  <h5 className="text-xs font-medium">Description:</h5>
-                                  <p className="text-sm">{action.description}</p>
-                                </div>
-                              )}
+                              {/* Action details displayed here */}
                               
                               {action.completedAt && (
                                 <div>
