@@ -23,25 +23,8 @@ export async function apiRequest(
   console.log(`API Request: ${url} ${method}`, data || '');
   
   try {
-    // First, get CSRF token if this is a mutation (POST, PUT, DELETE, PATCH)
-    let csrfToken = '';
-    if (method !== 'GET') {
-      try {
-        const userResponse = await fetch('/api/auth/user', {
-          credentials: 'include',
-        });
-        if (userResponse.ok) {
-          // User is authenticated, proceed with the request
-          console.log('User authenticated, proceeding with request');
-        } else {
-          console.error('Authentication required for this operation');
-          throw new Error('You must be logged in to perform this action');
-        }
-      } catch (err) {
-        console.error('Failed to verify authentication:', err);
-        throw err;
-      }
-    }
+    // Skip auth check for login and specific operations
+    const isAuthPath = url === '/api/auth/login' || url === '/api/auth/register' || url === '/api/auth/setup-admin';
     
     const res = await fetch(url, {
       method,
