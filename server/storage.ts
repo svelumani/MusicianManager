@@ -1778,6 +1778,735 @@ export class MemStorage implements IStorage {
     // Delete the association
     return this.musicianTypeCategories.delete(association.id);
   }
+  
+  // ---- Performance Rating Management Methods ----
+  
+  async getPerformanceRatings(musicianId?: number, bookingId?: number, plannerAssignmentId?: number): Promise<PerformanceRating[]> {
+    let ratings = Array.from(this.performanceRatings.values());
+    
+    if (musicianId) {
+      ratings = ratings.filter(r => r.musicianId === musicianId);
+    }
+    
+    if (bookingId) {
+      ratings = ratings.filter(r => r.bookingId === bookingId);
+    }
+    
+    if (plannerAssignmentId) {
+      ratings = ratings.filter(r => r.plannerAssignmentId === plannerAssignmentId);
+    }
+    
+    return ratings.sort((a, b) => b.ratedAt.getTime() - a.ratedAt.getTime());
+  }
+  
+  async getPerformanceRating(id: number): Promise<PerformanceRating | undefined> {
+    return this.performanceRatings.get(id);
+  }
+  
+  async createPerformanceRating(rating: InsertPerformanceRating): Promise<PerformanceRating> {
+    const id = this.currentPerformanceRatingId++;
+    const newRating: PerformanceRating = { 
+      ...rating, 
+      id,
+      ratedAt: rating.ratedAt || new Date()
+    };
+    
+    this.performanceRatings.set(id, newRating);
+    
+    // Update musician's overall rating based on all ratings
+    await this.updateMusicianRatingMetrics(newRating.musicianId);
+    
+    // Create activity
+    this.createActivity({
+      userId: newRating.ratedBy,
+      action: "Rated",
+      entityType: "Musician",
+      entityId: newRating.musicianId,
+      timestamp: new Date(),
+      details: { 
+        rating: newRating.overallRating,
+        venue: newRating.venueId,
+        date: newRating.eventDate
+      }
+    });
+    
+    return newRating;
+  }
+  
+  async updatePerformanceRating(id: number, data: Partial<InsertPerformanceRating>): Promise<PerformanceRating | undefined> {
+    const rating = await this.getPerformanceRating(id);
+    if (!rating) return undefined;
+    
+    const updatedRating = { ...rating, ...data };
+    this.performanceRatings.set(id, updatedRating);
+    
+    // If rating values changed, update musician metrics
+    if (
+      data.punctuality !== undefined || 
+      data.musicianship !== undefined || 
+      data.professionalism !== undefined || 
+      data.appearance !== undefined || 
+      data.flexibility !== undefined || 
+      data.overallRating !== undefined
+    ) {
+      await this.updateMusicianRatingMetrics(rating.musicianId);
+    }
+    
+    return updatedRating;
+  }
+  
+  async deletePerformanceRating(id: number): Promise<boolean> {
+    const rating = await this.getPerformanceRating(id);
+    if (!rating) return false;
+    
+    const deleted = this.performanceRatings.delete(id);
+    
+    // Update musician metrics after deletion
+    if (deleted) {
+      await this.updateMusicianRatingMetrics(rating.musicianId);
+    }
+    
+    return deleted;
+  }
+  
+  async getMusicianAverageRatings(musicianId: number): Promise<{
+    overallRating: number;
+    punctuality: number;
+    musicianship: number;
+    professionalism: number;
+    appearance: number;
+    flexibility: number;
+    totalRatings: number;
+  }> {
+    const ratings = await this.getPerformanceRatings(musicianId);
+    
+    if (ratings.length === 0) {
+      return {
+        overallRating: 0,
+        punctuality: 0,
+        musicianship: 0,
+        professionalism: 0,
+        appearance: 0,
+        flexibility: 0,
+        totalRatings: 0
+      };
+    }
+    
+    // Calculate average values
+    const sum = ratings.reduce((acc, rating) => {
+      return {
+        overallRating: acc.overallRating + rating.overallRating,
+        punctuality: acc.punctuality + rating.punctuality,
+        musicianship: acc.musicianship + rating.musicianship,
+        professionalism: acc.professionalism + rating.professionalism,
+        appearance: acc.appearance + rating.appearance,
+        flexibility: acc.flexibility + rating.flexibility
+      };
+    }, {
+      overallRating: 0,
+      punctuality: 0,
+      musicianship: 0,
+      professionalism: 0,
+      appearance: 0,
+      flexibility: 0
+    });
+    
+    return {
+      overallRating: Number((sum.overallRating / ratings.length).toFixed(1)),
+      punctuality: Number((sum.punctuality / ratings.length).toFixed(1)),
+      musicianship: Number((sum.musicianship / ratings.length).toFixed(1)),
+      professionalism: Number((sum.professionalism / ratings.length).toFixed(1)),
+      appearance: Number((sum.appearance / ratings.length).toFixed(1)),
+      flexibility: Number((sum.flexibility / ratings.length).toFixed(1)),
+      totalRatings: ratings.length
+    };
+  }
+  
+  // ---- Performance Metrics Management Methods ----
+  
+  async getPerformanceMetrics(musicianId: number): Promise<PerformanceMetric | undefined> {
+    return Array.from(this.performanceMetrics.values()).find(m => m.musicianId === musicianId);
+  }
+  
+  async createPerformanceMetrics(metrics: InsertPerformanceMetric): Promise<PerformanceMetric> {
+    const id = this.currentPerformanceMetricId++;
+    const newMetrics: PerformanceMetric = { 
+      ...metrics, 
+      id,
+      lastUpdated: metrics.lastUpdated || new Date()
+    };
+    
+    this.performanceMetrics.set(id, newMetrics);
+    return newMetrics;
+  }
+  
+  async updatePerformanceMetrics(id: number, data: Partial<InsertPerformanceMetric>): Promise<PerformanceMetric | undefined> {
+    const metrics = await this.getPerformanceMetrics(data.musicianId!);
+    if (!metrics) return undefined;
+    
+    const updatedMetrics = { 
+      ...metrics, 
+      ...data,
+      lastUpdated: new Date()
+    };
+    
+    this.performanceMetrics.set(id, updatedMetrics);
+    return updatedMetrics;
+  }
+  
+  async updateMusicianRatingMetrics(musicianId: number): Promise<PerformanceMetric | undefined> {
+    // Get current metrics or create new ones
+    let metrics = await this.getPerformanceMetrics(musicianId);
+    
+    // Get bookings to calculate performance counts
+    const bookings = await this.getBookingsByMusician(musicianId);
+    
+    // Get planner assignments
+    const plannerAssignments = Array.from(this.plannerAssignments.values())
+      .filter(a => a.musicianId === musicianId);
+    
+    // Calculate performance stats
+    const totalPerformances = bookings.filter(b => b.isAccepted === true).length + plannerAssignments.length;
+    const completedPerformances = bookings.filter(b => b.isAccepted === true && b.contractSigned === true).length + 
+      plannerAssignments.filter(a => a.status === 'attended').length;
+    const cancelledPerformances = bookings.filter(b => b.isAccepted === false).length + 
+      plannerAssignments.filter(a => a.status === 'absent').length;
+    
+    // Get latest ratings
+    const avgRatings = await this.getMusicianAverageRatings(musicianId);
+    
+    // Find last performance date
+    const performanceDates = [
+      ...bookings.map(b => b.invitedAt),
+      ...plannerAssignments.map(a => a.assignedAt)
+    ];
+    const lastPerformanceDate = performanceDates.length > 0
+      ? new Date(Math.max(...performanceDates.map(date => date.getTime())))
+      : null;
+    
+    // Calculate improvement trend (comparing recent ratings to older ones)
+    let improvementTrend = 0;
+    const ratings = await this.getPerformanceRatings(musicianId);
+    if (ratings.length >= 3) {
+      const recentRatings = ratings.slice(0, Math.ceil(ratings.length / 2));
+      const olderRatings = ratings.slice(Math.ceil(ratings.length / 2));
+      
+      const recentAvg = recentRatings.reduce((sum, r) => sum + r.overallRating, 0) / recentRatings.length;
+      const olderAvg = olderRatings.reduce((sum, r) => sum + r.overallRating, 0) / olderRatings.length;
+      
+      improvementTrend = Number((recentAvg - olderAvg).toFixed(2));
+    }
+    
+    // Calculate performance streak
+    let performanceStreak = 0;
+    const sortedAssignments = [...plannerAssignments].sort((a, b) => 
+      new Date(b.assignedAt).getTime() - new Date(a.assignedAt).getTime()
+    );
+    
+    for (const assignment of sortedAssignments) {
+      if (assignment.status === 'attended') {
+        performanceStreak++;
+      } else if (assignment.status === 'absent') {
+        break;
+      }
+    }
+    
+    // Update metrics or create new ones
+    const updatedMetricsData = {
+      musicianId,
+      totalPerformances,
+      completedPerformances,
+      cancelledPerformances,
+      averageRating: avgRatings.overallRating,
+      punctualityAvg: avgRatings.punctuality,
+      musicianshipAvg: avgRatings.musicianship,
+      professionalismAvg: avgRatings.professionalism,
+      appearanceAvg: avgRatings.appearance,
+      flexibilityAvg: avgRatings.flexibility,
+      lastUpdated: new Date(),
+      lastPerformanceDate,
+      performanceStreak,
+      improvementTrend
+    };
+    
+    // Create new metrics if they don't exist
+    if (!metrics) {
+      metrics = await this.createPerformanceMetrics(updatedMetricsData);
+    } else {
+      // Update existing metrics
+      metrics = await this.updatePerformanceMetrics(metrics.id, updatedMetricsData);
+    }
+    
+    // Also update the musician's rating
+    if (avgRatings.overallRating > 0) {
+      const musician = await this.getMusician(musicianId);
+      if (musician) {
+        await this.updateMusician(musicianId, { rating: avgRatings.overallRating });
+      }
+    }
+    
+    return metrics;
+  }
+  
+  // ---- Skill Tags Management Methods ----
+  
+  async getSkillTags(): Promise<SkillTag[]> {
+    return Array.from(this.skillTags.values());
+  }
+  
+  async getSkillTag(id: number): Promise<SkillTag | undefined> {
+    return this.skillTags.get(id);
+  }
+  
+  async createSkillTag(tag: InsertSkillTag): Promise<SkillTag> {
+    const id = this.currentSkillTagId++;
+    const newTag: SkillTag = { 
+      ...tag, 
+      id,
+      createdAt: new Date()
+    };
+    
+    this.skillTags.set(id, newTag);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Created",
+      entityType: "SkillTag",
+      entityId: id,
+      timestamp: new Date(),
+      details: { skillTag: newTag.name }
+    });
+    
+    return newTag;
+  }
+  
+  async updateSkillTag(id: number, data: Partial<InsertSkillTag>): Promise<SkillTag | undefined> {
+    const skillTag = await this.getSkillTag(id);
+    if (!skillTag) return undefined;
+    
+    const updatedTag = { ...skillTag, ...data };
+    this.skillTags.set(id, updatedTag);
+    
+    return updatedTag;
+  }
+  
+  async deleteSkillTag(id: number): Promise<boolean> {
+    const skillTag = await this.getSkillTag(id);
+    if (!skillTag) return false;
+    
+    // Remove all musician associations first
+    const associations = Array.from(this.musicianSkillTags.values())
+      .filter(mst => mst.skillTagId === id);
+    
+    for (const assoc of associations) {
+      this.musicianSkillTags.delete(assoc.id);
+    }
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Deleted",
+      entityType: "SkillTag",
+      entityId: id,
+      timestamp: new Date(),
+      details: { skillTag: skillTag.name }
+    });
+    
+    return this.skillTags.delete(id);
+  }
+  
+  // ---- Musician Skill Tags Management Methods ----
+  
+  async getMusicianSkillTags(musicianId: number): Promise<MusicianSkillTag[]> {
+    return Array.from(this.musicianSkillTags.values())
+      .filter(mst => mst.musicianId === musicianId);
+  }
+  
+  async getMusicianSkillTag(id: number): Promise<MusicianSkillTag | undefined> {
+    return this.musicianSkillTags.get(id);
+  }
+  
+  async createMusicianSkillTag(skillTag: InsertMusicianSkillTag): Promise<MusicianSkillTag> {
+    // Check if the association already exists
+    const existingAssoc = Array.from(this.musicianSkillTags.values())
+      .find(mst => mst.musicianId === skillTag.musicianId && mst.skillTagId === skillTag.skillTagId);
+    
+    if (existingAssoc) {
+      return existingAssoc; // Return existing one instead of creating duplicate
+    }
+    
+    const id = this.currentMusicianSkillTagId++;
+    const newSkillTag: MusicianSkillTag = { 
+      ...skillTag, 
+      id,
+      addedAt: new Date(),
+      endorsementCount: skillTag.endorsementCount || 0
+    };
+    
+    this.musicianSkillTags.set(id, newSkillTag);
+    
+    // Get musician and skill tag names for activity log
+    const musician = await this.getMusician(skillTag.musicianId);
+    const tag = await this.getSkillTag(skillTag.skillTagId);
+    
+    // Create activity
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Added",
+      entityType: "MusicianSkill",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name,
+        skillTag: tag?.name
+      }
+    });
+    
+    return newSkillTag;
+  }
+  
+  async updateMusicianSkillTag(id: number, data: Partial<InsertMusicianSkillTag>): Promise<MusicianSkillTag | undefined> {
+    const skillTag = await this.getMusicianSkillTag(id);
+    if (!skillTag) return undefined;
+    
+    const updatedSkillTag = { ...skillTag, ...data };
+    this.musicianSkillTags.set(id, updatedSkillTag);
+    
+    return updatedSkillTag;
+  }
+  
+  async deleteMusicianSkillTag(id: number): Promise<boolean> {
+    const musicianSkillTag = await this.getMusicianSkillTag(id);
+    if (!musicianSkillTag) return false;
+    
+    // Create activity
+    const musician = await this.getMusician(musicianSkillTag.musicianId);
+    const tag = await this.getSkillTag(musicianSkillTag.skillTagId);
+    
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Removed",
+      entityType: "MusicianSkill",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name,
+        skillTag: tag?.name
+      }
+    });
+    
+    return this.musicianSkillTags.delete(id);
+  }
+  
+  async endorseSkill(musicianId: number, skillTagId: number): Promise<MusicianSkillTag | undefined> {
+    // Find the association
+    const skillTag = Array.from(this.musicianSkillTags.values())
+      .find(mst => mst.musicianId === musicianId && mst.skillTagId === skillTagId);
+    
+    if (!skillTag) return undefined;
+    
+    // Increment the endorsement count
+    const updatedSkillTag = { 
+      ...skillTag, 
+      endorsementCount: skillTag.endorsementCount + 1 
+    };
+    
+    this.musicianSkillTags.set(skillTag.id, updatedSkillTag);
+    
+    // Create activity
+    const musician = await this.getMusician(musicianId);
+    const tag = await this.getSkillTag(skillTagId);
+    
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Endorsed",
+      entityType: "MusicianSkill",
+      entityId: skillTag.id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name,
+        skillTag: tag?.name
+      }
+    });
+    
+    return updatedSkillTag;
+  }
+  
+  // ---- Improvement Plans Management Methods ----
+  
+  async getImprovementPlans(musicianId?: number): Promise<ImprovementPlan[]> {
+    let plans = Array.from(this.improvementPlans.values());
+    
+    if (musicianId) {
+      plans = plans.filter(p => p.musicianId === musicianId);
+    }
+    
+    return plans.sort((a, b) => 
+      // Sort by created date, most recent first
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+  
+  async getImprovementPlan(id: number): Promise<ImprovementPlan | undefined> {
+    return this.improvementPlans.get(id);
+  }
+  
+  async createImprovementPlan(plan: InsertImprovementPlan): Promise<ImprovementPlan> {
+    const id = this.currentImprovementPlanId++;
+    const newPlan: ImprovementPlan = { 
+      ...plan, 
+      id,
+      createdAt: new Date(),
+      updatedAt: null,
+      completedAt: null,
+      status: plan.status || 'active'
+    };
+    
+    this.improvementPlans.set(id, newPlan);
+    
+    // Create activity
+    const musician = await this.getMusician(plan.musicianId);
+    
+    this.createActivity({
+      userId: plan.createdBy,
+      action: "Created",
+      entityType: "ImprovementPlan",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name,
+        title: plan.title,
+        target: plan.targetArea
+      }
+    });
+    
+    return newPlan;
+  }
+  
+  async updateImprovementPlan(id: number, data: Partial<InsertImprovementPlan>): Promise<ImprovementPlan | undefined> {
+    const plan = await this.getImprovementPlan(id);
+    if (!plan) return undefined;
+    
+    const updatedPlan = { 
+      ...plan, 
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    // Handle status change to 'completed'
+    if (data.status === 'completed' && plan.status !== 'completed') {
+      updatedPlan.completedAt = new Date();
+    }
+    
+    this.improvementPlans.set(id, updatedPlan);
+    
+    // Create activity if status changed
+    if (data.status && data.status !== plan.status) {
+      const musician = await this.getMusician(plan.musicianId);
+      
+      this.createActivity({
+        userId: 1, // Default admin
+        action: `${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`,
+        entityType: "ImprovementPlan",
+        entityId: id,
+        timestamp: new Date(),
+        details: { 
+          musician: musician?.name,
+          title: plan.title
+        }
+      });
+    }
+    
+    return updatedPlan;
+  }
+  
+  async deleteImprovementPlan(id: number): Promise<boolean> {
+    const plan = await this.getImprovementPlan(id);
+    if (!plan) return false;
+    
+    // Delete all associated actions first
+    const actions = await this.getImprovementActions(id);
+    for (const action of actions) {
+      await this.deleteImprovementAction(action.id);
+    }
+    
+    // Create activity
+    const musician = await this.getMusician(plan.musicianId);
+    
+    this.createActivity({
+      userId: 1, // Default admin
+      action: "Deleted",
+      entityType: "ImprovementPlan",
+      entityId: id,
+      timestamp: new Date(),
+      details: { 
+        musician: musician?.name,
+        title: plan.title
+      }
+    });
+    
+    return this.improvementPlans.delete(id);
+  }
+  
+  // ---- Improvement Actions Management Methods ----
+  
+  async getImprovementActions(planId: number): Promise<ImprovementAction[]> {
+    return Array.from(this.improvementActions.values())
+      .filter(a => a.planId === planId)
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+  }
+  
+  async getImprovementAction(id: number): Promise<ImprovementAction | undefined> {
+    return this.improvementActions.get(id);
+  }
+  
+  async createImprovementAction(action: InsertImprovementAction): Promise<ImprovementAction> {
+    const id = this.currentImprovementActionId++;
+    const newAction: ImprovementAction = { 
+      ...action, 
+      id,
+      createdAt: new Date(),
+      updatedAt: null,
+      completedAt: null,
+      status: action.status || 'pending'
+    };
+    
+    this.improvementActions.set(id, newAction);
+    
+    // Create activity
+    const plan = await this.getImprovementPlan(action.planId);
+    if (plan) {
+      const musician = await this.getMusician(plan.musicianId);
+      
+      this.createActivity({
+        userId: 1, // Default admin
+        action: "Created",
+        entityType: "ImprovementAction",
+        entityId: id,
+        timestamp: new Date(),
+        details: { 
+          musician: musician?.name,
+          planTitle: plan.title,
+          action: action.description
+        }
+      });
+    }
+    
+    return newAction;
+  }
+  
+  async updateImprovementAction(id: number, data: Partial<InsertImprovementAction>): Promise<ImprovementAction | undefined> {
+    const action = await this.getImprovementAction(id);
+    if (!action) return undefined;
+    
+    const updatedAction = { 
+      ...action, 
+      ...data,
+      updatedAt: new Date()
+    };
+    
+    // Handle status change to 'completed'
+    if (data.status === 'completed' && action.status !== 'completed') {
+      updatedAction.completedAt = new Date();
+      
+      // Check if all actions are completed for the plan
+      const plan = await this.getImprovementPlan(action.planId);
+      if (plan) {
+        const allActions = await this.getImprovementActions(action.planId);
+        const otherActions = allActions.filter(a => a.id !== id);
+        
+        const allCompleted = otherActions.every(a => a.status === 'completed' || a.status === 'skipped');
+        
+        if (allCompleted) {
+          // Automatically mark plan as completed
+          await this.updateImprovementPlan(action.planId, { status: 'completed' });
+        }
+      }
+    }
+    
+    this.improvementActions.set(id, updatedAction);
+    
+    // Create activity if status changed
+    if (data.status && data.status !== action.status) {
+      const plan = await this.getImprovementPlan(action.planId);
+      if (plan) {
+        const musician = await this.getMusician(plan.musicianId);
+        
+        this.createActivity({
+          userId: 1, // Default admin
+          action: `${data.status.charAt(0).toUpperCase() + data.status.slice(1)}`,
+          entityType: "ImprovementAction",
+          entityId: id,
+          timestamp: new Date(),
+          details: { 
+            musician: musician?.name,
+            planTitle: plan.title,
+            action: action.description
+          }
+        });
+      }
+    }
+    
+    return updatedAction;
+  }
+  
+  async deleteImprovementAction(id: number): Promise<boolean> {
+    const action = await this.getImprovementAction(id);
+    if (!action) return false;
+    
+    // Create activity
+    const plan = await this.getImprovementPlan(action.planId);
+    if (plan) {
+      const musician = await this.getMusician(plan.musicianId);
+      
+      this.createActivity({
+        userId: 1, // Default admin
+        action: "Deleted",
+        entityType: "ImprovementAction",
+        entityId: id,
+        timestamp: new Date(),
+        details: { 
+          musician: musician?.name,
+          planTitle: plan.title,
+          action: action.description
+        }
+      });
+    }
+    
+    return this.improvementActions.delete(id);
+  }
+  
+  async completeImprovementAction(id: number, feedback?: string): Promise<ImprovementAction | undefined> {
+    const action = await this.getImprovementAction(id);
+    if (!action) return undefined;
+    
+    // Update the action to completed status with any feedback
+    const updatedAction = await this.updateImprovementAction(id, { 
+      status: 'completed',
+      feedback: feedback || action.feedback // Keep existing feedback if none provided
+    });
+    
+    if (!updatedAction) return undefined;
+    
+    // Check if all actions in the plan are now completed
+    const plan = await this.getImprovementPlan(action.planId);
+    if (plan && plan.status !== 'completed') {
+      const allActions = await this.getImprovementActions(action.planId);
+      
+      // Check if all actions are completed or skipped
+      const allCompleted = allActions.every(a => 
+        a.status === 'completed' || a.status === 'skipped'
+      );
+      
+      if (allCompleted) {
+        // Automatically mark plan as completed
+        await this.updateImprovementPlan(action.planId, { status: 'completed' });
+      }
+    }
+    
+    return updatedAction;
+  }
 }
 
 export const storage = new MemStorage();
