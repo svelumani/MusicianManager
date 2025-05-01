@@ -147,6 +147,11 @@ function Router() {
           <EmailSettingsPage />
         </AppLayout>
       </Route>
+      <Route path="/settings/templates">
+        <AppLayout>
+          <EmailTemplatesPage />
+        </AppLayout>
+      </Route>
 
       {/* Fallback to 404 */}
       <Route>

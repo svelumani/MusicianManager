@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Music, Tag, User, CreditCard, Clock, Mail } from "lucide-react";
+import { Settings, Music, Tag, User, CreditCard, Clock, Mail, FileText } from "lucide-react";
 
 const settingsSections = [
   {
@@ -15,9 +15,16 @@ const settingsSections = [
   {
     id: "email",
     title: "Email Settings",
-    description: "Configure email notifications for musicians and venues",
+    description: "Configure email notifications and SendGrid integration",
     icon: <Mail className="h-8 w-8" />,
     color: "text-red-500 bg-red-100",
+  },
+  {
+    id: "templates",
+    title: "Email Templates",
+    description: "Manage email templates for musician communications",
+    icon: <FileText className="h-8 w-8" />,
+    color: "text-emerald-500 bg-emerald-100",
   },
   {
     id: "musician-types",

@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useParams, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { EmailTemplate } from "@shared/schema";
 
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -28,12 +27,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -118,10 +115,10 @@ const TemplateEditor = ({
               <FormItem>
                 <FormLabel>Email Subject</FormLabel>
                 <FormControl>
-                  <Input placeholder="Your Performance Schedule for {{month}} {{year}}" {...field} />
+                  <Input placeholder="Your Performance Schedule for &#123;&#123;month&#125;&#125; &#123;&#123;year&#125;&#125;" {...field} />
                 </FormControl>
                 <FormDescription>
-                  Use placeholders like {{name}} for dynamic content
+                  Use placeholders like &#123;&#123;name&#125;&#125; for dynamic content
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -161,13 +158,13 @@ const TemplateEditor = ({
                   <FormItem>
                     <FormControl>
                       <Textarea
-                        placeholder="HTML content with placeholders like {{musicianName}}"
+                        placeholder="HTML content with placeholders like &#123;&#123;musicianName&#125;&#125;"
                         className="min-h-[300px] font-mono text-sm"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      Use HTML for rich formatting. Use placeholders like {{musicianName}} for dynamic content.
+                      Use HTML for rich formatting. Use placeholders like &#123;&#123;musicianName&#125;&#125; for dynamic content.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -183,7 +180,7 @@ const TemplateEditor = ({
                   <FormItem>
                     <FormControl>
                       <Textarea
-                        placeholder="Plain text content with placeholders like {{musicianName}}"
+                        placeholder="Plain text content with placeholders like &#123;&#123;musicianName&#125;&#125;"
                         className="min-h-[300px] font-mono text-sm"
                         {...field}
                       />
@@ -207,9 +204,9 @@ const TemplateEditor = ({
                   />
                 </div>
               </div>
-              <FormDescription className="mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 This is a rough preview. Placeholders will be replaced with actual data when sending emails.
-              </FormDescription>
+              </p>
             </TabsContent>
           </Tabs>
         </div>
@@ -231,7 +228,6 @@ const TemplateEditor = ({
 // Main Templates Page
 const EmailTemplatesPage = () => {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [currentTemplate, setCurrentTemplate] = useState<EmailTemplate | null>(null);
