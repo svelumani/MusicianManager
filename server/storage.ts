@@ -2,6 +2,7 @@ import {
   users, venues, categories, musicians, availability, 
   events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
+  settings,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type Musician, type InsertMusician, type Availability, 
@@ -12,7 +13,8 @@ import {
   type MonthlyPlanner, type InsertMonthlyPlanner,
   type PlannerSlot, type InsertPlannerSlot,
   type PlannerAssignment, type InsertPlannerAssignment,
-  type MonthlyInvoice, type InsertMonthlyInvoice
+  type MonthlyInvoice, type InsertMonthlyInvoice,
+  type Settings, type InsertSettings
 } from "@shared/schema";
 
 // Define the storage interface
@@ -22,6 +24,11 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
+  
+  // Settings management
+  getSettings(type: string): Promise<Settings | undefined>;
+  createSettings(type: string, data: any): Promise<Settings>;
+  updateSettings(type: string, data: any): Promise<Settings | undefined>;
   
   // Venue management
   getVenues(): Promise<Venue[]>;
@@ -163,6 +170,7 @@ export class MemStorage implements IStorage {
   private plannerSlots: Map<number, PlannerSlot>;
   private plannerAssignments: Map<number, PlannerAssignment>;
   private monthlyInvoices: Map<number, MonthlyInvoice>;
+  private settings: Map<string, Settings>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -180,6 +188,7 @@ export class MemStorage implements IStorage {
   private currentPlannerSlotId: number;
   private currentPlannerAssignmentId: number;
   private currentMonthlyInvoiceId: number;
+  private currentSettingsId: number;
 
   constructor() {
     // Initialize maps
@@ -198,6 +207,7 @@ export class MemStorage implements IStorage {
     this.plannerSlots = new Map();
     this.plannerAssignments = new Map();
     this.monthlyInvoices = new Map();
+    this.settings = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
@@ -215,6 +225,7 @@ export class MemStorage implements IStorage {
     this.currentPlannerSlotId = 1;
     this.currentPlannerAssignmentId = 1;
     this.currentMonthlyInvoiceId = 1;
+    this.currentSettingsId = 1;
     
     // Initialize with default admin user
     this.createUser({
@@ -1256,6 +1267,38 @@ export class MemStorage implements IStorage {
     });
     
     return paidInvoice;
+  }
+  
+  // Settings management methods
+  async getSettings(type: string): Promise<Settings | undefined> {
+    return Array.from(this.settings.values()).find(s => s.type === type);
+  }
+  
+  async createSettings(type: string, data: any): Promise<Settings> {
+    const id = this.currentSettingsId++;
+    const newSettings: Settings = {
+      id,
+      type,
+      data,
+      updatedAt: new Date()
+    };
+    this.settings.set(id, newSettings);
+    return newSettings;
+  }
+  
+  async updateSettings(type: string, data: any): Promise<Settings | undefined> {
+    const settings = await this.getSettings(type);
+    if (!settings) {
+      return this.createSettings(type, data);
+    }
+    
+    const updatedSettings = {
+      ...settings,
+      data,
+      updatedAt: new Date()
+    };
+    this.settings.set(settings.id, updatedSettings);
+    return updatedSettings;
   }
 }
 
