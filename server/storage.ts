@@ -722,7 +722,11 @@ export class MemStorage implements IStorage {
   
   async createCategory(category: InsertCategory): Promise<Category> {
     const id = this.currentCategoryId++;
-    const newCategory: Category = { ...category, id };
+    const newCategory: Category = { 
+      id, 
+      title: category.title,
+      description: category.description ?? null
+    };
     this.categories.set(id, newCategory);
     return newCategory;
   }
@@ -751,7 +755,11 @@ export class MemStorage implements IStorage {
   
   async createMusicianCategory(category: InsertMusicianCategory): Promise<MusicianCategory> {
     const id = this.currentMusicianCategoryId++;
-    const newCategory: MusicianCategory = { ...category, id };
+    const newCategory: MusicianCategory = { 
+      id, 
+      title: category.title,
+      description: category.description ?? null
+    };
     this.musicianCategories.set(id, newCategory);
     return newCategory;
   }
@@ -780,7 +788,11 @@ export class MemStorage implements IStorage {
   
   async createVenueCategory(category: InsertVenueCategory): Promise<VenueCategory> {
     const id = this.currentVenueCategoryId++;
-    const newCategory: VenueCategory = { ...category, id };
+    const newCategory: VenueCategory = { 
+      id, 
+      title: category.title,
+      description: category.description ?? null
+    };
     this.venueCategories.set(id, newCategory);
     return newCategory;
   }
@@ -809,7 +821,11 @@ export class MemStorage implements IStorage {
   
   async createEventCategory(category: InsertEventCategory): Promise<EventCategory> {
     const id = this.currentEventCategoryId++;
-    const newCategory: EventCategory = { ...category, id };
+    const newCategory: EventCategory = { 
+      id, 
+      title: category.title,
+      description: category.description ?? null
+    };
     this.eventCategories.set(id, newCategory);
     return newCategory;
   }
@@ -885,7 +901,14 @@ export class MemStorage implements IStorage {
   
   async createAvailability(availability: InsertAvailability): Promise<Availability> {
     const id = this.currentAvailabilityId++;
-    const newAvailability: Availability = { ...availability, id };
+    const newAvailability: Availability = { 
+      id,
+      date: availability.date,
+      musicianId: availability.musicianId,
+      month: availability.month,
+      year: availability.year,
+      isAvailable: availability.isAvailable ?? false
+    };
     this.availability.set(id, newAvailability);
     return newAvailability;
   }

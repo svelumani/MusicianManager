@@ -16,6 +16,9 @@ import {
   insertUserSchema, 
   insertVenueSchema, 
   insertCategorySchema,
+  insertMusicianCategorySchema,
+  insertVenueCategorySchema,
+  insertEventCategorySchema,
   insertMusicianSchema,
   insertAvailabilitySchema,
   insertEventSchema,
@@ -300,7 +303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Category routes
+  // Legacy Category routes
   apiRouter.get("/categories", isAuthenticated, async (req, res) => {
     try {
       const categories = await storage.getCategories();
@@ -365,6 +368,210 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error deleting category" });
+    }
+  });
+  
+  // Musician Category routes
+  apiRouter.get("/musician-categories", isAuthenticated, async (req, res) => {
+    try {
+      const categories = await storage.getMusicianCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician categories" });
+    }
+  });
+
+  apiRouter.get("/musician-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.getMusicianCategory(parseInt(req.params.id));
+      if (!category) {
+        return res.status(404).json({ message: "Musician category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician category" });
+    }
+  });
+
+  apiRouter.post("/musician-categories", isAuthenticated, async (req, res) => {
+    try {
+      const categoryData = insertMusicianCategorySchema.parse(req.body);
+      const category = await storage.createMusicianCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician category data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating musician category" });
+    }
+  });
+
+  apiRouter.put("/musician-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const categoryData = insertMusicianCategorySchema.partial().parse(req.body);
+      const category = await storage.updateMusicianCategory(parseInt(req.params.id), categoryData);
+      if (!category) {
+        return res.status(404).json({ message: "Musician category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician category data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating musician category" });
+    }
+  });
+
+  apiRouter.delete("/musician-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMusicianCategory(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Musician category not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting musician category" });
+    }
+  });
+  
+  // Venue Category routes
+  apiRouter.get("/venue-categories", isAuthenticated, async (req, res) => {
+    try {
+      const categories = await storage.getVenueCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching venue categories" });
+    }
+  });
+
+  apiRouter.get("/venue-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.getVenueCategory(parseInt(req.params.id));
+      if (!category) {
+        return res.status(404).json({ message: "Venue category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching venue category" });
+    }
+  });
+
+  apiRouter.post("/venue-categories", isAuthenticated, async (req, res) => {
+    try {
+      const categoryData = insertVenueCategorySchema.parse(req.body);
+      const category = await storage.createVenueCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid venue category data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating venue category" });
+    }
+  });
+
+  apiRouter.put("/venue-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const categoryData = insertVenueCategorySchema.partial().parse(req.body);
+      const category = await storage.updateVenueCategory(parseInt(req.params.id), categoryData);
+      if (!category) {
+        return res.status(404).json({ message: "Venue category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid venue category data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating venue category" });
+    }
+  });
+
+  apiRouter.delete("/venue-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteVenueCategory(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Venue category not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting venue category" });
+    }
+  });
+  
+  // Event Category routes
+  apiRouter.get("/event-categories", isAuthenticated, async (req, res) => {
+    try {
+      const categories = await storage.getEventCategories();
+      res.json(categories);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching event categories" });
+    }
+  });
+
+  apiRouter.get("/event-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const category = await storage.getEventCategory(parseInt(req.params.id));
+      if (!category) {
+        return res.status(404).json({ message: "Event category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching event category" });
+    }
+  });
+
+  apiRouter.post("/event-categories", isAuthenticated, async (req, res) => {
+    try {
+      const categoryData = insertEventCategorySchema.parse(req.body);
+      const category = await storage.createEventCategory(categoryData);
+      res.status(201).json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid event category data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating event category" });
+    }
+  });
+
+  apiRouter.put("/event-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const categoryData = insertEventCategorySchema.partial().parse(req.body);
+      const category = await storage.updateEventCategory(parseInt(req.params.id), categoryData);
+      if (!category) {
+        return res.status(404).json({ message: "Event category not found" });
+      }
+      res.json(category);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid event category data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating event category" });
+    }
+  });
+
+  apiRouter.delete("/event-categories/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteEventCategory(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Event category not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting event category" });
     }
   });
 
