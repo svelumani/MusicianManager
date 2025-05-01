@@ -3,6 +3,8 @@ import {
   events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
   settings, emailTemplates, musicianTypes, musicianTypeCategories,
+  performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
+  improvementPlans, improvementActions,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type Musician, type InsertMusician, type Availability, 
@@ -17,7 +19,13 @@ import {
   type Settings, type InsertSettings,
   type EmailTemplate, type InsertEmailTemplate,
   type MusicianType, type InsertMusicianType,
-  type MusicianTypeCategory, type InsertMusicianTypeCategory
+  type MusicianTypeCategory, type InsertMusicianTypeCategory,
+  type PerformanceRating, type InsertPerformanceRating,
+  type PerformanceMetric, type InsertPerformanceMetric,
+  type SkillTag, type InsertSkillTag,
+  type MusicianSkillTag, type InsertMusicianSkillTag,
+  type ImprovementPlan, type InsertImprovementPlan,
+  type ImprovementAction, type InsertImprovementAction
 } from "@shared/schema";
 
 // Define the storage interface
@@ -183,6 +191,58 @@ export interface IStorage {
   deleteMusicianType(id: number): Promise<boolean>;
   associateMusicianTypeWithCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
   removeMusicianTypeCategory(musicianTypeId: number, categoryId: number): Promise<boolean>;
+  
+  // Performance Rating management
+  getPerformanceRatings(musicianId?: number, bookingId?: number, plannerAssignmentId?: number): Promise<PerformanceRating[]>;
+  getPerformanceRating(id: number): Promise<PerformanceRating | undefined>;
+  createPerformanceRating(rating: InsertPerformanceRating): Promise<PerformanceRating>;
+  updatePerformanceRating(id: number, data: Partial<InsertPerformanceRating>): Promise<PerformanceRating | undefined>;
+  deletePerformanceRating(id: number): Promise<boolean>;
+  getMusicianAverageRatings(musicianId: number): Promise<{
+    overallRating: number;
+    punctuality: number;
+    musicianship: number;
+    professionalism: number;
+    appearance: number;
+    flexibility: number;
+    totalRatings: number;
+  }>;
+  
+  // Performance Metrics management
+  getPerformanceMetrics(musicianId: number): Promise<PerformanceMetric | undefined>;
+  createPerformanceMetrics(metrics: InsertPerformanceMetric): Promise<PerformanceMetric>;
+  updatePerformanceMetrics(id: number, data: Partial<InsertPerformanceMetric>): Promise<PerformanceMetric | undefined>;
+  updateMusicianRatingMetrics(musicianId: number): Promise<PerformanceMetric | undefined>;
+  
+  // Skill Tags management
+  getSkillTags(): Promise<SkillTag[]>;
+  getSkillTag(id: number): Promise<SkillTag | undefined>;
+  createSkillTag(tag: InsertSkillTag): Promise<SkillTag>;
+  updateSkillTag(id: number, data: Partial<InsertSkillTag>): Promise<SkillTag | undefined>;
+  deleteSkillTag(id: number): Promise<boolean>;
+  
+  // Musician Skill Tags management
+  getMusicianSkillTags(musicianId: number): Promise<MusicianSkillTag[]>;
+  getMusicianSkillTag(id: number): Promise<MusicianSkillTag | undefined>;
+  createMusicianSkillTag(skillTag: InsertMusicianSkillTag): Promise<MusicianSkillTag>;
+  updateMusicianSkillTag(id: number, data: Partial<InsertMusicianSkillTag>): Promise<MusicianSkillTag | undefined>;
+  deleteMusicianSkillTag(id: number): Promise<boolean>;
+  endorseSkill(musicianId: number, skillTagId: number): Promise<MusicianSkillTag | undefined>;
+  
+  // Performance Improvement Plans management
+  getImprovementPlans(musicianId?: number): Promise<ImprovementPlan[]>;
+  getImprovementPlan(id: number): Promise<ImprovementPlan | undefined>;
+  createImprovementPlan(plan: InsertImprovementPlan): Promise<ImprovementPlan>;
+  updateImprovementPlan(id: number, data: Partial<InsertImprovementPlan>): Promise<ImprovementPlan | undefined>;
+  deleteImprovementPlan(id: number): Promise<boolean>;
+  
+  // Improvement Actions management
+  getImprovementActions(planId: number): Promise<ImprovementAction[]>;
+  getImprovementAction(id: number): Promise<ImprovementAction | undefined>;
+  createImprovementAction(action: InsertImprovementAction): Promise<ImprovementAction>;
+  updateImprovementAction(id: number, data: Partial<InsertImprovementAction>): Promise<ImprovementAction | undefined>;
+  deleteImprovementAction(id: number): Promise<boolean>;
+  completeImprovementAction(id: number, feedback?: string): Promise<ImprovementAction | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -205,6 +265,12 @@ export class MemStorage implements IStorage {
   private emailTemplates: Map<number, EmailTemplate>;
   private musicianTypes: Map<number, MusicianType>;
   private musicianTypeCategories: Map<number, MusicianTypeCategory>;
+  private performanceRatings: Map<number, PerformanceRating>;
+  private performanceMetrics: Map<number, PerformanceMetric>;
+  private skillTags: Map<number, SkillTag>;
+  private musicianSkillTags: Map<number, MusicianSkillTag>;
+  private improvementPlans: Map<number, ImprovementPlan>;
+  private improvementActions: Map<number, ImprovementAction>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -226,6 +292,12 @@ export class MemStorage implements IStorage {
   private currentEmailTemplateId: number;
   private currentMusicianTypeId: number;
   private currentMusicianTypeCategoryId: number;
+  private currentPerformanceRatingId: number;
+  private currentPerformanceMetricId: number;
+  private currentSkillTagId: number;
+  private currentMusicianSkillTagId: number;
+  private currentImprovementPlanId: number;
+  private currentImprovementActionId: number;
 
   constructor() {
     // Initialize maps
@@ -248,6 +320,12 @@ export class MemStorage implements IStorage {
     this.emailTemplates = new Map();
     this.musicianTypes = new Map();
     this.musicianTypeCategories = new Map();
+    this.performanceRatings = new Map();
+    this.performanceMetrics = new Map();
+    this.skillTags = new Map();
+    this.musicianSkillTags = new Map();
+    this.improvementPlans = new Map();
+    this.improvementActions = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
@@ -269,6 +347,12 @@ export class MemStorage implements IStorage {
     this.currentEmailTemplateId = 1;
     this.currentMusicianTypeId = 1;
     this.currentMusicianTypeCategoryId = 1;
+    this.currentPerformanceRatingId = 1;
+    this.currentPerformanceMetricId = 1;
+    this.currentSkillTagId = 1;
+    this.currentMusicianSkillTagId = 1;
+    this.currentImprovementPlanId = 1;
+    this.currentImprovementActionId = 1;
     
     // Initialize with default admin user
     this.createUser({
@@ -435,6 +519,31 @@ export class MemStorage implements IStorage {
       id: this.currentMusicianTypeCategoryId,
       musicianTypeId: violinistType.id,
       categoryId: 2
+    });
+    
+    // Initialize with sample skill tags
+    const skillTags = [
+      { name: "Sight Reading", description: "Ability to read and perform music at first sight" },
+      { name: "Improvisation", description: "Ability to compose and perform music spontaneously" },
+      { name: "Music Theory", description: "Knowledge of music theory and composition" },
+      { name: "Stage Presence", description: "Strong stage presence and audience engagement" },
+      { name: "Versatility", description: "Ability to perform multiple music styles" },
+      { name: "Vocals", description: "Singing ability in addition to instrumental skills" },
+      { name: "Studio Experience", description: "Experience with recording in studio environments" },
+      { name: "Original Compositions", description: "Creates and performs original music" },
+      { name: "Music Direction", description: "Can lead and direct other musicians" },
+      { name: "Multilingual", description: "Can perform songs in multiple languages" }
+    ];
+    
+    // Add skill tags to the database
+    skillTags.forEach(tag => {
+      const skillTag: SkillTag = {
+        id: this.currentSkillTagId++,
+        name: tag.name,
+        description: tag.description,
+        createdAt: new Date()
+      };
+      this.skillTags.set(skillTag.id, skillTag);
     });
   }
 
