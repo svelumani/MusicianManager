@@ -28,7 +28,8 @@ import {
   insertPlannerAssignmentSchema,
   insertMonthlyInvoiceSchema,
   insertEmailTemplateSchema,
-  insertMusicianTypeSchema
+  insertMusicianTypeSchema,
+  insertAvailabilityShareLinkSchema
 } from "@shared/schema";
 
 const SessionStore = MemoryStore(session);
@@ -538,12 +539,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       res.json({
+        id: shareLink.id,
         shareLink: `${req.protocol}://${req.get('host')}/availability/${token}`,
-        expiryDate: shareLink.expiryDate
+        expiryDate: shareLink.expiryDate,
+        createdAt: shareLink.createdAt
       });
     } catch (error) {
       console.error("Error generating availability share link:", error);
       res.status(500).json({ message: "Error generating availability share link" });
+    }
+  });
+  
+  // Get all availability share links for a musician
+  apiRouter.get("/musicians/:musicianId/availability-share", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId } = req.params;
+      
+      // Check if musician exists
+      const musician = await storage.getMusician(parseInt(musicianId));
+      if (!musician) {
+        return res.status(404).json({ message: "Musician not found" });
+      }
+      
+      // Get all share links
+      const shareLinks = await storage.getAvailabilityShareLinks(parseInt(musicianId));
+      
+      // Format share links with proper URLs
+      const formattedLinks = shareLinks.map(link => ({
+        id: link.id,
+        shareLink: `${req.protocol}://${req.get('host')}/availability/${link.token}`,
+        expiryDate: link.expiryDate,
+        createdAt: link.createdAt,
+        isExpired: new Date() > new Date(link.expiryDate)
+      }));
+      
+      res.json(formattedLinks);
+    } catch (error) {
+      console.error("Error fetching availability share links:", error);
+      res.status(500).json({ message: "Error fetching availability share links" });
+    }
+  });
+  
+  // Delete an availability share link
+  apiRouter.delete("/musicians/:musicianId/availability-share/:linkId", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId, linkId } = req.params;
+      
+      // Get the share link
+      const shareLink = await storage.getAvailabilityShareLink(parseInt(linkId));
+      if (!shareLink) {
+        return res.status(404).json({ message: "Share link not found" });
+      }
+      
+      // Check if the share link belongs to the musician
+      if (shareLink.musicianId !== parseInt(musicianId)) {
+        return res.status(403).json({ message: "Unauthorized access to share link" });
+      }
+      
+      // Delete the share link
+      const result = await storage.deleteAvailabilityShareLink(parseInt(linkId));
+      if (!result) {
+        return res.status(500).json({ message: "Failed to delete share link" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting availability share link:", error);
+      res.status(500).json({ message: "Error deleting availability share link" });
     }
   });
   
