@@ -2,7 +2,7 @@ import {
   users, venues, categories, musicians, availability, 
   events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
-  settings,
+  settings, emailTemplates,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type Musician, type InsertMusician, type Availability, 
@@ -14,7 +14,8 @@ import {
   type PlannerSlot, type InsertPlannerSlot,
   type PlannerAssignment, type InsertPlannerAssignment,
   type MonthlyInvoice, type InsertMonthlyInvoice,
-  type Settings, type InsertSettings
+  type Settings, type InsertSettings,
+  type EmailTemplate, type InsertEmailTemplate
 } from "@shared/schema";
 
 // Define the storage interface
@@ -29,6 +30,14 @@ export interface IStorage {
   getSettings(type: string): Promise<Settings | undefined>;
   createSettings(type: string, data: any): Promise<Settings>;
   updateSettings(type: string, data: any): Promise<Settings | undefined>;
+  
+  // Email template management
+  getEmailTemplates(): Promise<EmailTemplate[]>;
+  getEmailTemplate(id: number): Promise<EmailTemplate | undefined>;
+  getEmailTemplateByName(name: string): Promise<EmailTemplate | undefined>;
+  createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: number, data: Partial<InsertEmailTemplate>): Promise<EmailTemplate | undefined>;
+  deleteEmailTemplate(id: number): Promise<boolean>;
   
   // Venue management
   getVenues(): Promise<Venue[]>;

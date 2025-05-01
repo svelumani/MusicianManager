@@ -399,3 +399,28 @@ export type InsertPlannerAssignment = z.infer<typeof insertPlannerAssignmentSche
 
 export type MonthlyInvoice = typeof monthlyInvoices.$inferSelect;
 export type InsertMonthlyInvoice = z.infer<typeof insertMonthlyInvoiceSchema>;
+
+// Email Templates model
+export const emailTemplates = pgTable("email_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  subject: text("subject").notNull(),
+  htmlContent: text("html_content").notNull(),
+  textContent: text("text_content").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+  isDefault: boolean("is_default").notNull().default(false),
+});
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).pick({
+  name: true,
+  subject: true,
+  htmlContent: true,
+  textContent: true,
+  description: true,
+  isDefault: true,
+});
+
+export type EmailTemplate = typeof emailTemplates.$inferSelect;
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
