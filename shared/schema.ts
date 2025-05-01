@@ -626,3 +626,22 @@ export type InsertImprovementPlan = z.infer<typeof insertImprovementPlanSchema>;
 
 export type ImprovementAction = typeof improvementActions.$inferSelect;
 export type InsertImprovementAction = z.infer<typeof insertImprovementActionSchema>;
+
+// Availability Share Links for sharing musician availability
+export const availabilityShareLinks = pgTable("availability_share_links", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull().references(() => musicians.id, { onDelete: "cascade" }),
+  token: text("token").notNull().unique(),
+  expiryDate: timestamp("expiry_date").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertAvailabilityShareLinkSchema = createInsertSchema(availabilityShareLinks).pick({
+  musicianId: true,
+  token: true,
+  expiryDate: true,
+  createdAt: true,
+});
+
+export type AvailabilityShareLink = typeof availabilityShareLinks.$inferSelect;
+export type InsertAvailabilityShareLink = z.infer<typeof insertAvailabilityShareLinkSchema>;

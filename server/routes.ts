@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "./services/settings";
 import { sendMusicianAssignmentEmail, initializeSendGrid } from "./services/email";
 import sgMail from '@sendgrid/mail';
+import crypto from 'crypto';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -508,6 +509,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error updating musician availability:", error);
       res.status(500).json({ message: "Error updating musician availability" });
+    }
+  });
+  
+  // Generate shareable availability link token
+  apiRouter.post("/musicians/:musicianId/availability-share", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId } = req.params;
+      const { expiryDays = 30 } = req.body;
+      
+      // Get the musician to ensure they exist
+      const musician = await storage.getMusician(parseInt(musicianId));
+      if (!musician) {
+        return res.status(404).json({ message: "Musician not found" });
+      }
+      
+      // Generate a unique token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + expiryDays);
+      
+      // Store the token
+      const shareLink = await storage.createAvailabilityShareLink({
+        musicianId: parseInt(musicianId),
+        token,
+        expiryDate,
+        createdAt: new Date()
+      });
+      
+      res.json({
+        shareLink: `${req.protocol}://${req.get('host')}/availability/${token}`,
+        expiryDate: shareLink.expiryDate
+      });
+    } catch (error) {
+      console.error("Error generating availability share link:", error);
+      res.status(500).json({ message: "Error generating availability share link" });
+    }
+  });
+  
+  // Public endpoint to access shared availability
+  apiRouter.get("/public/availability/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { month, year } = req.query;
+      
+      // Get the share link
+      const shareLink = await storage.getAvailabilityShareLinkByToken(token);
+      if (!shareLink) {
+        return res.status(404).json({ message: "Share link not found or expired" });
+      }
+      
+      // Check if the link has expired
+      if (new Date() > new Date(shareLink.expiryDate)) {
+        return res.status(401).json({ message: "Share link has expired" });
+      }
+      
+      // Get the musician
+      const musician = await storage.getMusician(shareLink.musicianId);
+      if (!musician) {
+        return res.status(404).json({ message: "Musician not found" });
+      }
+      
+      // Get musician's availability for requested month/year
+      const monthInt = parseInt(month as string);
+      const yearInt = parseInt(year as string);
+      const monthStr = `${yearInt}-${monthInt.toString().padStart(2, '0')}`;
+      
+      const availability = await storage.getAvailability(shareLink.musicianId, monthStr);
+      const bookings = await storage.getBookingsByMusicianAndMonth(shareLink.musicianId, monthInt, yearInt);
+      
+      res.json({
+        musician: {
+          id: musician.id,
+          name: musician.name,
+          profileImage: musician.profileImage
+        },
+        calendar: {
+          month: monthInt,
+          year: yearInt,
+          availability,
+          bookings
+        }
+      });
+    } catch (error) {
+      console.error("Error accessing shared availability:", error);
+      res.status(500).json({ message: "Error accessing shared availability" });
     }
   });
 
