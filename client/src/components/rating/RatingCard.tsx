@@ -133,13 +133,25 @@ export default function RatingCard({
   });
 
   const handleSubmit = () => {
+    // Create performance rating data matching the schema
     const ratingData = {
       musicianId,
       bookingId,
       plannerAssignmentId,
-      rating,
-      comment: comment.trim(),
+      // Use the logged in user ID as the rater
+      ratedBy: 1, // Admin user ID
       ratedAt: new Date().toISOString(),
+      // Use the same rating value for all rating criteria for simplicity
+      punctuality: rating,
+      musicianship: rating,
+      professionalism: rating,
+      appearance: rating,
+      flexibility: rating,
+      overallRating: rating,
+      comments: comment.trim(),
+      // Required field in the schema
+      eventDate: new Date().toISOString(),
+      venueId: null
     };
 
     if (initialRating?.id) {
