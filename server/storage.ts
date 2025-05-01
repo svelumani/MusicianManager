@@ -129,6 +129,7 @@ export interface IStorage {
   updateEvent(id: number, data: Partial<InsertEvent>): Promise<Event | undefined>;
   deleteEvent(id: number): Promise<boolean>;
   getUpcomingEvents(limit?: number): Promise<Event[]>;
+  getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>>;
   
   // Booking management
   getBookings(eventId?: number): Promise<Booking[]>;
