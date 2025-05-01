@@ -3,8 +3,10 @@ import { Calendar } from "../ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
-import { Loader2 } from "lucide-react";
-import { format, getMonth, getYear, setMonth, setYear } from "date-fns";
+import { Button } from "../ui/button";
+import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { format, getMonth, getYear, setMonth, setYear, isSameDay } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface BookingData {
   id: number;
@@ -37,9 +39,13 @@ interface AvailabilityCalendarProps {
 export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) {
   const [calendarData, setCalendarData] = useState<CalendarData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingAvailability, setUpdatingAvailability] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  
+  const { toast } = useToast();
   const availabilityCache = new Map<string, CalendarData>();
 
   // Load calendar data for the selected month
@@ -157,6 +163,109 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
       setSelectedDate(newDate);
     }
   };
+  
+  // Toggle selection of a date in multi-select mode
+  const toggleDateSelection = (date: Date) => {
+    if (!multiSelectMode) {
+      setSelectedDate(date);
+      return;
+    }
+    
+    // Check if date is already selected
+    const isSelected = selectedDates.some(d => isSameDay(d, date));
+    
+    if (isSelected) {
+      // Remove date from selection
+      setSelectedDates(selectedDates.filter(d => !isSameDay(d, date)));
+    } else {
+      // Add date to selection
+      setSelectedDates([...selectedDates, date]);
+    }
+  };
+  
+  // Update availability for selected dates
+  const updateAvailability = async (isAvailable: boolean) => {
+    setUpdatingAvailability(true);
+    
+    try {
+      // Use the single selected date if not in multi-select mode
+      const datesToUpdate = multiSelectMode ? selectedDates : [selectedDate];
+      
+      if (datesToUpdate.length === 0) {
+        toast({
+          title: "No dates selected",
+          description: "Please select at least one date to update",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Create an array of promises for each date update
+      const updatePromises = datesToUpdate.map(async (date) => {
+        const response = await fetch(`/api/musicians/${musicianId}/availability`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            date: format(date, "yyyy-MM-dd"),
+            isAvailable
+          }),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to update availability for ${format(date, "yyyy-MM-dd")}`);
+        }
+        
+        return await response.json();
+      });
+      
+      // Wait for all updates to complete
+      await Promise.all(updatePromises);
+      
+      // Clear the availability cache for this month/year
+      const month = getMonth(selectedDate) + 1;
+      const year = getYear(selectedDate);
+      const cacheKey = `${musicianId}-${month}-${year}`;
+      availabilityCache.delete(cacheKey);
+      
+      // Refresh calendar data
+      const response = await fetch(
+        `/api/musicians/${musicianId}/availability-calendar/${month}/${year}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        }
+      );
+      
+      const data = await response.json();
+      availabilityCache.set(cacheKey, data);
+      setCalendarData(data);
+      
+      // Clear multi-select if active
+      if (multiSelectMode) {
+        setSelectedDates([]);
+      }
+      
+      toast({
+        title: "Availability updated",
+        description: `Successfully marked ${datesToUpdate.length} date(s) as ${isAvailable ? 'available' : 'unavailable'}`,
+      });
+      
+    } catch (err) {
+      console.error("Error updating availability:", err);
+      toast({
+        title: "Update failed",
+        description: "There was an error updating the availability",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingAvailability(false);
+    }
+  };
 
   return (
     <Card>
@@ -208,25 +317,89 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
           <div className="text-center text-red-500 p-4">{error}</div>
         ) : (
           <>
+            <div className="mb-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMultiSelectMode(!multiSelectMode)}
+                    className={multiSelectMode ? "bg-blue-50 border-blue-200" : ""}
+                  >
+                    {multiSelectMode ? "Exit Multi-Select" : "Select Multiple Days"}
+                  </Button>
+                  
+                  {multiSelectMode && (
+                    <span className="text-sm text-muted-foreground">
+                      {selectedDates.length} date(s) selected
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-green-500 hover:bg-green-50"
+                    onClick={() => updateAvailability(true)}
+                    disabled={updatingAvailability}
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                    Mark Available
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-500 hover:bg-red-50"
+                    onClick={() => updateAvailability(false)}
+                    disabled={updatingAvailability}
+                  >
+                    <XCircle className="mr-2 h-4 w-4 text-red-600" />
+                    Mark Unavailable
+                  </Button>
+                </div>
+              </div>
+              
+              {updatingAvailability && (
+                <div className="flex items-center justify-center p-2">
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <span className="text-sm">Updating availability...</span>
+                </div>
+              )}
+            </div>
+            
             <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              mode={multiSelectMode ? "multiple" : "single"}
+              selected={multiSelectMode ? selectedDates : selectedDate}
+              onSelect={multiSelectMode 
+                ? (dates: Date[] | undefined) => dates && setSelectedDates(dates) 
+                : (date: Date | undefined) => date && setSelectedDate(date)
+              }
               className="rounded-md border"
+              fromMonth={new Date(2022, 0, 1)}
               modifiersClassNames={{
-                today: "bg-yellow-100 text-yellow-900 font-bold",
+                today: "bg-yellow-100 text-yellow-900 font-bold"
               }}
-              modifiers={{
-                booked: (date) => !!getBookingForDate(date),
-                available: (date) => isDateAvailable(date),
-              }}
-              modifiersStyles={{
-                booked: { backgroundColor: "rgb(220, 252, 231)", color: "rgb(20, 83, 45)" },
-                available: { backgroundColor: "rgb(219, 234, 254)", color: "rgb(30, 58, 138)" },
+              components={{
+                Day: (props) => {
+                  const date = props.date;
+                  const isBooked = !!getBookingForDate(date);
+                  const isAvail = isDateAvailable(date);
+                  let className = props.className || "";
+                  
+                  if (isBooked) {
+                    className += " bg-green-100 text-green-900";
+                  } else if (isAvail) {
+                    className += " bg-blue-100 text-blue-900";
+                  }
+                  
+                  return <props.components.Day {...props} className={className} />;
+                }
               }}
             />
             
-            <div className="mt-4 flex gap-3">
+            <div className="mt-4 flex flex-wrap gap-3">
               <div className="flex items-center">
                 <div className="h-3 w-3 rounded-full bg-green-100 mr-2"></div>
                 <span className="text-sm">Booked</span>
@@ -243,7 +416,19 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                 <div className="h-3 w-3 rounded-full bg-yellow-100 mr-2"></div>
                 <span className="text-sm">Today</span>
               </div>
+              {multiSelectMode && (
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-primary mr-2"></div>
+                  <span className="text-sm">Selected</span>
+                </div>
+              )}
             </div>
+            
+            {multiSelectMode && (
+              <div className="mt-4 p-2 bg-blue-50 rounded border border-blue-200 text-sm">
+                <strong>Multi-select mode:</strong> Click on multiple dates to select them, then use the buttons above to mark them all as available or unavailable.
+              </div>
+            )}
           </>
         )}
       </CardContent>
