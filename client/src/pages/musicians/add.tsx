@@ -58,8 +58,21 @@ export default function AddMusicianPage() {
   const createMusicianMutation = useMutation({
     mutationFn: async (values: MusicianFormValues) => {
       try {
-        const response = await apiRequest("POST", "/api/musicians", values);
-        return response;
+        // Using fetch directly to avoid HTTP token issues
+        const response = await fetch("/api/musicians", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(values),
+          credentials: "include"
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        
+        return await response.json();
       } catch (err) {
         console.error("Error saving musician:", err);
         throw err;
