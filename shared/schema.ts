@@ -139,6 +139,7 @@ export const musicianPayRates = pgTable("musician_pay_rates", {
   hourlyRate: doublePrecision("hourly_rate"), // Rate per hour
   dayRate: doublePrecision("day_rate"), // Rate per day
   eventRate: doublePrecision("event_rate"), // Rate per event
+  notes: text("notes"), // Additional notes about the pay rate
 });
 
 export const insertMusicianPayRateSchema = createInsertSchema(musicianPayRates).pick({
@@ -147,6 +148,7 @@ export const insertMusicianPayRateSchema = createInsertSchema(musicianPayRates).
   hourlyRate: true,
   dayRate: true,
   eventRate: true,
+  notes: true,
 });
 
 // Musician availability model
