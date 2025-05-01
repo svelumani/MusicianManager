@@ -123,60 +123,60 @@ export default function PerformanceMetrics({ musicianId }: PerformanceMetricsPro
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Overall Rating</span>
-              <span className="font-medium">{metrics.overallRating.toFixed(1)}</span>
+              <span className="font-medium">{metrics.overallRating ? metrics.overallRating.toFixed(1) : "N/A"}</span>
             </div>
             <Progress
-              value={(metrics.overallRating / 5) * 100}
+              value={metrics.overallRating ? (metrics.overallRating / 5) * 100 : 0}
               className="h-2"
-              indicatorClassName={getColorClass(metrics.overallRating)}
+              indicatorClassName={metrics.overallRating ? getColorClass(metrics.overallRating) : "bg-gray-300"}
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Reliability Score</span>
-              <span className="font-medium">{metrics.reliabilityScore.toFixed(1)}</span>
+              <span className="font-medium">{metrics.reliabilityScore ? metrics.reliabilityScore.toFixed(1) : "N/A"}</span>
             </div>
             <Progress
-              value={(metrics.reliabilityScore / 5) * 100}
+              value={metrics.reliabilityScore ? (metrics.reliabilityScore / 5) * 100 : 0}
               className="h-2"
-              indicatorClassName={getColorClass(metrics.reliabilityScore)}
+              indicatorClassName={metrics.reliabilityScore ? getColorClass(metrics.reliabilityScore) : "bg-gray-300"}
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Technical Skill</span>
-              <span className="font-medium">{metrics.technicalScore.toFixed(1)}</span>
+              <span className="font-medium">{metrics.technicalScore ? metrics.technicalScore.toFixed(1) : "N/A"}</span>
             </div>
             <Progress
-              value={(metrics.technicalScore / 5) * 100}
+              value={metrics.technicalScore ? (metrics.technicalScore / 5) * 100 : 0}
               className="h-2"
-              indicatorClassName={getColorClass(metrics.technicalScore)}
+              indicatorClassName={metrics.technicalScore ? getColorClass(metrics.technicalScore) : "bg-gray-300"}
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Audience Engagement</span>
-              <span className="font-medium">{metrics.engagementScore.toFixed(1)}</span>
+              <span className="font-medium">{metrics.engagementScore ? metrics.engagementScore.toFixed(1) : "N/A"}</span>
             </div>
             <Progress
-              value={(metrics.engagementScore / 5) * 100}
+              value={metrics.engagementScore ? (metrics.engagementScore / 5) * 100 : 0}
               className="h-2"
-              indicatorClassName={getColorClass(metrics.engagementScore)}
+              indicatorClassName={metrics.engagementScore ? getColorClass(metrics.engagementScore) : "bg-gray-300"}
             />
           </div>
 
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Professionalism</span>
-              <span className="font-medium">{metrics.professionalismScore.toFixed(1)}</span>
+              <span className="font-medium">{metrics.professionalismScore ? metrics.professionalismScore.toFixed(1) : "N/A"}</span>
             </div>
             <Progress
-              value={(metrics.professionalismScore / 5) * 100}
+              value={metrics.professionalismScore ? (metrics.professionalismScore / 5) * 100 : 0}
               className="h-2"
-              indicatorClassName={getColorClass(metrics.professionalismScore)}
+              indicatorClassName={metrics.professionalismScore ? getColorClass(metrics.professionalismScore) : "bg-gray-300"}
             />
           </div>
 
@@ -184,7 +184,7 @@ export default function PerformanceMetrics({ musicianId }: PerformanceMetricsPro
             <div className="flex justify-between text-sm">
               <span>Last Updated</span>
               <span className="font-medium">
-                {new Date(metrics.updatedAt).toLocaleDateString()}
+                {metrics.updatedAt ? new Date(metrics.updatedAt).toLocaleDateString() : "Never"}
               </span>
             </div>
           </div>
