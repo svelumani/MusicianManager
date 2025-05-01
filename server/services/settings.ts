@@ -1,20 +1,13 @@
 import { storage } from '../storage';
-
-// Settings types
-const SETTING_TYPES = {
-  EMAIL: 'email',
-  NOTIFICATION: 'notification',
-  SYSTEM: 'system'
-};
+import { Settings } from '@shared/schema';
 
 /**
  * Get settings by type
  * @param type The settings type
  * @returns The settings data
  */
-export async function getSettings(type: string) {
-  const settings = await storage.getSettings(type);
-  return settings ? settings.data : null;
+export async function getSettings(type: string): Promise<Settings | undefined> {
+  return storage.getSettings(type);
 }
 
 /**
@@ -23,7 +16,13 @@ export async function getSettings(type: string) {
  * @param data The settings data
  * @returns The updated settings
  */
-export async function saveSettings(type: string, data: any) {
+export async function saveSettings(type: string, data: any): Promise<Settings | undefined> {
+  const existingSettings = await storage.getSettings(type);
+  
+  if (!existingSettings) {
+    return storage.createSettings(type, data);
+  }
+  
   return storage.updateSettings(type, data);
 }
 
@@ -31,8 +30,9 @@ export async function saveSettings(type: string, data: any) {
  * Get email settings
  * @returns The email settings
  */
-export async function getEmailSettings() {
-  return getSettings(SETTING_TYPES.EMAIL);
+export async function getEmailSettings(): Promise<any> {
+  const settings = await getSettings('email');
+  return settings;
 }
 
 /**
@@ -40,34 +40,32 @@ export async function getEmailSettings() {
  * @param data The email settings data
  * @returns The updated email settings
  */
-export async function saveEmailSettings(data: any) {
-  return saveSettings(SETTING_TYPES.EMAIL, data);
+export async function saveEmailSettings(data: any): Promise<Settings | undefined> {
+  return saveSettings('email', data);
 }
 
 /**
  * Check if email is enabled
  * @returns True if email is enabled, false otherwise
  */
-export async function isEmailEnabled() {
-  const settings = await getEmailSettings() as { enabled?: boolean } | null;
-  return settings && settings.enabled === true;
+export async function isEmailEnabled(): Promise<boolean> {
+  const settings = await getEmailSettings();
+  return settings?.data?.enabled === true;
 }
 
 /**
  * Get email sender information
  * @returns The email sender information
  */
-export async function getEmailSenderInfo() {
-  const settings = await getEmailSettings() as { from?: string, replyTo?: string } | null;
-  if (!settings) {
-    return {
-      from: '',
-      replyTo: ''
-    };
+export async function getEmailSenderInfo(): Promise<{ from: string; replyTo?: string } | undefined> {
+  const settings = await getEmailSettings();
+  
+  if (!settings?.data?.enabled || !settings?.data?.from) {
+    return undefined;
   }
   
   return {
-    from: settings.from || '',
-    replyTo: settings.replyTo || settings.from || ''
+    from: settings.data.from,
+    replyTo: settings.data.replyTo
   };
 }
