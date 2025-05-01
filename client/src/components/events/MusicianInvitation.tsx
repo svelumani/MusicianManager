@@ -51,8 +51,8 @@ export default function MusicianInvitation({ eventId, categoryIds }: MusicianInv
           musicians?.find(m => m.id === musicianId)?.payRate || 0,
       };
       
-      const res = await apiRequest("POST", "/api/bookings", booking);
-      return res.json();
+      const res = await apiRequest("/api/bookings", "POST", booking);
+      return res;
     },
     onSuccess: (_, musicianId) => {
       const musicianName = musicians?.find(m => m.id === musicianId)?.name || "Musician";
@@ -70,7 +70,7 @@ export default function MusicianInvitation({ eventId, categoryIds }: MusicianInv
         message: `You have been invited to perform at ${eventId}. Please respond within 24 hours.`
       };
       
-      apiRequest("POST", "/api/notify/whatsapp", mockWhatsAppNotification);
+      apiRequest("/api/notify/whatsapp", "POST", mockWhatsAppNotification);
     },
     onError: (error) => {
       toast({

@@ -69,8 +69,8 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
         endDate: values.endDate ? values.endDate.toISOString() : undefined,
       };
       
-      const res = await apiRequest("POST", "/api/events", apiValues);
-      return res.json();
+      const res = await apiRequest("/api/events", "POST", apiValues);
+      return res;
     },
     onSuccess: () => {
       toast({

@@ -347,7 +347,7 @@ export default function InstrumentManagerPage() {
       
       try {
         // Create the musician type
-        const response = await apiRequest("POST", "/api/musician-types", {
+        const response = await apiRequest("/api/musician-types", "POST", {
           name: typeData.name,
           description: typeData.description,
           defaultRate: typeData.defaultRate,
@@ -399,7 +399,7 @@ export default function InstrumentManagerPage() {
       
       try {
         // Update the musician type
-        const response = await apiRequest("PUT", `/api/musician-types/${typeId}`, {
+        const response = await apiRequest(`/api/musician-types/${typeId}`, "PUT", {
           name: typeData.name,
           description: typeData.description,
           defaultRate: typeData.defaultRate,
