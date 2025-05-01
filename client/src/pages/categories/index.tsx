@@ -15,29 +15,64 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Search, Plus, Tag, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Plus, Tag, Trash2, Music, Building, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import type { Category } from "@shared/schema";
+import type { MusicianCategory, VenueCategory, EventCategory } from "@shared/schema";
+
+type CategoryType = "musician" | "venue" | "event";
 
 export default function CategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [categoryType, setCategoryType] = useState<CategoryType>("musician");
   const { toast } = useToast();
   
-  const { data: categories, isLoading } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+  const { data: musicianCategories, isLoading: isLoadingMusician } = useQuery<MusicianCategory[]>({
+    queryKey: ["/api/musician-categories"],
   });
 
-  const filteredCategories = categories?.filter(category => 
+  const { data: venueCategories, isLoading: isLoadingVenue } = useQuery<VenueCategory[]>({
+    queryKey: ["/api/venue-categories"],
+  });
+
+  const { data: eventCategories, isLoading: isLoadingEvent } = useQuery<EventCategory[]>({
+    queryKey: ["/api/event-categories"],
+  });
+
+  // Active categories based on selected tab
+  const activeCategories = categoryType === "musician" 
+    ? musicianCategories 
+    : categoryType === "venue" 
+      ? venueCategories 
+      : eventCategories;
+  
+  const isLoading = categoryType === "musician" 
+    ? isLoadingMusician 
+    : categoryType === "venue" 
+      ? isLoadingVenue 
+      : isLoadingEvent;
+
+  const filteredCategories = activeCategories?.filter(category => 
     category.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const getApiPath = (id?: number) => {
+    const basePath = categoryType === "musician" 
+      ? "/api/musician-categories" 
+      : categoryType === "venue" 
+        ? "/api/venue-categories" 
+        : "/api/event-categories";
+    
+    return id ? `${basePath}/${id}` : basePath;
+  };
+
   const deleteCategoryMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await apiRequest("DELETE", `/api/categories/${id}`, undefined);
+      const res = await apiRequest("DELETE", getApiPath(id), undefined);
       return res.json();
     },
     onSuccess: () => {
@@ -45,7 +80,7 @@ export default function CategoriesPage() {
         title: "Category deleted",
         description: "The category has been deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/categories"] });
+      queryClient.invalidateQueries({ queryKey: [getApiPath()] });
     },
     onError: (error) => {
       toast({
@@ -67,13 +102,35 @@ export default function CategoriesPage() {
     }
   };
 
+  const getAddLink = () => {
+    return `/categories/add?type=${categoryType}`;
+  };
+
+  const getCategoryTypeIcon = () => {
+    switch (categoryType) {
+      case "musician": return <Music className="h-12 w-12 text-gray-400 mb-4" />;
+      case "venue": return <Building className="h-12 w-12 text-gray-400 mb-4" />;
+      case "event": return <Calendar className="h-12 w-12 text-gray-400 mb-4" />;
+      default: return <Tag className="h-12 w-12 text-gray-400 mb-4" />;
+    }
+  };
+
+  const getCategoryTypeName = () => {
+    switch (categoryType) {
+      case "musician": return "Musician";
+      case "venue": return "Venue";
+      case "event": return "Event";
+      default: return "Category";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Categories</h1>
-        <Link href="/categories/add">
+        <Link href={getAddLink()}>
           <Button>
-            <Plus className="mr-2 h-4 w-4" /> Add Category
+            <Plus className="mr-2 h-4 w-4" /> Add {getCategoryTypeName()} Category
           </Button>
         </Link>
       </div>
@@ -83,62 +140,41 @@ export default function CategoriesPage() {
           <CardTitle className="text-lg font-medium">Category Management</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder="Search categories..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <Tabs defaultValue="musician" className="w-full" onValueChange={(value) => setCategoryType(value as CategoryType)}>
+            <TabsList className="mb-4 grid grid-cols-3 w-full">
+              <TabsTrigger value="musician">
+                <Music className="h-4 w-4 mr-2" /> Musician Categories
+              </TabsTrigger>
+              <TabsTrigger value="venue">
+                <Building className="h-4 w-4 mr-2" /> Venue Categories
+              </TabsTrigger>
+              <TabsTrigger value="event">
+                <Calendar className="h-4 w-4 mr-2" /> Event Categories
+              </TabsTrigger>
+            </TabsList>
+            
+            <div className="mb-4">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                <Input
+                  placeholder={`Search ${getCategoryTypeName().toLowerCase()} categories...`}
+                  className="pl-8"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
 
-          {isLoading ? (
-            <div className="h-80 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            </div>
-          ) : filteredCategories && filteredCategories.length > 0 ? (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCategories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.title}</TableCell>
-                      <TableCell>{category.description || 'No description'}</TableCell>
-                      <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleDeleteCategory(category.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="h-80 flex flex-col items-center justify-center text-center">
-              <Tag className="h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No categories found</h3>
-              <p className="text-gray-500">
-                {searchQuery
-                  ? `No categories match "${searchQuery}"`
-                  : "Get started by adding your first category"}
-              </p>
-            </div>
-          )}
+            <TabsContent value="musician" className="mt-0">
+              {renderCategoryContent()}
+            </TabsContent>
+            <TabsContent value="venue" className="mt-0">
+              {renderCategoryContent()}
+            </TabsContent>
+            <TabsContent value="event" className="mt-0">
+              {renderCategoryContent()}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -147,7 +183,7 @@ export default function CategoriesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the category.
+              This action cannot be undone. This will permanently delete the {getCategoryTypeName().toLowerCase()} category.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -160,4 +196,59 @@ export default function CategoriesPage() {
       </AlertDialog>
     </div>
   );
+
+  function renderCategoryContent() {
+    if (isLoading) {
+      return (
+        <div className="h-80 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+
+    if (filteredCategories && filteredCategories.length > 0) {
+      return (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCategories.map((category) => (
+                <TableRow key={category.id}>
+                  <TableCell className="font-medium">{category.title}</TableCell>
+                  <TableCell>{category.description || 'No description'}</TableCell>
+                  <TableCell className="text-right">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleDeleteCategory(category.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-80 flex flex-col items-center justify-center text-center">
+        {getCategoryTypeIcon()}
+        <h3 className="text-lg font-medium text-gray-900">No {getCategoryTypeName().toLowerCase()} categories found</h3>
+        <p className="text-gray-500">
+          {searchQuery
+            ? `No categories match "${searchQuery}"`
+            : `Get started by adding your first ${getCategoryTypeName().toLowerCase()} category`}
+        </p>
+      </div>
+    );
+  }
 }
