@@ -350,7 +350,7 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                   }}
                   modifiersClassNames={{
                     available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
-                    unavailable: "bg-gray-50 hover:bg-gray-100 text-gray-700",
+                    unavailable: "bg-red-50 hover:bg-red-100 text-red-700",
                     booked: "bg-green-100 hover:bg-green-200 text-green-900"
                   }}
                 />
@@ -373,7 +373,7 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                   }}
                   modifiersClassNames={{
                     available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
-                    unavailable: "bg-gray-50 hover:bg-gray-100 text-gray-700",
+                    unavailable: "bg-red-50 hover:bg-red-100 text-red-700",
                     booked: "bg-green-100 hover:bg-green-200 text-green-900"
                   }}
                 />
@@ -390,7 +390,7 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                 <span className="text-sm">Available</span>
               </div>
               <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full bg-gray-50 mr-2"></div>
+                <div className="h-3 w-3 rounded-full bg-red-50 mr-2"></div>
                 <span className="text-sm">Unavailable</span>
               </div>
               <div className="flex items-center">
