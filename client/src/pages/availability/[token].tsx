@@ -341,6 +341,31 @@ export default function SharedAvailabilityView() {
             </div>
           </div>
           
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center">
+              <Button 
+                variant={multiSelectMode ? "default" : "outline"} 
+                size="sm" 
+                onClick={() => setMultiSelectMode(!multiSelectMode)}
+                className="flex items-center"
+              >
+                {multiSelectMode ? (
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                ) : (
+                  <Square className="h-4 w-4 mr-2" />
+                )}
+                {multiSelectMode ? "Multi-select mode" : "Enable multi-select"}
+              </Button>
+            </div>
+            <div>
+              {selectedDates.length > 0 && (
+                <Badge variant="outline" className="ml-2">
+                  {selectedDates.length} date{selectedDates.length !== 1 ? 's' : ''} selected
+                </Badge>
+              )}
+            </div>
+          </div>
+          
           <Calendar
             mode="single"
             selected={undefined}
@@ -348,14 +373,56 @@ export default function SharedAvailabilityView() {
             modifiers={{
               available: (date) => isDateAvailable(date),
               unavailable: (date) => isDateUnavailable(date),
-              booked: (date) => getBookingForDate(date) !== undefined
+              booked: (date) => getBookingForDate(date) !== undefined,
+              selected: (date) => isDateSelected(date),
+              future: (date) => isFutureDate(date),
+              past: (date) => !isFutureDate(date)
             }}
             modifiersClassNames={{
               available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
               unavailable: "bg-gray-200 hover:bg-gray-300 text-gray-700",
-              booked: "bg-green-100 hover:bg-green-200 text-green-900"
+              booked: "bg-green-100 hover:bg-green-200 text-green-900",
+              selected: "bg-primary text-primary-foreground font-bold ring-2 ring-primary",
+              future: "",
+              past: "text-gray-400 line-through"
             }}
+            onDayClick={toggleDateSelection}
+            disabled={(date) => 
+              getBookingForDate(date) !== undefined || 
+              !isFutureDate(date)
+            }
           />
+          
+          {selectedDates.length > 0 && (
+            <div className="mt-4 flex items-center justify-between space-x-2">
+              <Button
+                onClick={() => updateAvailability(true)}
+                variant="default"
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                Mark as Available
+              </Button>
+              <Button
+                onClick={() => updateAvailability(false)}
+                variant="outline"
+                className="flex-1 border-gray-300 text-gray-700"
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4 mr-2" />
+                )}
+                Mark as Unavailable
+              </Button>
+            </div>
+          )}
           
           <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-md text-sm">
             <div className="flex items-start">
@@ -364,8 +431,12 @@ export default function SharedAvailabilityView() {
                 <h3 className="font-medium">How to use this calendar</h3>
                 <p className="mt-1 text-gray-700">
                   This calendar shows the musician's availability for the selected month. 
-                  Blue dates indicate the musician is available, gray dates indicate unavailability, 
+                  Blue dates indicate available dates, gray dates indicate unavailability, 
                   and green dates are already booked.
+                </p>
+                <p className="mt-2 text-gray-700">
+                  To update your availability, click on dates in the calendar (only future dates can be updated).
+                  Enable multi-select mode to select multiple dates at once.
                 </p>
               </div>
             </div>
