@@ -26,6 +26,7 @@ import PlannerPage from "@/pages/planner/index";
 import PlannerInvoicePage from "@/pages/planner/invoice";
 import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
+import EmailSettingsPage from "@/pages/settings/email";
 
 function Router() {
   const [location] = useLocation();
@@ -138,6 +139,11 @@ function Router() {
       <Route path="/settings/instrument-manager">
         <AppLayout>
           <InstrumentManagerPage />
+        </AppLayout>
+      </Route>
+      <Route path="/settings/email">
+        <AppLayout>
+          <EmailSettingsPage />
         </AppLayout>
       </Route>
 

@@ -130,7 +130,7 @@ export async function sendMusicianAssignmentEmail(
 ): Promise<boolean> {
   try {
     // Check if SendGrid is configured
-    const emailSettings = await getSettings('email');
+    const emailSettings = await getSettings('email') as any;
     if (!emailSettings?.data?.enabled || !emailSettings?.data?.apiKey || !emailSettings?.data?.from) {
       console.error('SendGrid is not properly configured');
       return false;
@@ -180,7 +180,7 @@ This is an automated email. Please do not reply directly to this message.
     `;
 
     // Send email
-    const msg = {
+    const msg: any = {
       to,
       from: emailSettings.data.from,
       subject: 'Your Monthly Performance Schedule',
@@ -190,7 +190,7 @@ This is an automated email. Please do not reply directly to this message.
 
     // Add reply-to if configured
     if (emailSettings.data.replyTo) {
-      msg['replyTo'] = emailSettings.data.replyTo;
+      msg.replyTo = emailSettings.data.replyTo;
     }
 
     await sgMail.send(msg);
@@ -211,7 +211,10 @@ export async function sendBatchAssignmentEmails(
 ): Promise<number> {
   let successCount = 0;
 
-  for (const [musician, musicianAssignments] of assignments.entries()) {
+  // Convert to array to avoid MapIterator issues
+  const entries = Array.from(assignments.entries());
+  
+  for (const [musician, musicianAssignments] of entries) {
     if (!musician.email) {
       console.warn(`No email address found for musician ${musician.name} (ID: ${musician.id})`);
       continue;
