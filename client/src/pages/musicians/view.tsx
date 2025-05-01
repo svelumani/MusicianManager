@@ -132,27 +132,52 @@ export default function ViewMusicianPage() {
               <div className="space-y-2">
                 <h4 className="font-medium">Financial Information</h4>
                 <div>
-                  <span className="font-medium">Pay Rates:</span>
+                  <p className="font-medium mb-2 mt-1">Pay Rates:</p>
                   {payRates && payRates.length > 0 ? (
-                    <div className="mt-1 space-y-1">
-                      {payRates.map(rate => (
-                        <div key={rate.id} className="text-sm">
-                          <span className="font-medium">{rate.eventCategoryId ? getCategoryName(rate.eventCategoryId) : "Default"}: </span>
-                          {rate.hourlyRate !== null && rate.hourlyRate !== undefined ? (
-                            <span>${parseFloat(rate.hourlyRate.toString()).toFixed(2)}/hr</span>
-                          ) : rate.eventRate !== null && rate.eventRate !== undefined ? (
-                            <span>${parseFloat(rate.eventRate.toString()).toFixed(2)}/event</span>
-                          ) : rate.dayRate !== null && rate.dayRate !== undefined ? (
-                            <span>${parseFloat(rate.dayRate.toString()).toFixed(2)}/day</span>
-                          ) : (
-                            <span>Rate not set</span>
-                          )}
-                          {rate.notes && <span className="text-gray-500 ml-1">({rate.notes})</span>}
-                        </div>
-                      ))}
+                    <div className="mt-2 border rounded-md overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="px-4 py-2 text-left">Category</th>
+                            <th className="px-4 py-2 text-center">Hourly Rate</th>
+                            <th className="px-4 py-2 text-center">Daily Rate</th>
+                            <th className="px-4 py-2 text-center">Event Rate</th>
+                            <th className="px-4 py-2 text-left">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {payRates.map(rate => (
+                            <tr key={rate.id}>
+                              <td className="px-4 py-3 font-medium">
+                                {rate.eventCategoryId ? getCategoryName(rate.eventCategoryId) : "Default"}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {rate.hourlyRate !== null && rate.hourlyRate !== undefined 
+                                  ? `$${parseFloat(rate.hourlyRate.toString()).toFixed(2)}/hr` 
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {rate.dayRate !== null && rate.dayRate !== undefined 
+                                  ? `$${parseFloat(rate.dayRate.toString()).toFixed(2)}/day` 
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {rate.eventRate !== null && rate.eventRate !== undefined 
+                                  ? `$${parseFloat(rate.eventRate.toString()).toFixed(2)}/event` 
+                                  : "—"}
+                              </td>
+                              <td className="px-4 py-3 text-gray-500 italic">
+                                {rate.notes || "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   ) : (
-                    <span className="ml-1">Multiple rates available</span>
+                    <div className="p-3 border rounded-md text-muted-foreground bg-muted/20">
+                      No pay rates set up yet
+                    </div>
                   )}
                 </div>
                 <p><span className="font-medium">Instruments:</span> {musician.instruments?.join(", ") || getMusicianTypeName(musician.typeId)}</p>
