@@ -25,7 +25,8 @@ import {
   insertMonthlyPlannerSchema,
   insertPlannerSlotSchema,
   insertPlannerAssignmentSchema,
-  insertMonthlyInvoiceSchema
+  insertMonthlyInvoiceSchema,
+  insertEmailTemplateSchema
 } from "@shared/schema";
 
 const SessionStore = MemoryStore(session);
@@ -1488,6 +1489,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error sending test email:", error);
       res.status(500).json({ success: false, message: "Error sending test email" });
+    }
+  });
+
+  // Email template routes
+  apiRouter.get("/email-templates", isAuthenticated, async (req, res) => {
+    try {
+      const templates = await storage.getEmailTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error("Error fetching email templates:", error);
+      res.status(500).json({ message: "Error fetching email templates" });
+    }
+  });
+
+  apiRouter.get("/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const template = await storage.getEmailTemplate(parseInt(req.params.id));
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error("Error fetching email template:", error);
+      res.status(500).json({ message: "Error fetching email template" });
+    }
+  });
+
+  apiRouter.post("/email-templates", isAuthenticated, async (req, res) => {
+    try {
+      const templateData = insertEmailTemplateSchema.parse(req.body);
+      const template = await storage.createEmailTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid email template data", errors: error.errors });
+      }
+      console.error("Error creating email template:", error);
+      res.status(500).json({ message: "Error creating email template" });
+    }
+  });
+
+  apiRouter.put("/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const templateData = insertEmailTemplateSchema.partial().parse(req.body);
+      const template = await storage.updateEmailTemplate(parseInt(req.params.id), templateData);
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid email template data", errors: error.errors });
+      }
+      console.error("Error updating email template:", error);
+      res.status(500).json({ message: "Error updating email template" });
+    }
+  });
+
+  apiRouter.delete("/email-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      // Don't allow deleting default templates
+      const template = await storage.getEmailTemplate(parseInt(req.params.id));
+      if (!template) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      
+      if (template.isDefault) {
+        return res.status(403).json({ message: "Cannot delete default email template" });
+      }
+      
+      const result = await storage.deleteEmailTemplate(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Email template not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting email template:", error);
+      res.status(500).json({ message: "Error deleting email template" });
     }
   });
 
