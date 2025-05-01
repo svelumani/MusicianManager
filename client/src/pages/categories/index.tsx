@@ -147,7 +147,7 @@ export default function CategoriesPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="musician" className="w-full" onValueChange={(value) => setCategoryType(value as CategoryType)}>
-            <TabsList className="mb-4 grid grid-cols-3 w-full">
+            <TabsList className="mb-4 grid grid-cols-4 w-full">
               <TabsTrigger value="musician">
                 <Music className="h-4 w-4 mr-2" /> Musician Categories
               </TabsTrigger>
@@ -156,6 +156,9 @@ export default function CategoriesPage() {
               </TabsTrigger>
               <TabsTrigger value="event">
                 <Calendar className="h-4 w-4 mr-2" /> Event Categories
+              </TabsTrigger>
+              <TabsTrigger value="musician-type">
+                <Mic className="h-4 w-4 mr-2" /> Musician Types
               </TabsTrigger>
             </TabsList>
             
@@ -178,6 +181,9 @@ export default function CategoriesPage() {
               {renderCategoryContent()}
             </TabsContent>
             <TabsContent value="event" className="mt-0">
+              {renderCategoryContent()}
+            </TabsContent>
+            <TabsContent value="musician-type" className="mt-0">
               {renderCategoryContent()}
             </TabsContent>
           </Tabs>

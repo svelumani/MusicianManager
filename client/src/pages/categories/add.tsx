@@ -13,11 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Music, Building, Calendar } from "lucide-react";
+import { Music, Building, Calendar, Mic } from "lucide-react";
 import { 
   insertMusicianCategorySchema, 
   insertVenueCategorySchema, 
-  insertEventCategorySchema 
+  insertEventCategorySchema,
+  insertMusicianTypeSchema
 } from "@shared/schema";
 import { useSearchParams } from "@/hooks/use-search-params";
 
@@ -37,8 +38,13 @@ const eventCategoryFormSchema = insertEventCategorySchema.extend({
   description: z.string().optional(),
 });
 
+const musicianTypeFormSchema = insertMusicianTypeSchema.extend({
+  title: z.string().min(2, "Title must be at least 2 characters"),
+  description: z.string().optional(),
+});
+
 type CategoryFormValues = z.infer<typeof musicianCategoryFormSchema>;
-type CategoryType = "musician" | "venue" | "event";
+type CategoryType = "musician" | "venue" | "event" | "musician-type";
 
 export default function AddCategoryPage() {
   const [, navigate] = useLocation();
@@ -49,11 +55,10 @@ export default function AddCategoryPage() {
 
   const form = useForm<CategoryFormValues>({
     resolver: zodResolver(
-      categoryType === "musician" 
-        ? musicianCategoryFormSchema 
-        : categoryType === "venue" 
-          ? venueCategoryFormSchema 
-          : eventCategoryFormSchema
+      categoryType === "musician" ? musicianCategoryFormSchema :
+      categoryType === "venue" ? venueCategoryFormSchema :
+      categoryType === "event" ? eventCategoryFormSchema :
+      musicianTypeFormSchema
     ),
     defaultValues: {
       title: "",
@@ -62,11 +67,10 @@ export default function AddCategoryPage() {
   });
 
   const getApiPath = () => {
-    return categoryType === "musician" 
-      ? "/api/musician-categories" 
-      : categoryType === "venue" 
-        ? "/api/venue-categories" 
-        : "/api/event-categories";
+    return categoryType === "musician" ? "/api/musician-categories" :
+           categoryType === "venue" ? "/api/venue-categories" :
+           categoryType === "event" ? "/api/event-categories" :
+           "/api/musician-types";
   };
 
   const createCategoryMutation = useMutation({
@@ -100,6 +104,7 @@ export default function AddCategoryPage() {
       case "musician": return "Musician";
       case "venue": return "Venue";
       case "event": return "Event";
+      case "musician-type": return "Musician Type";
       default: return "Category";
     }
   };
@@ -116,7 +121,7 @@ export default function AddCategoryPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue={categoryType} className="w-full mb-6" onValueChange={(value) => setCategoryType(value as CategoryType)}>
-            <TabsList className="grid grid-cols-3 w-full">
+            <TabsList className="grid grid-cols-4 w-full">
               <TabsTrigger value="musician">
                 <Music className="h-4 w-4 mr-2" /> Musician
               </TabsTrigger>
@@ -125,6 +130,9 @@ export default function AddCategoryPage() {
               </TabsTrigger>
               <TabsTrigger value="event">
                 <Calendar className="h-4 w-4 mr-2" /> Event
+              </TabsTrigger>
+              <TabsTrigger value="musician-type">
+                <Mic className="h-4 w-4 mr-2" /> Musician Type
               </TabsTrigger>
             </TabsList>
           </Tabs>
