@@ -886,17 +886,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.put("/planner-slots/:id", isAuthenticated, async (req, res) => {
     try {
-      const slotData = insertPlannerSlotSchema.partial().parse(req.body);
-      const slot = await storage.updatePlannerSlot(parseInt(req.params.id), slotData);
+      console.log("Updating planner slot with data:", req.body);
+      
+      // Ensure date is properly handled, same as in the POST endpoint
+      const slotData = {
+        ...req.body,
+        // If date is provided, ensure it's properly converted
+        ...(req.body.date && {
+          date: req.body.date instanceof Date ? 
+            req.body.date : 
+            (typeof req.body.date === 'string' ? 
+              new Date(req.body.date) : 
+              req.body.date)
+        })
+      };
+      
+      console.log("Modified update slot data:", slotData);
+      
+      // Allow partial updates with the schema
+      const validatedData = insertPlannerSlotSchema.partial().parse(slotData);
+      console.log("Validated update slot data:", validatedData);
+      
+      const slot = await storage.updatePlannerSlot(parseInt(req.params.id), validatedData);
       if (!slot) {
         return res.status(404).json({ message: "Planner slot not found" });
       }
+      
+      console.log("Updated slot:", slot);
       res.json(slot);
     } catch (error) {
       if (error instanceof z.ZodError) {
+        console.error("Zod validation error:", error.errors);
         return res.status(400).json({ message: "Invalid slot data", errors: error.errors });
       }
-      console.error(error);
+      console.error("Error updating planner slot:", error);
       res.status(500).json({ message: "Error updating planner slot" });
     }
   });

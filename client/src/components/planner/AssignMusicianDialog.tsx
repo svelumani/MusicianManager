@@ -201,9 +201,10 @@ const AssignMusicianDialog = ({
 
   // Handle saving the slot
   const handleSaveSlot = () => {
+    // When updating an existing slot, don't pass the date 
+    // This avoids the date format conversion issues
     const slotData = {
       plannerId,
-      date: date.toISOString(),
       venueId,
       categoryId: parseInt(selectedCategory),
       startTime,
@@ -211,6 +212,12 @@ const AssignMusicianDialog = ({
       status: selectedStatus,
     };
 
+    // Only include date when creating a new slot
+    if (!slot) {
+      slotData.date = date.toISOString();
+    }
+
+    console.log("Saving slot with data:", slotData);
     slotMutation.mutate(slotData);
   };
 
@@ -220,7 +227,7 @@ const AssignMusicianDialog = ({
       // Create slot first if it doesn't exist
       const slotData = {
         plannerId,
-        date: date.toISOString(),
+        date: new Date(date), // Use proper Date object
         venueId,
         categoryId: parseInt(selectedCategory),
         startTime,
@@ -228,6 +235,7 @@ const AssignMusicianDialog = ({
         status: selectedStatus,
       };
 
+      console.log("Creating slot before assigning musician:", slotData);
       slotMutation.mutate(slotData);
       return;
     }
