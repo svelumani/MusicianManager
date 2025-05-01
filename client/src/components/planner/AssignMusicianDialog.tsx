@@ -203,7 +203,7 @@ const AssignMusicianDialog = ({
   const handleSaveSlot = () => {
     // When updating an existing slot, don't pass the date 
     // This avoids the date format conversion issues
-    const slotData = {
+    const slotData: any = {
       plannerId,
       venueId,
       categoryId: parseInt(selectedCategory),
@@ -225,7 +225,7 @@ const AssignMusicianDialog = ({
   const handleAssignMusician = (musicianId: number) => {
     if (!slot) {
       // Create slot first if it doesn't exist
-      const slotData = {
+      const slotData: any = {
         plannerId,
         date: new Date(date), // Use proper Date object
         venueId,
