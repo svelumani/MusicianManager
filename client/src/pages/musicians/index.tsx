@@ -117,9 +117,18 @@ export default function MusiciansPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewMusician(musician.id)}>
-                          View
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewMusician(musician.id)}>
+                            View
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => navigate(`/musicians/${musician.id}/performance`)}
+                          >
+                            <Star className="h-4 w-4 mr-1" /> Rate
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
