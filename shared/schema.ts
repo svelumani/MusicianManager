@@ -92,6 +92,19 @@ export const insertEventCategorySchema = createInsertSchema(eventCategories).pic
   description: true,
 });
 
+// Musician type model
+export const musicianTypes = pgTable("musician_types", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  // Additional fields can be added here
+});
+
+export const insertMusicianTypeSchema = createInsertSchema(musicianTypes).pick({
+  title: true,
+  description: true,
+});
+
 // Musician model
 export const musicians = pgTable("musicians", {
   id: serial("id").primaryKey(),
@@ -287,6 +300,9 @@ export type InsertVenueCategory = z.infer<typeof insertVenueCategorySchema>;
 export type EventCategory = typeof eventCategories.$inferSelect;
 export type InsertEventCategory = z.infer<typeof insertEventCategorySchema>;
 
+export type MusicianType = typeof musicianTypes.$inferSelect;
+export type InsertMusicianType = z.infer<typeof insertMusicianTypeSchema>;
+
 // Legacy category type (for backwards compatibility)
 // This will keep existing code working until we can update references
 export const categories = musicianCategories;
@@ -466,183 +482,65 @@ export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).pick
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 
-// Musician Types model
-export const musicianTypes = pgTable("musician_types", {
+// Share Links for availability
+export const shareLinks = pgTable("share_links", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  description: text("description").notNull(),
-  defaultRate: doublePrecision("default_rate").notNull(),
-  isDefault: boolean("is_default").default(false),
+  token: text("token").notNull().unique(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at"),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
-export const insertMusicianTypeSchema = createInsertSchema(musicianTypes).pick({
-  name: true,
-  description: true,
-  defaultRate: true,
-  isDefault: true,
+export const insertShareLinkSchema = createInsertSchema(shareLinks).pick({
+  token: true,
+  musicianId: true,
+  expiresAt: true,
+  isActive: true,
 });
 
-// Musician Type Categories (many-to-many association table)
-export const musicianTypeCategories = pgTable("musician_type_categories", {
-  id: serial("id").primaryKey(),
-  musicianTypeId: integer("musician_type_id").notNull(), // Foreign key to musician_types
-  categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
-});
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = z.infer<typeof insertShareLinkSchema>;
 
-export const insertMusicianTypeCategorySchema = createInsertSchema(musicianTypeCategories).pick({
-  musicianTypeId: true,
-  categoryId: true,
-});
-
-export type MusicianType = typeof musicianTypes.$inferSelect;
-export type InsertMusicianType = z.infer<typeof insertMusicianTypeSchema>;
-
-export type MusicianTypeCategory = typeof musicianTypeCategories.$inferSelect;
-export type InsertMusicianTypeCategory = z.infer<typeof insertMusicianTypeCategorySchema>;
-
-// Performance Rating and Review models
+// Performance Rating and Improvement Plans
 export const performanceRatings = pgTable("performance_ratings", {
   id: serial("id").primaryKey(),
-  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
-  bookingId: integer("booking_id"), // Optional link to specific booking
-  plannerAssignmentId: integer("planner_assignment_id"), // Optional link to planner assignment
-  ratedBy: integer("rated_by").notNull(), // User ID who submitted the rating
+  musicianId: integer("musician_id").notNull(),
+  bookingId: integer("booking_id"),
+  rating: integer("rating").notNull(), // 1-5 scale
+  feedback: text("feedback"),
+  ratedBy: integer("rated_by").notNull(), // User ID
   ratedAt: timestamp("rated_at").notNull().defaultNow(),
-  punctuality: integer("punctuality").notNull(), // 1-5 scale
-  musicianship: integer("musicianship").notNull(), // 1-5 scale
-  professionalism: integer("professionalism").notNull(), // 1-5 scale
-  appearance: integer("appearance").notNull(), // 1-5 scale
-  flexibility: integer("flexibility").notNull(), // 1-5 scale
-  overallRating: doublePrecision("overall_rating").notNull(), // Computed average
-  comments: text("comments"),
-  eventDate: timestamp("event_date").notNull(), // Date of the performance
-  venueId: integer("venue_id"), // Where the performance happened
+  category: text("category"), // punctuality, musicianship, etc.
 });
 
 export const insertPerformanceRatingSchema = createInsertSchema(performanceRatings).pick({
   musicianId: true,
   bookingId: true,
-  plannerAssignmentId: true,
+  rating: true,
+  feedback: true,
   ratedBy: true,
-  ratedAt: true,
-  punctuality: true,
-  musicianship: true,
-  professionalism: true,
-  appearance: true,
-  flexibility: true,
-  overallRating: true,
-  comments: true,
-  eventDate: true,
-  venueId: true,
+  category: true,
 });
 
-// Performance Metrics for tracking musician statistics
-export const performanceMetrics = pgTable("performance_metrics", {
-  id: serial("id").primaryKey(),
-  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
-  totalPerformances: integer("total_performances").notNull().default(0),
-  completedPerformances: integer("completed_performances").notNull().default(0),
-  cancelledPerformances: integer("cancelled_performances").notNull().default(0),
-  averageRating: doublePrecision("average_rating"),
-  punctualityAvg: doublePrecision("punctuality_avg"),
-  musicianshipAvg: doublePrecision("musicianship_avg"),
-  professionalismAvg: doublePrecision("professionalism_avg"),
-  appearanceAvg: doublePrecision("appearance_avg"),
-  flexibilityAvg: doublePrecision("flexibility_avg"),
-  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
-  lastPerformanceDate: timestamp("last_performance_date"),
-  performanceStreak: integer("performance_streak").notNull().default(0),
-  improvementTrend: doublePrecision("improvement_trend"), // Positive or negative trend over time
-});
+export type PerformanceRating = typeof performanceRatings.$inferSelect;
+export type InsertPerformanceRating = z.infer<typeof insertPerformanceRatingSchema>;
 
-export const insertPerformanceMetricsSchema = createInsertSchema(performanceMetrics).pick({
-  musicianId: true,
-  totalPerformances: true,
-  completedPerformances: true,
-  cancelledPerformances: true,
-  averageRating: true,
-  punctualityAvg: true,
-  musicianshipAvg: true,
-  professionalismAvg: true,
-  appearanceAvg: true,
-  flexibilityAvg: true,
-  lastUpdated: true,
-  lastPerformanceDate: true,
-  performanceStreak: true,
-  improvementTrend: true,
-});
-
-// Skill Tags for musicians
-export const skillTags = pgTable("skill_tags", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  description: text("description"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const insertSkillTagSchema = createInsertSchema(skillTags).pick({
-  name: true,
-  description: true,
-});
-
-// Musician Skill Tags (many-to-many)
-export const musicianSkillTags = pgTable("musician_skill_tags", {
-  id: serial("id").primaryKey(),
-  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
-  skillTagId: integer("skill_tag_id").notNull(), // Foreign key to skill_tags
-  endorsementCount: integer("endorsement_count").notNull().default(0),
-  addedAt: timestamp("added_at").notNull().defaultNow(),
-});
-
-export const insertMusicianSkillTagSchema = createInsertSchema(musicianSkillTags).pick({
-  musicianId: true,
-  skillTagId: true,
-  endorsementCount: true,
-});
-
-// Performance Improvement Plans
+// Improvement Plans for musicians
 export const improvementPlans = pgTable("improvement_plans", {
   id: serial("id").primaryKey(),
-  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
-  createdBy: integer("created_by").notNull(), // User ID
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date"),
-  status: text("status").notNull().default("active"), // active, completed, cancelled
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at"),
-  notes: text("notes"),
-  goalRating: doublePrecision("goal_rating"), // Target rating to achieve
-});
-
-export const insertImprovementPlanSchema = createInsertSchema(improvementPlans).pick({
-  musicianId: true,
-  createdBy: true,
-  title: true,
-  description: true,
-  startDate: true,
-  endDate: true,
-  status: true,
-  notes: true,
-  goalRating: true,
-});
-
-// Improvement Plan Action Items
-export const improvementActions = pgTable("improvement_actions", {
-  id: serial("id").primaryKey(),
-  planId: integer("plan_id").notNull(), // Foreign key to improvement_plans
+  musicianId: integer("musician_id").notNull(),
+  planId: integer("plan_id").notNull(),
   action: text("action").notNull(),
-  dueDate: timestamp("due_date"),
-  status: text("status").notNull().default("pending"), // pending, in-progress, completed
   addedAt: timestamp("added_at").notNull().defaultNow(),
+  dueDate: timestamp("due_date"),
+  status: text("status").notNull().default("pending"), // pending, completed, overdue
   completedAt: timestamp("completed_at"),
   feedback: text("feedback"),
 });
 
-export const insertImprovementActionSchema = createInsertSchema(improvementActions).pick({
+export const insertImprovementPlanSchema = createInsertSchema(improvementPlans).pick({
+  musicianId: true,
   planId: true,
   action: true,
   dueDate: true,
@@ -650,39 +548,38 @@ export const insertImprovementActionSchema = createInsertSchema(improvementActio
   feedback: true,
 });
 
-export type PerformanceRating = typeof performanceRatings.$inferSelect;
-export type InsertPerformanceRating = z.infer<typeof insertPerformanceRatingSchema>;
+export type ImprovementPlan = typeof improvementPlans.$inferSelect;
+export type InsertImprovementPlan = z.infer<typeof insertImprovementPlanSchema>;
 
-export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
-export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricsSchema>;
+// Skill Tags for musicians
+export const skillTags = pgTable("skill_tags", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  description: text("description"),
+});
+
+export const insertSkillTagSchema = createInsertSchema(skillTags).pick({
+  name: true,
+  description: true,
+});
 
 export type SkillTag = typeof skillTags.$inferSelect;
 export type InsertSkillTag = z.infer<typeof insertSkillTagSchema>;
 
-export type MusicianSkillTag = typeof musicianSkillTags.$inferSelect;
-export type InsertMusicianSkillTag = z.infer<typeof insertMusicianSkillTagSchema>;
-
-export type ImprovementPlan = typeof improvementPlans.$inferSelect;
-export type InsertImprovementPlan = z.infer<typeof insertImprovementPlanSchema>;
-
-export type ImprovementAction = typeof improvementActions.$inferSelect;
-export type InsertImprovementAction = z.infer<typeof insertImprovementActionSchema>;
-
-// Availability Share Links for sharing musician availability
-export const availabilityShareLinks = pgTable("availability_share_links", {
+// Musician Skills (many-to-many)
+export const musicianSkills = pgTable("musician_skills", {
   id: serial("id").primaryKey(),
-  musicianId: integer("musician_id").notNull().references(() => musicians.id, { onDelete: "cascade" }),
-  token: text("token").notNull().unique(),
-  expiryDate: timestamp("expiry_date").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
+  musicianId: integer("musician_id").notNull(),
+  skillId: integer("skill_id").notNull(),
+  level: integer("level"), // Optional proficiency level (1-5)
+  addedAt: timestamp("added_at").notNull().defaultNow(),
 });
 
-export const insertAvailabilityShareLinkSchema = createInsertSchema(availabilityShareLinks).pick({
+export const insertMusicianSkillSchema = createInsertSchema(musicianSkills).pick({
   musicianId: true,
-  token: true,
-  expiryDate: true,
-  createdAt: true,
+  skillId: true,
+  level: true,
 });
 
-export type AvailabilityShareLink = typeof availabilityShareLinks.$inferSelect;
-export type InsertAvailabilityShareLink = z.infer<typeof insertAvailabilityShareLinkSchema>;
+export type MusicianSkill = typeof musicianSkills.$inferSelect;
+export type InsertMusicianSkill = z.infer<typeof insertMusicianSkillSchema>;
