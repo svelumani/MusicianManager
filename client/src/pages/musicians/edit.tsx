@@ -21,8 +21,9 @@ import { useEffect } from "react";
 const payRateSchema = z.object({
   id: z.number().optional(),
   eventCategoryId: z.coerce.number().min(1, "Event category is required"),
-  rate: z.coerce.number().min(0, "Rate must be at least 0"),
-  rateType: z.enum(["hourly", "event", "daily"]),
+  hourlyRate: z.coerce.number().min(0, "Hourly rate must be at least 0").optional().nullable(),
+  dayRate: z.coerce.number().min(0, "Day rate must be at least 0").optional().nullable(),
+  eventRate: z.coerce.number().min(0, "Event rate must be at least 0").optional().nullable(),
   notes: z.string().optional().nullable(),
   musicianId: z.number().optional(),
 });
@@ -141,8 +142,9 @@ export default function EditMusicianPage() {
           ...payRates,
           ...missingCategories.map(category => ({
             eventCategoryId: category.id,
-            rate: 0,
-            rateType: "hourly" as const,
+            hourlyRate: 0,
+            dayRate: null,
+            eventRate: null,
             notes: null,
             musicianId: musician.id,
           }))
@@ -482,10 +484,10 @@ export default function EditMusicianPage() {
                         
                         <FormField
                           control={form.control}
-                          name={`payRates.${index}.rate`}
+                          name={`payRates.${index}.hourlyRate`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Rate ($)</FormLabel>
+                              <FormLabel>Hourly Rate ($)</FormLabel>
                               <FormControl>
                                 <Input
                                   type="number"
@@ -493,7 +495,11 @@ export default function EditMusicianPage() {
                                   min="0"
                                   placeholder="0.00"
                                   {...field}
-                                  value={field.value === undefined ? "" : field.value}
+                                  value={field.value === undefined || field.value === null ? "" : field.value}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? null : parseFloat(e.target.value);
+                                    field.onChange(value);
+                                  }}
                                 />
                               </FormControl>
                               <FormMessage />
@@ -503,25 +509,49 @@ export default function EditMusicianPage() {
                         
                         <FormField
                           control={form.control}
-                          name={`payRates.${index}.rateType`}
+                          name={`payRates.${index}.dayRate`}
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Rate Type</FormLabel>
-                              <Select 
-                                value={field.value} 
-                                onValueChange={field.onChange}
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select rate type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="hourly">Per Hour</SelectItem>
-                                  <SelectItem value="daily">Per Day</SelectItem>
-                                  <SelectItem value="event">Per Event</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <FormLabel>Daily Rate ($)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value === undefined || field.value === null ? "" : field.value}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? null : parseFloat(e.target.value);
+                                    field.onChange(value);
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`payRates.${index}.eventRate`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Event Rate ($)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="0.00"
+                                  {...field}
+                                  value={field.value === undefined || field.value === null ? "" : field.value}
+                                  onChange={(e) => {
+                                    const value = e.target.value === "" ? null : parseFloat(e.target.value);
+                                    field.onChange(value);
+                                  }}
+                                />
+                              </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}

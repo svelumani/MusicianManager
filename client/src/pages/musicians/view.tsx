@@ -138,12 +138,14 @@ export default function ViewMusicianPage() {
                       {payRates.map(rate => (
                         <div key={rate.id} className="text-sm">
                           <span className="font-medium">{rate.eventCategoryId ? getCategoryName(rate.eventCategoryId) : "Default"}: </span>
-                          {rate.rateType === 'hourly' ? (
-                            <span>${rate.rate.toFixed(2)}/hr</span>
-                          ) : rate.rateType === 'event' ? (
-                            <span>${rate.rate.toFixed(2)}/event</span>
+                          {rate.hourlyRate !== null && rate.hourlyRate !== undefined ? (
+                            <span>${parseFloat(rate.hourlyRate.toString()).toFixed(2)}/hr</span>
+                          ) : rate.eventRate !== null && rate.eventRate !== undefined ? (
+                            <span>${parseFloat(rate.eventRate.toString()).toFixed(2)}/event</span>
+                          ) : rate.dayRate !== null && rate.dayRate !== undefined ? (
+                            <span>${parseFloat(rate.dayRate.toString()).toFixed(2)}/day</span>
                           ) : (
-                            <span>${rate.rate.toFixed(2)}/day</span>
+                            <span>Rate not set</span>
                           )}
                           {rate.notes && <span className="text-gray-500 ml-1">({rate.notes})</span>}
                         </div>
