@@ -36,13 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           credentials: "include",
         });
 
+        console.log("Auth check response status:", res.status);
+        
         if (res.status === 200) {
           const data = await res.json();
+          console.log("Auth check data:", data);
+          
           if (data && data.user) {
             setUser(data.user);
           } else if (data) {
             setUser(data);
           }
+        } else {
+          console.log("User not authenticated");
         }
       } catch (err) {
         console.error("Auth check failed:", err);
