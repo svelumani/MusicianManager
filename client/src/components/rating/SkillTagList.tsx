@@ -277,7 +277,7 @@ export default function SkillTagList({ musicianId, readOnly = false }: SkillTagL
         {musicianTags?.length > 0 ? (
           musicianTags.map((tag: MusicianSkillTag) => (
             <Badge key={tag.id} variant="secondary" className="flex items-center gap-1">
-              {tag.skillTag.name}
+              {allTags?.find(t => t.id === tag.skillTagId)?.name || `Skill #${tag.skillTagId}`}
               {tag.endorsementCount > 0 && (
                 <span className="ml-1 bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-xs">
                   {tag.endorsementCount}
