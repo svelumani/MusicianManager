@@ -1047,11 +1047,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/events/:id", isAuthenticated, async (req, res) => {
     try {
-      const event = await storage.getEvent(parseInt(req.params.id));
+      const eventId = parseInt(req.params.id);
+      const event = await storage.getEvent(eventId);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
-      res.json(event);
+      
+      // Also fetch musician assignments for this event
+      const musicianAssignments = await storage.getEventMusicianAssignments(eventId);
+      
+      // Include assignments with the event data
+      const eventWithAssignments = {
+        ...event,
+        musicianAssignments
+      };
+      
+      res.json(eventWithAssignments);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching event" });
@@ -1093,8 +1104,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       delete eventData.musicianTypeIds;
       delete eventData.musicianIds;
       
-      // Create the event
-      const event = await storage.createEvent(eventData);
+      // Create the event with the musician assignments
+      const eventWithAssignments = {
+        ...eventData,
+        musicianAssignments
+      };
+      
+      const event = await storage.createEvent(eventWithAssignments);
       
       // If we have musician assignments, process them (this would create invitations or other records)
       if (musicianAssignments && Object.keys(musicianAssignments).length > 0) {

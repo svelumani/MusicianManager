@@ -40,6 +40,9 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
   
+  // Event musician assignments
+  getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>>;
+  
   // Settings management
   getSettings(type: string): Promise<Settings | undefined>;
   createSettings(type: string, data: any): Promise<Settings>;
@@ -306,6 +309,7 @@ export class MemStorage implements IStorage {
   private musicians: Map<number, Musician>;
   private availability: Map<number, Availability>;
   private events: Map<number, Event>;
+  private eventMusicianAssignments: Map<number, Record<string, number[]>>;
   private bookings: Map<number, Booking>;
   private payments: Map<number, Payment>;
   private collections: Map<number, Collection>;
@@ -392,6 +396,9 @@ export class MemStorage implements IStorage {
     this.improvementPlans = new Map();
     this.improvementActions = new Map();
     this.availabilityShareLinks = new Map();
+    
+    // Storage for musician assignments to events by date
+    this.eventMusicianAssignments = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
@@ -1123,6 +1130,16 @@ export class MemStorage implements IStorage {
   
   async createEvent(event: InsertEvent): Promise<Event> {
     const id = this.currentEventId++;
+    
+    // Store musician assignments separately if they exist
+    const musicianAssignments = (event as any).musicianAssignments;
+    if (musicianAssignments) {
+      this.eventMusicianAssignments.set(id, musicianAssignments);
+      
+      // Don't include assignments in the event object as it's not part of the schema
+      delete (event as any).musicianAssignments;
+    }
+    
     const newEvent: Event = { ...event, id };
     this.events.set(id, newEvent);
     
@@ -1137,6 +1154,11 @@ export class MemStorage implements IStorage {
     });
     
     return newEvent;
+  }
+  
+  async getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>> {
+    const assignments = this.eventMusicianAssignments.get(eventId);
+    return assignments || {};
   }
   
   async updateEvent(id: number, data: Partial<InsertEvent>): Promise<Event | undefined> {
