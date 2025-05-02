@@ -176,18 +176,24 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
   
   // Helper function to determine the event status class
   const getEventStatusClass = (status: string): string => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'contract-signed':
-        return 'bg-green-500';
+      case 'contractsigned':
+        return 'bg-emerald-600'; // Match the color in events/view.tsx
       case 'contract-sent':
-        return 'bg-blue-500';
+      case 'contractsent':
+        return 'bg-indigo-500'; // Match the color in events/view.tsx
       case 'accepted':
-        return 'bg-blue-300';
+        return 'bg-green-500';
+      case 'confirmed':
+        return 'bg-green-600';
       case 'pending':
         return 'bg-yellow-300';
+      case 'invited':
+        return 'bg-blue-500';
       case 'rejected':
       case 'cancelled':
-        return 'bg-red-400';
+        return 'bg-red-500';
       default:
         return 'bg-gray-300';
     }
