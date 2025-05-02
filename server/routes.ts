@@ -34,7 +34,8 @@ import {
   insertEmailTemplateSchema,
   insertMusicianTypeSchema,
   insertAvailabilityShareLinkSchema,
-  insertContractLinkSchema
+  insertContractLinkSchema,
+  insertInvitationSchema
 } from "@shared/schema";
 
 const SessionStore = MemoryStore(session);
@@ -1195,6 +1196,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error deleting event" });
+    }
+  });
+
+  // Invitation routes
+  apiRouter.get("/invitations", isAuthenticated, async (req, res) => {
+    try {
+      const eventId = req.query.eventId ? parseInt(req.query.eventId as string) : undefined;
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      const invitations = await storage.getInvitations(eventId, musicianId);
+      res.json(invitations);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching invitations" });
+    }
+  });
+
+  apiRouter.get("/invitations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const invitation = await storage.getInvitation(parseInt(req.params.id));
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      res.json(invitation);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching invitation" });
+    }
+  });
+
+  apiRouter.post("/invitations", isAuthenticated, async (req, res) => {
+    try {
+      const invitationData = insertInvitationSchema.parse(req.body);
+      const invitation = await storage.createInvitation(invitationData);
+      res.status(201).json(invitation);
+      
+      // Could add email sending functionality here
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid invitation data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating invitation" });
+    }
+  });
+
+  apiRouter.put("/invitations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const invitationData = insertInvitationSchema.partial().parse(req.body);
+      const invitation = await storage.updateInvitation(parseInt(req.params.id), invitationData);
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      res.json(invitation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid invitation data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating invitation" });
+    }
+  });
+
+  apiRouter.get("/events/:eventId/musicians/:musicianId/invitations", isAuthenticated, async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.eventId);
+      const musicianId = parseInt(req.params.musicianId);
+      
+      const invitations = await storage.getInvitationsByEventAndMusician(eventId, musicianId);
+      res.json(invitations);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching invitations" });
+    }
+  });
+
+  // Public route for musician to respond to invitation (no auth required)
+  apiRouter.post("/invitations/:id/respond", async (req, res) => {
+    try {
+      const invitationId = parseInt(req.params.id);
+      const invitation = await storage.getInvitation(invitationId);
+      
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitation not found" });
+      }
+      
+      const { response, message } = req.body;
+      if (!response || !['accept', 'decline'].includes(response)) {
+        return res.status(400).json({ message: "Invalid response - must be 'accept' or 'decline'" });
+      }
+      
+      const status = response === 'accept' ? 'accepted' : 'declined';
+      const updatedInvitation = await storage.updateInvitation(invitationId, {
+        status,
+        respondedAt: new Date(),
+        responseMessage: message || null
+      });
+      
+      // If accepted, update the musician event status
+      if (status === 'accepted') {
+        await storage.updateMusicianEventStatus(invitation.eventId, invitation.musicianId, 'accepted');
+      }
+      
+      res.json(updatedInvitation);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error responding to invitation" });
     }
   });
 
