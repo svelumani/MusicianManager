@@ -27,9 +27,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/queryClient";
 
-// Extended event type to include musician assignments
+// Extended event type to include musician assignments and statuses
 interface EventWithAssignments extends EventType {
   musicianAssignments?: Record<string, number[]>;
+  musicianStatuses?: Record<string, Record<number, string>>;
 }
 
 export default function ViewEventPage() {
@@ -38,6 +39,7 @@ export default function ViewEventPage() {
   const params = useParams<{ id: string }>();
   const eventId = parseInt(params.id);
   const [activeTab, setActiveTab] = useState<string>("details");
+  const queryClient = useQueryClient();
 
   // Fetch the event data
   const { 
@@ -62,6 +64,29 @@ export default function ViewEventPage() {
   // Fetch musician types
   const { data: musicianTypes = [] } = useQuery<any[]>({
     queryKey: ["/api/musician-types"],
+  });
+  
+  // Mutation to update musician status
+  const updateMusicianStatusMutation = useMutation({
+    mutationFn: async ({ musicianId, status }: { musicianId: number, status: string }) => {
+      const response = await apiRequest(
+        'POST',
+        `/api/events/${eventId}/musician-status`,
+        { musicianId, status }
+      );
+      return await response.json();
+    },
+    onSuccess: () => {
+      // Invalidate the event query to refresh data
+      queryClient.invalidateQueries({ queryKey: [`/api/events/${eventId}`] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update status",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   // Show error if event can't be loaded
@@ -121,15 +146,39 @@ export default function ViewEventPage() {
 
   // Get status badge styling
   const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case "confirmed":
         return <Badge className="bg-green-600">Confirmed</Badge>;
+      case "accepted":
+        return <Badge className="bg-green-500">Accepted</Badge>;
+      case "rejected":
+        return <Badge variant="destructive">Rejected</Badge>;
       case "cancelled":
         return <Badge variant="destructive">Cancelled</Badge>;
+      case "invited":
+        return <Badge className="bg-blue-500">Invited</Badge>;
+      case "contract-sent":
+        return <Badge className="bg-indigo-500">Contract Sent</Badge>;
+      case "contract-signed":
+        return <Badge className="bg-emerald-600">Contract Signed</Badge>;
+      case "draft":
+        return <Badge variant="secondary">Draft</Badge>;
       case "pending":
       default:
         return <Badge variant="outline">Pending</Badge>;
     }
+  };
+  
+  // Get musician status for a specific date and musician
+  const getMusicianStatus = (dateStr: string, musicianId: number) => {
+    if (!event.musicianStatuses) return "pending";
+    
+    // Check if we have status for this date
+    const dateStatuses = event.musicianStatuses[dateStr];
+    if (!dateStatuses) return "pending";
+    
+    // Return the status for this musician or default to pending
+    return dateStatuses[musicianId] || "pending";
   };
 
   return (
@@ -335,7 +384,7 @@ export default function ViewEventPage() {
                                       </Badge>
                                     </TableCell>
                                     <TableCell>
-                                      <Badge variant="outline">Pending</Badge>
+                                      {getStatusBadge(getMusicianStatus(dateStr, musicianId))}
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex gap-2 justify-end">
@@ -356,32 +405,62 @@ export default function ViewEventPage() {
                                             <DropdownMenuSeparator />
                                             
                                             <DropdownMenuLabel>Invitation</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => 
-                                              toast({
-                                                title: "Invitation Sent",
-                                                description: `Invitation has been sent to ${musician?.name}`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "invited" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        title: "Invitation Sent",
+                                                        description: `Invitation has been sent to ${musician?.name}`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <Mail className="mr-2 h-4 w-4" />
                                               <span>Send Invitation</span>
                                             </DropdownMenuItem>
                                             
-                                            <DropdownMenuItem onClick={() => 
-                                              toast({
-                                                title: "Status Updated",
-                                                description: `${musician?.name}'s status updated to Accepted`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "accepted" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        title: "Status Updated",
+                                                        description: `${musician?.name}'s status updated to Accepted`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <CheckCircle className="mr-2 h-4 w-4" />
                                               <span>Mark as Accepted</span>
                                             </DropdownMenuItem>
                                             
-                                            <DropdownMenuItem onClick={() => 
-                                              toast({
-                                                title: "Status Updated",
-                                                description: `${musician?.name}'s status updated to Rejected`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "rejected" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        title: "Status Updated",
+                                                        description: `${musician?.name}'s status updated to Rejected`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <X className="mr-2 h-4 w-4" />
                                               <span>Mark as Rejected</span>
                                             </DropdownMenuItem>
@@ -389,22 +468,42 @@ export default function ViewEventPage() {
                                             <DropdownMenuSeparator />
                                             
                                             <DropdownMenuLabel>Contract</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => 
-                                              toast({
-                                                title: "Contract Sent",
-                                                description: `Contract has been sent to ${musician?.name}`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "contract-sent" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        title: "Contract Sent",
+                                                        description: `Contract has been sent to ${musician?.name}`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <FileText className="mr-2 h-4 w-4" />
                                               <span>Send Contract</span>
                                             </DropdownMenuItem>
                                             
-                                            <DropdownMenuItem onClick={() => 
-                                              toast({
-                                                title: "Contract Updated",
-                                                description: `${musician?.name}'s contract marked as signed`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "contract-signed" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        title: "Contract Updated",
+                                                        description: `${musician?.name}'s contract marked as signed`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <FileCheck className="mr-2 h-4 w-4" />
                                               <span>Mark Contract as Signed</span>
                                             </DropdownMenuItem>
@@ -412,12 +511,22 @@ export default function ViewEventPage() {
                                             <DropdownMenuSeparator />
                                             
                                             <DropdownMenuLabel>Payment</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => 
-                                              toast({
-                                                title: "Payment Status Updated",
-                                                description: `${musician?.name}'s payment marked as paid`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "paid" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        title: "Payment Status Updated",
+                                                        description: `${musician?.name}'s payment marked as paid`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <DollarSign className="mr-2 h-4 w-4" />
                                               <span>Mark as Paid</span>
                                             </DropdownMenuItem>
