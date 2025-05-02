@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Settings, Music, Tag, User, CreditCard, Clock, Mail, FileText } from "lucide-react";
+import FileContract from "@/components/icons/FileContract";
 
 const settingsSections = [
   {
@@ -25,6 +26,13 @@ const settingsSections = [
     description: "Manage email templates for musician communications",
     icon: <FileText className="h-8 w-8" />,
     color: "text-emerald-500 bg-emerald-100",
+  },
+  {
+    id: "contract-templates",
+    title: "Contract Templates",
+    description: "Create and manage contract templates for musicians",
+    icon: <FileContract className="h-8 w-8" />,
+    color: "text-indigo-500 bg-indigo-100",
   },
   {
     id: "musician-types",

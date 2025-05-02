@@ -35,6 +35,7 @@ import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
 import EmailTemplatesPage from "./pages/settings/templates";
+import ContractTemplatesPage from "./pages/settings/contract-templates";
 import SharedAvailabilityView from "@/pages/availability/[token]";
 import ContractsPage from "@/pages/contracts/index";
 import ContractViewPage from "@/pages/contracts/view";
@@ -209,6 +210,11 @@ function Router() {
       <Route path="/settings/templates">
         <AppLayout>
           <EmailTemplatesPage />
+        </AppLayout>
+      </Route>
+      <Route path="/settings/contract-templates">
+        <AppLayout>
+          <ContractTemplatesPage />
         </AppLayout>
       </Route>
       

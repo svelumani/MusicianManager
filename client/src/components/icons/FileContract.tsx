@@ -1,34 +1,29 @@
 import React from "react";
 import { LucideProps } from "lucide-react";
 
-export const FileContract = React.forwardRef<SVGSVGElement, LucideProps>(
-  ({ color = "currentColor", size = 24, strokeWidth = 2, className, ...props }, ref) => {
-    return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width={size}
-        height={size}
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
-        <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
-        <path d="M9 9h1" />
-        <path d="M9 13h6" />
-        <path d="M13 17h2" />
-        <path d="M9 17h2" />
-      </svg>
-    );
-  }
-);
-
-FileContract.displayName = "FileContract";
+// Custom FileContract icon component that mimics the Lucide React style
+export function FileContract(props: LucideProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="M10 13a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-4z" />
+      <path d="M10 13V9a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4" />
+      <path d="M8 17h8" />
+      <path d="M8 20h8" />
+    </svg>
+  );
+}
 
 export default FileContract;
