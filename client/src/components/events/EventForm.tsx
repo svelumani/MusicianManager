@@ -232,6 +232,20 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   }, [selectedDates, activeDate]);
   
+  // Add an info alert at the top of the musicians section if there are selected dates
+  const renderAvailabilityInfo = () => {
+    if (selectedDates.length === 0) return null;
+    
+    return (
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800">
+        <p className="text-sm">
+          <strong>Note:</strong> Only musicians available on <strong>all</strong> selected dates are shown below. 
+          Selecting musicians who are already booked on these dates is not possible.
+        </p>
+      </div>
+    );
+  };
+  
   // Extra effect to fetch musicians when editing an event with existing musician types
   useEffect(() => {
     console.log("Initial musicianTypeIds:", initialData?.musicianTypeIds);
@@ -283,6 +297,16 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   };
 
   function onSubmit(values: EventFormValues) {
+    // Validate if there are any musician assignments
+    if (selectedMusicians.length === 0 && selectedDates.length > 0 && selectedMusicianTypes.length > 0) {
+      toast({
+        title: "No musicians selected",
+        description: "Please select at least one musician for your event dates",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     // Create a new object with the formatted values to match our EventApiValues type
     const formattedValues: EventApiValues = {
       name: values.name,
@@ -486,6 +510,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
           <div className="mt-6">
             <h3 className="text-lg font-medium mb-4">Musician Invitations</h3>
             
+            {renderAvailabilityInfo()}
+            
             {isLoadingMusicians ? (
               <div className="flex justify-center p-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
@@ -623,7 +649,15 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                     <AvatarFallback>{musician.name.charAt(0)}</AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1">
-                                    <div className="font-medium">{musician.name}</div>
+                                    <div className="flex items-center">
+                                      <span className="font-medium">{musician.name}</span>
+                                      {/* Show availability badge */}
+                                      <Badge 
+                                        variant="outline" 
+                                        className="ml-2 text-xs bg-green-100 border-green-300 text-green-800">
+                                        Available
+                                      </Badge>
+                                    </div>
                                     <div className="text-sm text-muted-foreground flex items-center">
                                       {musician.rating && (
                                         <div className="flex items-center mr-2">
@@ -637,7 +671,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                           ))}
                                         </div>
                                       )}
-                                      {/* Display musician type instead of instruments since it's not in our schema yet */}
+                                      {/* Display musician type */}
                                       <Badge variant="outline" className="mr-1 text-xs">
                                         {musicianTypes?.find(t => t.id === musician.typeId)?.title}
                                       </Badge>
