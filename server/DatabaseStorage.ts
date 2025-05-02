@@ -383,8 +383,8 @@ export class DatabaseStorage implements IStorage {
     const dateEnd = new Date(date);
     dateEnd.setHours(23, 59, 59, 999);
     
-    // Find all musicians who have availability for this date
-    const availableMusicians = await db.select()
+    // Base query to find all musicians who have availability for this date
+    let query = db.select()
       .from(musicians)
       .innerJoin(
         availability,
@@ -394,18 +394,18 @@ export class DatabaseStorage implements IStorage {
           gte(availability.date, dateStart),
           lte(availability.date, dateEnd)
         )
-      )
-      .orderBy(musicians.name);
+      );
     
-    // If no category filters, return all available musicians
-    if (!categoryIds.length) {
-      return availableMusicians.map(({ musicians }) => musicians);
+    // If category filters are provided, add WHERE clause with IN operator
+    if (categoryIds.length > 0) {
+      query = query.where(inArray(musicians.categoryId, categoryIds));
     }
     
-    // Filter by matching any of the categories
-    return availableMusicians
-      .filter(({ musicians }) => categoryIds.includes(musicians.categoryId))
-      .map(({ musicians }) => musicians);
+    // Execute query and order results
+    const availableMusicians = await query.orderBy(musicians.name);
+    
+    // Return just the musician objects
+    return availableMusicians.map(({ musicians }) => musicians);
   }
 
   // The remaining methods from IStorage would be implemented here, but I'm 
