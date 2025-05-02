@@ -70,11 +70,11 @@ export default function ViewEventPage() {
   const updateMusicianStatusMutation = useMutation({
     mutationFn: async ({ musicianId, status }: { musicianId: number, status: string }) => {
       const response = await apiRequest(
-        'POST',
         `/api/events/${eventId}/musician-status`,
+        'POST',
         { musicianId, status }
       );
-      return await response.json();
+      return response;
     },
     onSuccess: () => {
       // Invalidate the event query to refresh data
