@@ -1330,23 +1330,28 @@ Musician: ________________________ Date: ______________`,
     let allMusicians = Array.from(this.musicians.values());
     let musicians: Musician[];
 
-    // First filter: Remove musicians who are explicitly marked as unavailable
-    if (unavailableIds.length > 0) {
-      console.log(`Explicitly unavailable musicians for ${dateStr}:`, unavailableIds);
-      allMusicians = allMusicians.filter(m => !unavailableIds.includes(m.id));
-    }
+    // Remove all musicians who have any unavailability marker (explicitly unavailable, booked, or contracted)
+    console.log(`All unavailable musicians for ${dateStr}:`, [...unavailableMusicianIds]);
+    allMusicians = allMusicians.filter(m => !unavailableMusicianIds.has(m.id));
     
-    // Second filter: Remove musicians who are booked or have signed contracts
-    allMusicians = allMusicians.filter(m => 
-      !bookedIds.includes(m.id) && !contractedIds.includes(m.id)
-    );
+    // Final filter logic: We need to handle two cases:
+    // 1. If we have explicit availability data (some musicians marked available), use only those
+    // 2. If we only have unavailability data (some marked unavailable), use all remaining musicians 
+    //    who haven't been filtered out by unavailable/booked/contracted filters
     
-    // Final filter: If we have explicit availability data, use only those musicians
     if (availableIds.length > 0) {
+      // Case 1: We have explicit "available" entries, use only those musicians
       console.log(`Explicitly available musicians for ${dateStr}:`, availableIds);
       musicians = allMusicians.filter(m => availableIds.includes(m.id));
+    } else if (unavailableIds.length > 0) {
+      // Case 2: We have explicit "unavailable" entries but no "available" entries
+      // In this case, the unavailable musicians have already been filtered out above
+      // So we use all remaining musicians who haven't been excluded
+      console.log(`Using all non-unavailable musicians for ${dateStr} since no explicit availability data exists`);
+      musicians = allMusicians;
     } else {
-      // If no explicit availability data, use all remaining musicians
+      // Case 3: No explicit availability data at all
+      // Assume all musicians are available unless booked/contracted
       musicians = allMusicians;
     }
     
