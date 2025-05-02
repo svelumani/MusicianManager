@@ -3016,13 +3016,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/contracts/token/:token/respond", async (req, res) => {
     try {
-      const { status, response } = req.body;
+      const { status, response, signature } = req.body;
       
       if (!status || !['accepted', 'rejected'].includes(status)) {
         return res.status(400).json({ message: "Invalid status value. Must be 'accepted' or 'rejected'" });
       }
       
-      const contract = await storage.updateContractLinkStatus(req.params.token, status, response);
+      // If accepting the contract, signature is required
+      if (status === 'accepted' && !signature) {
+        return res.status(400).json({ message: "Signature is required to accept the contract" });
+      }
+      
+      const contract = await storage.updateContractLinkStatus(req.params.token, status, response, signature);
       
       if (!contract) {
         return res.status(404).json({ message: "Contract not found or expired" });

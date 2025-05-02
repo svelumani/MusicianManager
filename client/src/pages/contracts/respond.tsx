@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { 
   AlertDialog,
@@ -48,6 +50,8 @@ interface ContractResponse {
     response: string | null;
     amount: number | null;
     eventDate: string | null;
+    musicianSignature: string | null;
+    adminSignature: string | null;
   };
   event: {
     id: number;
@@ -372,12 +376,20 @@ export default function ContractResponsePage() {
             <div className="flex justify-between mt-8">
               <div>
                 <h3 className="font-bold mb-2">Client Signature</h3>
-                <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                {contract.adminSignature ? (
+                  <div className="italic text-lg font-medium mb-1 text-primary">{contract.adminSignature}</div>
+                ) : (
+                  <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                )}
                 <p>VAMP Management</p>
               </div>
               <div>
                 <h3 className="font-bold mb-2">Musician Signature</h3>
-                <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                {contract.musicianSignature ? (
+                  <div className="italic text-lg font-medium mb-1 text-primary">{contract.musicianSignature}</div>
+                ) : (
+                  <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                )}
                 <p>{musician.name}</p>
               </div>
             </div>
