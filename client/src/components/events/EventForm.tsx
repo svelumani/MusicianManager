@@ -38,9 +38,10 @@ type EventFormValues = z.infer<typeof eventFormSchema>;
 interface EventFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  initialData?: any; // Using any type to accommodate the event data structure
 }
 
-export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
+export default function EventForm({ onSuccess, onCancel, initialData }: EventFormProps) {
   const { toast } = useToast();
 
   const { data: venues, isLoading: isLoadingVenues } = useQuery<Venue[]>({
@@ -69,9 +70,22 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     return Array.from(allMusicians);
   }, [musicianAssignments]);
   
+  // Initialize form with default values or initialData if provided
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventFormSchema),
-    defaultValues: {
+    defaultValues: initialData ? {
+      name: initialData.name,
+      paxCount: initialData.paxCount,
+      venueId: initialData.venueId,
+      status: initialData.status || "pending",
+      musicianTypeIds: initialData.musicianTypeIds || [],
+      eventDates: initialData.eventDates ? 
+        (Array.isArray(initialData.eventDates) ? 
+          initialData.eventDates.map(d => new Date(d)) : 
+          []) : 
+        [],
+      notes: initialData.notes || "",
+    } : {
       name: "",
       paxCount: 0,
       venueId: 0,
@@ -104,24 +118,35 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
     musicianAssignments?: Record<string, number[]>; // Date-specific musician assignments
   };
   
-  const createEventMutation = useMutation<any, Error, EventApiValues>({
+  const eventMutation = useMutation<any, Error, EventApiValues>({
     mutationFn: async (values: EventApiValues) => {
-      // No need to further transform the dates since they're already strings
-      const res = await apiRequest("/api/events", "POST", values);
-      return res;
+      // If initialData exists, we're updating an existing event
+      if (initialData?.id) {
+        const res = await apiRequest(`/api/events/${initialData.id}`, "PATCH", values);
+        return res;
+      } else {
+        // Otherwise, we're creating a new event
+        const res = await apiRequest("/api/events", "POST", values);
+        return res;
+      }
     },
     onSuccess: () => {
       toast({
-        title: "Event created",
-        description: "The event has been created successfully",
+        title: initialData ? "Event updated" : "Event created",
+        description: initialData 
+          ? "The event has been updated successfully" 
+          : "The event has been created successfully",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      if (initialData?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/events/${initialData.id}`] });
+      }
       onSuccess();
     },
     onError: (error) => {
       toast({
-        title: "Failed to create event",
-        description: error.message || "An error occurred while creating the event",
+        title: initialData ? "Failed to update event" : "Failed to create event",
+        description: error.message || `An error occurred while ${initialData ? 'updating' : 'creating'} the event`,
         variant: "destructive",
       });
     },
@@ -214,7 +239,7 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
       musicianAssignments: Object.keys(musicianAssignments).length > 0 ? musicianAssignments : undefined,
     };
     
-    createEventMutation.mutate(formattedValues);
+    eventMutation.mutate(formattedValues);
   }
 
   const isLoading = isLoadingVenues || isLoadingMusicianTypes;
@@ -647,9 +672,11 @@ export default function EventForm({ onSuccess, onCancel }: EventFormProps) {
           </Button>
           <Button
             type="submit"
-            disabled={createEventMutation.isPending}
+            disabled={eventMutation.isPending}
           >
-            {createEventMutation.isPending ? "Creating..." : "Create Event"}
+            {eventMutation.isPending 
+              ? (initialData ? "Updating..." : "Creating...") 
+              : (initialData ? "Update Event" : "Create Event")}
           </Button>
         </div>
       </form>
