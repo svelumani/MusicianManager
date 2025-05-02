@@ -264,14 +264,40 @@ export default function ContractsPage() {
                       <TableCell>{getStatusBadge(contract.status)}</TableCell>
                       <TableCell>{format(new Date(contract.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => navigate(`/contracts/${contract.id}`)}
-                        >
-                          <FileContract className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => navigate(`/contracts/${contract.id}`)}
+                            title="View Contract"
+                          >
+                            <FileContract className="h-4 w-4" />
+                          </Button>
+                          
+                          {contract.status === "pending" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => resendContractMutation.mutate(contract.id)}
+                              disabled={resendContractMutation.isPending}
+                              title="Resend Contract"
+                            >
+                              <MailPlus className="h-4 w-4 text-blue-500" />
+                            </Button>
+                          )}
+                          
+                          {contract.status !== "accepted" && contract.status !== "rejected" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => cancelContractMutation.mutate(contract.id)}
+                              disabled={cancelContractMutation.isPending}
+                              title="Cancel Contract"
+                            >
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

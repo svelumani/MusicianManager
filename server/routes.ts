@@ -2854,6 +2854,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching contracts for musician" });
     }
   });
+  
+  // Endpoint to resend a contract
+  apiRouter.post("/contracts/:id/resend", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const contract = await storage.getContractLink(contractId);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Update the contract with extended expiry date and reset status if expired
+      const updatedContract = await storage.updateContractLink(contractId, {
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // New 7-day expiry
+        status: contract.status === 'expired' ? 'pending' : contract.status,
+        updatedAt: new Date()
+      });
+      
+      // TODO: In a production app, send actual email here
+      
+      res.json({ message: "Contract resent successfully", contract: updatedContract });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error resending contract" });
+    }
+  });
+  
+  // Endpoint to cancel a contract
+  apiRouter.post("/contracts/:id/cancel", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const contract = await storage.getContractLink(contractId);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Update the contract status to cancelled
+      const updatedContract = await storage.updateContractLink(contractId, {
+        status: 'cancelled',
+        updatedAt: new Date()
+      });
+      
+      // If there's a booking associated with this contract, update it
+      if (contract.bookingId) {
+        await storage.updateBooking(contract.bookingId, {
+          status: 'cancelled'
+        });
+      }
+      
+      // Update musician status in event
+      if (contract.eventId && contract.musicianId && contract.eventDate) {
+        // Convert eventDate to YYYY-MM-DD string format for the status map
+        const dateStr = new Date(contract.eventDate).toISOString().split('T')[0];
+        
+        // Update the musician's status for this event and date
+        await storage.updateMusicianEventStatus(
+          contract.eventId,
+          contract.musicianId,
+          dateStr,
+          'cancelled'
+        );
+      }
+      
+      res.json({ message: "Contract cancelled successfully", contract: updatedContract });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error cancelling contract" });
+    }
+  });
 
   apiRouter.get("/contracts/token/:token", async (req, res) => {
     try {
