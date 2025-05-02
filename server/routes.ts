@@ -3025,6 +3025,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contract Template routes
+  apiRouter.get("/contract-templates", isAuthenticated, async (req, res) => {
+    try {
+      const templates = await storage.getContractTemplates();
+      res.json(templates);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contract templates" });
+    }
+  });
+
+  apiRouter.get("/contract-templates/default", isAuthenticated, async (req, res) => {
+    try {
+      const template = await storage.getDefaultContractTemplate();
+      if (!template) {
+        return res.status(404).json({ message: "No default template found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching default contract template" });
+    }
+  });
+
+  apiRouter.get("/contract-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const template = await storage.getContractTemplate(parseInt(req.params.id));
+      if (!template) {
+        return res.status(404).json({ message: "Contract template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contract template" });
+    }
+  });
+
+  apiRouter.post("/contract-templates", isAuthenticated, async (req, res) => {
+    try {
+      // Make sure insertContractTemplateSchema is imported from @shared/schema
+      const templateData = {
+        ...req.body,
+        createdBy: (req.user as any).id // Cast to any to access id
+      };
+      const template = await storage.createContractTemplate(templateData);
+      res.status(201).json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract template data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating contract template" });
+    }
+  });
+
+  apiRouter.put("/contract-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const templateData = {
+        ...req.body,
+        createdBy: (req.user as any).id // Cast to any to access id
+      };
+      const template = await storage.updateContractTemplate(parseInt(req.params.id), templateData);
+      if (!template) {
+        return res.status(404).json({ message: "Contract template not found" });
+      }
+      res.json(template);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract template data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating contract template" });
+    }
+  });
+
+  apiRouter.delete("/contract-templates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteContractTemplate(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Contract template not found or cannot be deleted" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting contract template" });
+    }
+  });
+
+  apiRouter.post("/contract-templates/:id/set-default", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.setDefaultContractTemplate(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Contract template not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error setting default contract template" });
+    }
+  });
+
   // Mount the API router
   app.use("/api", apiRouter);
 
