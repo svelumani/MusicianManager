@@ -33,7 +33,8 @@ import {
   insertMonthlyInvoiceSchema,
   insertEmailTemplateSchema,
   insertMusicianTypeSchema,
-  insertAvailabilityShareLinkSchema
+  insertAvailabilityShareLinkSchema,
+  insertContractLinkSchema
 } from "@shared/schema";
 
 const SessionStore = MemoryStore(session);

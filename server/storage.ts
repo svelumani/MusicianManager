@@ -3141,6 +3141,129 @@ export class MemStorage implements IStorage {
     
     return true;
   }
+
+  // Contract Link Methods
+  
+  async createContractLink(contractData: InsertContractLink): Promise<ContractLink> {
+    const contractLink: ContractLink = {
+      id: this.currentContractLinkId++,
+      bookingId: contractData.bookingId,
+      eventId: contractData.eventId,
+      musicianId: contractData.musicianId,
+      token: contractData.token,
+      expiresAt: new Date(contractData.expiresAt),
+      status: contractData.status || 'pending',
+      respondedAt: null,
+      response: null,
+      createdAt: new Date(),
+      amount: contractData.amount || null,
+      eventDate: contractData.eventDate ? new Date(contractData.eventDate) : null
+    };
+    
+    this.contractLinks.set(contractLink.id, contractLink);
+    
+    // Log activity
+    this.createActivity({
+      action: 'create',
+      entityType: 'contract-link',
+      entityId: contractLink.id,
+      timestamp: new Date(),
+      userId: null,
+      details: { 
+        musicianId: contractLink.musicianId,
+        eventId: contractLink.eventId,
+        bookingId: contractLink.bookingId
+      }
+    });
+    
+    return contractLink;
+  }
+  
+  async getContractLinks(): Promise<ContractLink[]> {
+    return Array.from(this.contractLinks.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getContractLink(id: number): Promise<ContractLink | undefined> {
+    return this.contractLinks.get(id);
+  }
+  
+  async getContractLinkByToken(token: string): Promise<ContractLink | undefined> {
+    return Array.from(this.contractLinks.values())
+      .find(link => link.token === token);
+  }
+  
+  async getContractLinksByEvent(eventId: number): Promise<ContractLink[]> {
+    return Array.from(this.contractLinks.values())
+      .filter(link => link.eventId === eventId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getContractLinksByMusician(musicianId: number): Promise<ContractLink[]> {
+    return Array.from(this.contractLinks.values())
+      .filter(link => link.musicianId === musicianId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined> {
+    const contractLink = this.contractLinks.get(id);
+    if (!contractLink) return undefined;
+    
+    const updatedContractLink = {
+      ...contractLink,
+      ...data
+    };
+    
+    this.contractLinks.set(id, updatedContractLink);
+    
+    // Log activity
+    this.createActivity({
+      action: 'update',
+      entityType: 'contract-link',
+      entityId: id,
+      timestamp: new Date(),
+      userId: null,
+      details: { 
+        musicianId: contractLink.musicianId,
+        eventId: contractLink.eventId,
+        bookingId: contractLink.bookingId
+      }
+    });
+    
+    return updatedContractLink;
+  }
+  
+  async updateContractLinkStatus(token: string, status: string, response?: string): Promise<ContractLink | undefined> {
+    const contractLink = await this.getContractLinkByToken(token);
+    if (!contractLink) return undefined;
+    
+    const updatedContractLink = {
+      ...contractLink,
+      status,
+      respondedAt: new Date(),
+      response: response || null
+    };
+    
+    this.contractLinks.set(contractLink.id, updatedContractLink);
+    
+    // Log activity
+    this.createActivity({
+      action: 'update-status',
+      entityType: 'contract-link',
+      entityId: contractLink.id,
+      timestamp: new Date(),
+      userId: null,
+      details: { 
+        musicianId: contractLink.musicianId,
+        eventId: contractLink.eventId,
+        bookingId: contractLink.bookingId,
+        status,
+        response
+      }
+    });
+    
+    return updatedContractLink;
+  }
 }
 
 // TODO: In the future, we'll implement database persistence
