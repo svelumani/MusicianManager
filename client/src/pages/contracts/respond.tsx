@@ -85,11 +85,11 @@ export default function ContractResponsePage() {
   const respondMutation = useMutation({
     mutationFn: async ({ status, response }: { status: string; response: string }) => {
       const res = await apiRequest(
+        `/api/contracts/token/${token}/respond`,
         "POST", 
-        `/api/contracts/token/${token}/respond`, 
         { status, response }
       );
-      return await res.json();
+      return res;
     },
     onSuccess: (data) => {
       setResponseSuccess(true);
