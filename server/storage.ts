@@ -918,6 +918,57 @@ Musician: ________________________ Date: ______________`,
       };
       this.skillTags.set(skillTag.id, skillTag);
     });
+    
+    // Initialize with a default contract template
+    this.createContractTemplate({
+      name: "Standard Performance Agreement",
+      content: `
+        <h1>VAMP Management - Performance Agreement</h1>
+        <p>This Performance Agreement ("Agreement") is made between VAMP Management ("Company") and the Musician ("Performer").</p>
+        
+        <h2>1. Event Details</h2>
+        <p>The Performer agrees to provide musical services for the event as specified in the booking details.</p>
+        
+        <h2>2. Compensation</h2>
+        <p>Company agrees to pay Performer the agreed sum for the performance described herein.</p>
+        <p>Payment will be made as follows: 100% within 7 days after the performance.</p>
+        
+        <h2>3. Performer's Obligations</h2>
+        <p>Performer agrees to:</p>
+        <ul>
+          <li>Arrive at the venue at least 60 minutes prior to the scheduled performance time</li>
+          <li>Provide all necessary equipment for the performance unless otherwise specified</li>
+          <li>Perform for the agreed duration</li>
+          <li>Maintain professional appearance and conduct</li>
+          <li>Comply with venue policies and regulations</li>
+        </ul>
+        
+        <h2>4. Cancellation</h2>
+        <p>If Performer cancels this engagement less than 7 days before the event date, Performer may be liable for expenses incurred by Company.</p>
+        <p>If Company cancels this engagement less than 7 days before the event date, Company shall pay Performer 50% of the agreed fee as compensation.</p>
+        
+        <h2>5. Force Majeure</h2>
+        <p>Neither party shall be liable for failure to perform when such failure is due to circumstances beyond their reasonable control.</p>
+        
+        <h2>6. Recording and Photography</h2>
+        <p>Company reserves the right to photograph and/or record the performance for promotional purposes only.</p>
+        
+        <h2>7. Signatures</h2>
+        <p>By signing below, both parties acknowledge that they have read, understood, and agree to the terms of this Agreement.</p>
+        
+        <div class="signatures">
+          <div class="signature-block">
+            <p><strong>For Company:</strong> VAMP Management</p>
+          </div>
+          
+          <div class="signature-block">
+            <p><strong>Performer:</strong> [Musician Name]</p>
+          </div>
+        </div>
+      `,
+      createdBy: 1, // Admin user
+      isDefault: true
+    });
   }
 
   // User management methods
