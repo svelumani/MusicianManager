@@ -25,7 +25,7 @@ import EventsPage from "@/pages/events/index";
 import AddEventPage from "@/pages/events/add";
 import ViewEventPage from "@/pages/events/view";
 import EditEventPage from "@/pages/events/edit";
-import InviteMusicianPage from "@/pages/events/invite";
+// Removed InviteMusicianPage import as we're handling this through the edit page
 import CategoriesPage from "@/pages/categories/index";
 import AddCategoryPage from "@/pages/categories/add";
 import PaymentsPage from "@/pages/payments/index";
@@ -127,13 +127,7 @@ function Router() {
           <AddEventPage />
         </AppLayout>
       </Route>
-      <Route path="/events/:id/invite">
-        {(params) => (
-          <AppLayout>
-            <InviteMusicianPage eventId={parseInt(params.id)} />
-          </AppLayout>
-        )}
-      </Route>
+      {/* Removed /events/:id/invite route as we're handling this through the edit page */}
       <Route path="/events/:id/edit">
         {(params) => (
           <AppLayout>

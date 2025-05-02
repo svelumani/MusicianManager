@@ -37,9 +37,7 @@ export default function EventsPage() {
     navigate(`/events/${id}`);
   };
 
-  const handleInviteMusicians = (id: number) => {
-    navigate(`/events/${id}/invite`);
-  };
+  // Removed handleInviteMusicians as we're now handling this through the edit event page
 
   return (
     <div className="space-y-4">
@@ -104,9 +102,9 @@ export default function EventsPage() {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => handleInviteMusicians(event.id)}
+                            onClick={() => navigate(`/events/${event.id}/edit`)}
                           >
-                            Invite Musicians
+                            Edit
                           </Button>
                         </div>
                       </TableCell>
