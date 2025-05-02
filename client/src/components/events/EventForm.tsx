@@ -110,24 +110,12 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   // Create a watch for event dates to filter available musicians
   const eventDates = form.watch("eventDates");
   
-  // Query for all musicians
+  // Query for all musicians - always fetch this regardless of musician types
   const { data: allMusicians = [], isLoading: isLoadingAllMusicians } = useQuery<Musician[]>({
     queryKey: ["/api/musicians"],
-    enabled: selectedMusicianTypes.length > 0,
   });
   
-  // Get a map of musician availability for each specific date
-  const dateAvailabilityMap = useMemo(() => {
-    const map: Record<string, Record<number, boolean>> = {};
-    
-    // Initialize map for each selected date
-    selectedDates.forEach(date => {
-      const dateKey = date.toISOString();
-      map[dateKey] = {};
-    });
-    
-    return map;
-  }, [selectedDates]);
+  // No need to maintain a separate map as we now use dateAvailabilityData from the query
   
   // Query for available musicians based on all selected musician types and dates (intersection)
   const { data: availableMusicians = [], isLoading: isLoadingMusicians } = useQuery<Musician[]>({
@@ -159,27 +147,36 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   });
   
-  // For each selected date, fetch the musicians available just for that date
-  const dateAvailabilityQueries = selectedDates.map(date => {
-    const dateStr = date.toISOString();
-    return useQuery<Musician[]>({
-      queryKey: ["/api/musicians", { date: dateStr }],
-      enabled: selectedDates.length > 0 && selectedMusicianTypes.length > 0,
-      onSuccess: (data) => {
-        // When we get the data, update our availability map
-        const availableMusicianIds = new Set(data.map(m => m.id));
-        
-        // For each musician, mark as available or not for this date
-        if (allMusicians) {
-          allMusicians.forEach(musician => {
-            dateAvailabilityMap[dateStr] = {
-              ...dateAvailabilityMap[dateStr],
-              [musician.id]: availableMusicianIds.has(musician.id)
-            };
-          });
-        }
+  // Create a single query for date-specific musician availability
+  // We'll use this for checking individual date availability
+  const { data: dateAvailabilityData = {}, isLoading: isLoadingDateAvailability } = useQuery<Record<string, number[]>>({
+    queryKey: ["/api/musicians/date-availability", { dates: selectedDates.map(d => d.toISOString()) }],
+    enabled: selectedDates.length > 0,
+    queryFn: async () => {
+      // Create an object to store available musician ids by date
+      const dateAvailability: Record<string, number[]> = {};
+      
+      // Only proceed if we have selected dates
+      if (selectedDates.length === 0) {
+        return dateAvailability;
       }
-    });
+      
+      // For each date, fetch available musicians
+      await Promise.all(selectedDates.map(async (date) => {
+        const dateStr = date.toISOString();
+        try {
+          const response = await fetch(`/api/musicians?date=${encodeURIComponent(dateStr)}`);
+          if (response.ok) {
+            const musicians = await response.json();
+            dateAvailability[dateStr] = musicians.map((m: Musician) => m.id);
+          }
+        } catch (error) {
+          console.error("Error fetching available musicians for date:", dateStr, error);
+        }
+      }));
+      
+      return dateAvailability;
+    }
   });
 
   // Define the API value type to avoid type issues
@@ -314,30 +311,24 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   const isMusicianAvailableForDate = (musicianId: number, date: Date): boolean => {
     try {
       // Convert to date string for comparison
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toISOString();
       
-      // Check if this musician is in the list of available musicians
-      // If they're not in the availableMusicians list, it means they're not available for at least one date
+      // Check if this musician exists
       const musician = allMusicians.find(m => m.id === musicianId);
-      if (!musician) return false;
-      
-      // If the musician is in the availableMusicians list, they are available for all dates
-      const isInAvailableList = availableMusicians.some(m => m.id === musicianId);
-      
-      // For the specific date being checked:
-      // 1. Find all musicians that are available specifically for this date
-      const dateAvailabilityQuery = dateAvailabilityQueries.find(query => {
-        const queryDate = query.queryKey[1] as { date?: string };
-        if (!queryDate.date) return false;
-        return new Date(queryDate.date).toISOString().split('T')[0] === dateStr;
-      });
-      
-      // If we have date-specific data, use it
-      if (dateAvailabilityQuery && dateAvailabilityQuery.data) {
-        return dateAvailabilityQuery.data.some(m => m.id === musicianId);
+      if (!musician) {
+        return false;
       }
       
-      // If the musician is in the available list for all dates, they're available for this specific date too
+      // First check if we have date-specific availability data
+      if (dateAvailabilityData && dateAvailabilityData[dateStr]) {
+        return dateAvailabilityData[dateStr].includes(musicianId);
+      }
+      
+      // If we don't have date-specific data yet but the query is still loading,
+      // we'll default to checking the overall available musicians list
+      const isInAvailableList = availableMusicians.some(m => m.id === musicianId);
+      
+      // If musician is in the overall availability list, they're available for all selected dates
       return isInAvailableList;
     } catch (error) {
       console.error("Error checking musician availability:", error);
