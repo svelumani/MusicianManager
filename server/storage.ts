@@ -3452,7 +3452,7 @@ Musician: ________________________ Date: ______________`,
       respondedAt: new Date(),
       response: response || null,
       musicianSignature,
-      adminSignature
+      companySignature
     };
     
     this.contractLinks.set(contractLink.id, updatedContractLink);

@@ -51,7 +51,7 @@ interface ContractResponse {
     amount: number | null;
     eventDate: string | null;
     musicianSignature: string | null;
-    adminSignature: string | null;
+    companySignature: string | null;
   };
   event: {
     id: number;
