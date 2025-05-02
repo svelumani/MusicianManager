@@ -1430,6 +1430,47 @@ Musician: ________________________ Date: ______________`,
     // Update event statuses in map
     this.eventMusicianStatuses.set(eventId, eventStatuses);
     
+    // Update availability calendar based on the new status
+    const dateObj = new Date(dateStr);
+    const month = dateObj.getMonth() + 1; // 0-based to 1-based
+    const year = dateObj.getFullYear();
+    const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+    
+    // For contract-signed status, mark the date as unavailable in the musician's calendar
+    // For rejected status, mark the date as available again (if not taken by another event)
+    if (status === 'contract-signed') {
+      await this.updateAvailabilityForDate(
+        musicianId,
+        dateStr,
+        false, // When contract is signed, musician is no longer available
+        monthStr,
+        year
+      );
+      console.log(`Updated availability calendar for musician ${musicianId} on ${dateStr} to unavailable (contract signed)`);
+    } else if (status === 'rejected' || status === 'cancelled') {
+      // Check if the musician has any other confirmed bookings for this date before marking as available
+      const existingBookings = await this.getBookings();
+      const hasOtherBooking = existingBookings.some(booking => 
+        booking.musicianId === musicianId && 
+        booking.contractSigned &&
+        booking.date instanceof Date &&
+        booking.date.toISOString().split('T')[0] === dateStr &&
+        booking.eventId !== eventId // Not the current event
+      );
+      
+      // Only mark as available if no other booking exists
+      if (!hasOtherBooking) {
+        await this.updateAvailabilityForDate(
+          musicianId,
+          dateStr,
+          true, // When rejected/cancelled and no other booking, musician is available again
+          monthStr,
+          year
+        );
+        console.log(`Updated availability calendar for musician ${musicianId} on ${dateStr} to available (rejected/cancelled)`);
+      }
+    }
+    
     // Log the activity
     this.createActivity({
       userId: 1, // Default admin user
@@ -1459,6 +1500,37 @@ Musician: ________________________ Date: ______________`,
         
         this.contractLinks.set(contract.id, updatedContract);
         
+        // Update availability calendar - when a contract is rejected/cancelled, 
+        // mark the date as available again (if musician doesn't have other events on this date)
+        if (contract.eventDate) {
+          const dateStr = contract.eventDate.toISOString().split('T')[0];
+          const month = contract.eventDate.getMonth() + 1; // 0-based to 1-based
+          const year = contract.eventDate.getFullYear();
+          const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+          
+          // Check if the musician has any other confirmed bookings for this date
+          const existingBookings = await this.getBookings();
+          const hasOtherBooking = existingBookings.some(booking => 
+            booking.musicianId === musicianId && 
+            booking.contractSigned &&
+            booking.date instanceof Date &&
+            booking.date.toISOString().split('T')[0] === dateStr &&
+            booking.eventId !== eventId // Not the current event
+          );
+          
+          // Only mark as available if no other booking exists for this date
+          if (!hasOtherBooking) {
+            await this.updateAvailabilityForDate(
+              musicianId,
+              dateStr,
+              true, // When contract is rejected, musician is available again
+              monthStr,
+              year
+            );
+            console.log(`Updated availability calendar for musician ${musicianId} on ${dateStr} to available (contract rejected)`);
+          }
+        }
+        
         // Log contract cancellation
         this.createActivity({
           userId: 1, // Default admin user
@@ -1481,6 +1553,36 @@ Musician: ________________________ Date: ______________`,
         cancellationDate: new Date(),
         cancellationReason: 'Musician rejected'
       });
+      
+      // If we have a date in the booking, use that to update availability as well
+      if (booking.date instanceof Date) {
+        const dateStr = booking.date.toISOString().split('T')[0];
+        const month = booking.date.getMonth() + 1;
+        const year = booking.date.getFullYear();
+        const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+        
+        // Check if the musician has any other confirmed bookings for this date
+        const allBookings = await this.getBookings();
+        const hasOtherBooking = allBookings.some(b => 
+          b.id !== booking.id && // Not the current booking
+          b.musicianId === musicianId && 
+          b.contractSigned &&
+          b.date instanceof Date &&
+          b.date.toISOString().split('T')[0] === dateStr
+        );
+        
+        // Only mark as available if no other booking exists for this date
+        if (!hasOtherBooking) {
+          await this.updateAvailabilityForDate(
+            musicianId,
+            dateStr,
+            true, // When booking is cancelled, musician is available again
+            monthStr,
+            year
+          );
+          console.log(`Updated availability calendar for musician ${musicianId} on ${dateStr} to available (booking cancelled)`);
+        }
+      }
     }
   }
   
@@ -1564,6 +1666,25 @@ Musician: ________________________ Date: ______________`,
       dateStatuses[musicianId] = "contract-sent";
       eventStatuses[assignedDate] = dateStatuses;
       this.eventMusicianStatuses.set(eventId, eventStatuses);
+      
+      // Update availability calendar - when a contract is sent, we set a temporary unavailability
+      // The musician can still make this available again (by rejecting the contract) or it becomes 
+      // permanently unavailable when they sign the contract
+      const dateObj = new Date(assignedDate);
+      const month = dateObj.getMonth() + 1; // 0-based to 1-based
+      const year = dateObj.getFullYear();
+      const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+      
+      // Mark the date as tentatively unavailable in the musician's availability calendar
+      await this.updateAvailabilityForDate(
+        musicianId,
+        assignedDate,
+        false, // When contract is sent, mark as tentatively unavailable
+        monthStr,
+        year
+      );
+      
+      console.log(`Updated availability calendar for musician ${musicianId} on ${assignedDate} to unavailable (contract sent)`);
       
       // Log contract creation activity
       this.createActivity({
