@@ -1053,19 +1053,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Event not found" });
       }
       
-      // Also fetch musician assignments for this event
+      // Fetch musician assignments for this event
       const musicianAssignments = await storage.getEventMusicianAssignments(eventId);
       
-      // Include assignments with the event data
-      const eventWithAssignments = {
+      // Fetch musician statuses for this event
+      const musicianStatuses = await storage.getEventMusicianStatuses(eventId);
+      
+      // Include assignments and statuses with the event data
+      const eventWithData = {
         ...event,
-        musicianAssignments
+        musicianAssignments,
+        musicianStatuses
       };
       
-      res.json(eventWithAssignments);
+      res.json(eventWithData);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching event" });
+    }
+  });
+  
+  // Update musician status in an event
+  apiRouter.post("/events/:id/musician-status", isAuthenticated, async (req, res) => {
+    try {
+      const eventId = parseInt(req.params.id);
+      const { musicianId, status } = req.body;
+      
+      if (!musicianId || !status) {
+        return res.status(400).json({ message: "Missing required fields: musicianId and status" });
+      }
+      
+      const event = await storage.getEvent(eventId);
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const result = await storage.updateMusicianEventStatus(eventId, musicianId, status);
+      if (!result) {
+        return res.status(404).json({ message: "Musician not found in this event" });
+      }
+      
+      const updatedStatuses = await storage.getEventMusicianStatuses(eventId);
+      res.json({ success: true, statuses: updatedStatuses });
+    } catch (error) {
+      console.error("Error updating musician status:", error);
+      res.status(500).json({ message: "Error updating musician status" });
     }
   });
 

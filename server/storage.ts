@@ -1167,6 +1167,51 @@ export class MemStorage implements IStorage {
     return assignments || {};
   }
   
+  async getEventMusicianStatuses(eventId: number): Promise<Record<string, Record<number, string>>> {
+    const statuses = this.eventMusicianStatuses.get(eventId);
+    return statuses || {};
+  }
+  
+  async updateMusicianEventStatus(eventId: number, musicianId: number, status: string): Promise<boolean> {
+    const assignments = await this.getEventMusicianAssignments(eventId);
+    let found = false;
+    
+    // Find which date this musician is assigned to
+    for (const [date, musicians] of Object.entries(assignments)) {
+      if (musicians.includes(musicianId)) {
+        found = true;
+        
+        // Get current statuses for this event, create if doesn't exist
+        const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
+        
+        // Get current statuses for this date, create if doesn't exist
+        const dateStatuses = eventStatuses[date] || {};
+        
+        // Update status for this musician
+        dateStatuses[musicianId] = status;
+        
+        // Update date statuses in event statuses
+        eventStatuses[date] = dateStatuses;
+        
+        // Update event statuses in map
+        this.eventMusicianStatuses.set(eventId, eventStatuses);
+        
+        // Log the activity
+        this.createActivity({
+          userId: 1, // Default admin user
+          action: `Updated musician #${musicianId} status to "${status}" for event #${eventId}`,
+          timestamp: new Date(),
+          entityId: musicianId,
+          entityType: "musician"
+        });
+        
+        break;
+      }
+    }
+    
+    return found;
+  }
+  
   async updateEvent(id: number, data: Partial<InsertEvent>): Promise<Event | undefined> {
     const event = await this.getEvent(id);
     if (!event) return undefined;
