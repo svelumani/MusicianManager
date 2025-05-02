@@ -463,7 +463,7 @@ export const plannerSlots = pgTable("planner_slots", {
   plannerId: integer("planner_id").notNull(), // Foreign key to monthly_planners
   date: timestamp("date").notNull(),
   venueId: integer("venue_id").notNull(), // Foreign key to venues
-  categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
+  categoryIds: integer("category_ids").array(), // Multiple categories/musician types
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   description: text("description"),
@@ -475,7 +475,7 @@ export const insertPlannerSlotSchema = createInsertSchema(plannerSlots).pick({
   plannerId: true,
   date: true,
   venueId: true,
-  categoryId: true,
+  categoryIds: true,
   startTime: true,
   endTime: true,
   description: true,

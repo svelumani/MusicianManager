@@ -4334,4 +4334,10 @@ Musician: ________________________ Date: ______________`,
 // TODO: In the future, we'll implement database persistence
 // For now, we'll continue using in-memory storage while we work on the DB implementation
 // This approach allows us to make progress on other features immediately
-export const storage = new MemStorage();
+import { DatabaseStorage } from "./DatabaseStorage";
+
+// To use in-memory storage (for development/testing)
+// export const storage = new MemStorage();
+
+// Use database storage for production
+export const storage = new DatabaseStorage();
