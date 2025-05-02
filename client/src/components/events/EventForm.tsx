@@ -651,11 +651,11 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                   <div className="flex-1">
                                     <div className="flex items-center">
                                       <span className="font-medium">{musician.name}</span>
-                                      {/* Show availability badge */}
+                                      {/* Show availability badge - this will only display for musicians who are available for ALL selected dates */}
                                       <Badge 
                                         variant="outline" 
                                         className="ml-2 text-xs bg-green-100 border-green-300 text-green-800">
-                                        Available
+                                        Available for all dates
                                       </Badge>
                                     </div>
                                     <div className="text-sm text-muted-foreground flex items-center">
