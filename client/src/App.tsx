@@ -36,6 +36,9 @@ import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
 import EmailTemplatesPage from "./pages/settings/templates";
 import SharedAvailabilityView from "@/pages/availability/[token]";
+import ContractsPage from "@/pages/contracts/index";
+import ContractViewPage from "@/pages/contracts/view";
+import ContractResponsePage from "@/pages/contracts/respond";
 
 function Router() {
   const [location] = useLocation();
@@ -209,6 +212,23 @@ function Router() {
         </AppLayout>
       </Route>
       
+      {/* Contracts */}
+      <Route path="/contracts/respond/:token">
+        <ContractResponsePage />
+      </Route>
+      <Route path="/contracts/:id">
+        {(params) => (
+          <AppLayout>
+            <ContractViewPage />
+          </AppLayout>
+        )}
+      </Route>
+      <Route path="/contracts">
+        <AppLayout>
+          <ContractsPage />
+        </AppLayout>
+      </Route>
+
       {/* Public routes - no auth required */}
       <Route path="/availability/:token">
         <SharedAvailabilityView />
