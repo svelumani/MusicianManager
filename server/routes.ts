@@ -1079,7 +1079,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/events/:id/musician-status", isAuthenticated, async (req, res) => {
     try {
       const eventId = parseInt(req.params.id);
-      const { musicianId, status } = req.body;
+      const { musicianId, status, dateStr } = req.body;
       
       if (!musicianId || !status) {
         return res.status(400).json({ message: "Missing required fields: musicianId and status" });
@@ -1090,9 +1090,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Event not found" });
       }
       
-      const result = await storage.updateMusicianEventStatus(eventId, musicianId, status);
-      if (!result) {
-        return res.status(404).json({ message: "Musician not found in this event" });
+      // If a specific date was provided, only update that date's status
+      if (dateStr) {
+        const result = await storage.updateMusicianEventStatusForDate(eventId, musicianId, status, dateStr);
+        if (!result) {
+          return res.status(404).json({ message: "Musician not found in this event on the specified date" });
+        }
+      } else {
+        // Otherwise, update status for all dates this musician is assigned to
+        const result = await storage.updateMusicianEventStatus(eventId, musicianId, status);
+        if (!result) {
+          return res.status(404).json({ message: "Musician not found in this event" });
+        }
       }
       
       const updatedStatuses = await storage.getEventMusicianStatuses(eventId);
