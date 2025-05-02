@@ -3058,6 +3058,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'confirmed'
           });
           
+          // Update the musician's status in the event to "contract-signed"
+          if (contract.eventId && contract.musicianId && contract.eventDate) {
+            await storage.updateMusicianEventStatus(
+              contract.eventId, 
+              contract.musicianId,
+              "contract-signed"
+            );
+          }
+          
           // Log that we would send an email notification in a real system
           console.log(`Contract signed notification would be sent to ${musician?.email} for event: ${event?.name}`);
           console.log(`Contract details: 
@@ -3095,6 +3104,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateContractLink(contract.id, {
             bookingId: booking.id
           });
+          
+          // Update the musician's status in the event to "contract-signed"
+          if (contract.eventId && contract.musicianId && contract.eventDate) {
+            await storage.updateMusicianEventStatus(
+              contract.eventId, 
+              contract.musicianId,
+              "contract-signed"
+            );
+          }
         }
       } else if (status === 'rejected') {
         // Update the invitation status to rejected if it exists
