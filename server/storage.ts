@@ -3,7 +3,7 @@ import {
   users, venues, categories, musicianCategories, venueCategories, eventCategories,
   musicians, musicianPayRates, availability, events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
-  settings, emailTemplates, musicianTypes, musicianTypeCategories,
+  settings, emailTemplates, musicianTypes, musicianTypeCategories, invitations,
   performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
   improvementPlans, improvementActions, availabilityShareLinks, contractLinks, contractTemplates,
   type User, type InsertUser, type Venue, 
@@ -15,7 +15,7 @@ import {
   type InsertAvailability, type Event, type InsertEvent, 
   type Booking, type InsertBooking, type Payment, type InsertPayment, 
   type Collection, type InsertCollection, type Expense, 
-  type InsertExpense, type Activity, type InsertActivity,
+  type InsertExpense, type Activity, type InsertActivity, type Invitation, type InsertInvitation,
   type MonthlyPlanner, type InsertMonthlyPlanner,
   type PlannerSlot, type InsertPlannerSlot,
   type PlannerAssignment, type InsertPlannerAssignment,
@@ -47,6 +47,13 @@ export interface IStorage {
   getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>>;
   getEventMusicianStatuses(eventId: number): Promise<Record<string, Record<number, string>>>;
   updateMusicianEventStatus(eventId: number, musicianId: number, status: string): Promise<boolean>;
+  
+  // Invitation management
+  getInvitations(eventId?: number, musicianId?: number): Promise<Invitation[]>;
+  getInvitationsByEventAndMusician(eventId: number, musicianId: number): Promise<Invitation[]>;
+  getInvitation(id: number): Promise<Invitation | undefined>;
+  createInvitation(invitation: InsertInvitation): Promise<Invitation>;
+  updateInvitation(id: number, data: Partial<InsertInvitation>): Promise<Invitation | undefined>;
   
   // Settings management
   getSettings(type: string): Promise<Settings | undefined>;
@@ -343,6 +350,7 @@ export class MemStorage implements IStorage {
   private musicians: Map<number, Musician>;
   private availability: Map<number, Availability>;
   private events: Map<number, Event>;
+  private invitations: Map<number, Invitation>;
   private eventMusicianAssignments: Map<number, Record<string, number[]>>;
   private eventMusicianStatuses: Map<number, Record<string, Record<number, string>>>;
   private bookings: Map<number, Booking>;
@@ -400,6 +408,7 @@ export class MemStorage implements IStorage {
   private currentImprovementPlanId: number;
   private currentImprovementActionId: number;
   private currentAvailabilityShareLinkId: number;
+  private currentInvitationId: number;
   private currentContractLinkId: number;
   private currentContractTemplateId: number;
 
@@ -415,6 +424,7 @@ export class MemStorage implements IStorage {
     this.musicianPayRates = new Map();
     this.availability = new Map();
     this.events = new Map();
+    this.invitations = new Map();
     this.bookings = new Map();
     this.payments = new Map();
     this.collections = new Map();
@@ -475,6 +485,7 @@ export class MemStorage implements IStorage {
     this.currentImprovementPlanId = 1;
     this.currentImprovementActionId = 1;
     this.currentAvailabilityShareLinkId = 1;
+    this.currentInvitationId = 1;
     this.currentContractLinkId = 1;
     this.currentContractTemplateId = 1;
     
