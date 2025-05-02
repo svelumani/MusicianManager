@@ -620,7 +620,7 @@ export default function ViewEventPage() {
                                             <DropdownMenuItem 
                                               onClick={() => {
                                                 updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "accepted" },
+                                                  { musicianId, status: "accepted", dateStr },
                                                   {
                                                     onSuccess: () => {
                                                       toast({
@@ -646,7 +646,7 @@ export default function ViewEventPage() {
                                                 const isCancellingContract = currentStatus === "contract-signed" || currentStatus === "contract-sent";
                                                 
                                                 updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "rejected" },
+                                                  { musicianId, status: "rejected", dateStr },
                                                   {
                                                     onSuccess: () => {
                                                       if (isCancellingContract) {
@@ -682,7 +682,7 @@ export default function ViewEventPage() {
                                             <DropdownMenuItem 
                                               onClick={() => {
                                                 updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "contract-sent" },
+                                                  { musicianId, status: "contract-sent", dateStr },
                                                   {
                                                     onSuccess: () => {
                                                       toast({
@@ -702,7 +702,7 @@ export default function ViewEventPage() {
                                             <DropdownMenuItem 
                                               onClick={() => {
                                                 updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "contract-signed" },
+                                                  { musicianId, status: "contract-signed", dateStr },
                                                   {
                                                     onSuccess: () => {
                                                       toast({
@@ -725,7 +725,7 @@ export default function ViewEventPage() {
                                             <DropdownMenuItem 
                                               onClick={() => {
                                                 updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "paid" },
+                                                  { musicianId, status: "paid", dateStr },
                                                   {
                                                     onSuccess: () => {
                                                       toast({
@@ -748,7 +748,7 @@ export default function ViewEventPage() {
                                               className="text-destructive" 
                                               onClick={() => {
                                                 updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "cancelled" },
+                                                  { musicianId, status: "cancelled", dateStr },
                                                   {
                                                     onSuccess: () => {
                                                       toast({
