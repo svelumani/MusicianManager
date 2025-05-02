@@ -117,27 +117,28 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   
   // No need to maintain a separate map as we now use dateAvailabilityData from the query
   
-  // Query for available musicians based on all selected musician types and dates (intersection)
+  // Query for musicians of selected types - we're not filtering by availability here anymore
+  // We'll use dateAvailabilityData to display availability on a day-by-day basis
   const { data: availableMusicians = [], isLoading: isLoadingMusicians } = useQuery<Musician[]>({
-    queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes, dates: selectedDates.map(d => d.toISOString()) }],
-    enabled: selectedMusicianTypes.length > 0 && selectedDates.length > 0,
+    queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes }],
+    enabled: selectedMusicianTypes.length > 0,
     queryFn: async ({ queryKey }) => {
-      // Extract dates from the query key for availability checking
-      const params = queryKey[1] as { dates?: string[] };
+      // Extract type IDs from the query key
+      const params = queryKey[1] as { typeIds?: number[] };
       
-      // If we have dates, include them in the query string to filter by availability
-      if (params.dates && params.dates.length > 0) {
-        const dateParams = params.dates.map(date => `dates=${encodeURIComponent(date)}`).join('&');
-        const response = await fetch(`/api/musicians?${dateParams}`);
+      // If we have type IDs, filter by them
+      if (params.typeIds && params.typeIds.length > 0) {
+        const typeParams = params.typeIds.map(id => `typeIds=${id}`).join('&');
+        const response = await fetch(`/api/musicians?${typeParams}`);
         
         if (!response.ok) {
-          throw new Error('Failed to fetch available musicians');
+          throw new Error('Failed to fetch musicians by type');
         }
         
         return response.json();
       }
       
-      // If no dates, fetch all musicians
+      // If no types specified, fetch all musicians
       const response = await fetch('/api/musicians');
       if (!response.ok) {
         throw new Error('Failed to fetch musicians');
@@ -602,7 +603,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
               <div className="flex justify-center p-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
-            ) : availableMusicians && availableMusicians.length > 0 ? (
+            ) : allMusicians && allMusicians.filter(m => selectedMusicianTypes.includes(m.typeId)).length > 0 ? (
               <div className="space-y-6">
                 {/* Date selector for musician assignments */}
                 <div className="mb-6 p-4 border rounded-md">
@@ -693,7 +694,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                 {/* Group musicians by type */}
                 {selectedMusicianTypes.map(typeId => {
                   const musicianType = musicianTypes?.find(t => t.id === typeId);
-                  const musiciansOfType = availableMusicians.filter(m => m.typeId === typeId);
+                  const musiciansOfType = allMusicians.filter(m => m.typeId === typeId);
                   
                   return (
                     <div key={typeId} className="space-y-3">
@@ -737,12 +738,22 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                   <div className="flex-1">
                                     <div className="flex items-center">
                                       <span className="font-medium">{musician.name}</span>
-                                      {/* Show availability badge - this will only display for musicians who are available for ALL selected dates */}
-                                      <Badge 
-                                        variant="outline" 
-                                        className="ml-2 text-xs bg-green-100 border-green-300 text-green-800">
-                                        Available for all dates
-                                      </Badge>
+                                      {/* Check if musician is available for the active date */}
+                                      {activeDate && (
+                                        isMusicianAvailableForDate(musician.id, activeDate) ? (
+                                          <Badge 
+                                            variant="outline" 
+                                            className="ml-2 text-xs bg-green-100 border-green-300 text-green-800">
+                                            Available on {format(activeDate, 'MMM d')}
+                                          </Badge>
+                                        ) : (
+                                          <Badge 
+                                            variant="outline" 
+                                            className="ml-2 text-xs bg-red-100 border-red-300 text-red-800">
+                                            Not available on {format(activeDate, 'MMM d')}
+                                          </Badge>
+                                        )
+                                      )}
                                     </div>
                                     <div className="text-sm text-muted-foreground flex items-center">
                                       {musician.rating && (
