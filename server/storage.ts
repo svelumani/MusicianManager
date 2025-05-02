@@ -1542,6 +1542,87 @@ Musician: ________________________ Date: ______________`,
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
   }
   
+  // Invitation management methods
+  async getInvitations(eventId?: number, musicianId?: number): Promise<Invitation[]> {
+    let invitations = Array.from(this.invitations.values());
+    
+    if (eventId) {
+      invitations = invitations.filter(invitation => invitation.eventId === eventId);
+    }
+    
+    if (musicianId) {
+      invitations = invitations.filter(invitation => invitation.musicianId === musicianId);
+    }
+    
+    return invitations;
+  }
+  
+  async getInvitationsByEventAndMusician(eventId: number, musicianId: number): Promise<Invitation[]> {
+    return Array.from(this.invitations.values())
+      .filter(invitation => invitation.eventId === eventId && invitation.musicianId === musicianId);
+  }
+  
+  async getInvitation(id: number): Promise<Invitation | undefined> {
+    return this.invitations.get(id);
+  }
+  
+  async createInvitation(invitation: InsertInvitation): Promise<Invitation> {
+    const id = this.currentInvitationId++;
+    const newInvitation: Invitation = {
+      id,
+      ...invitation,
+      invitedAt: invitation.invitedAt || new Date(),
+      status: invitation.status || 'pending',
+      response: invitation.response || null,
+      responseDate: invitation.responseDate || null
+    };
+    
+    this.invitations.set(id, newInvitation);
+    
+    // Log activity
+    this.createActivity({
+      userId: invitation.invitedBy || 1,
+      action: 'create',
+      targetType: 'invitation',
+      targetId: id,
+      details: {
+        eventId: invitation.eventId,
+        musicianId: invitation.musicianId,
+        status: newInvitation.status
+      }
+    });
+    
+    return newInvitation;
+  }
+  
+  async updateInvitation(id: number, data: Partial<InsertInvitation>): Promise<Invitation | undefined> {
+    const invitation = this.invitations.get(id);
+    if (!invitation) return undefined;
+    
+    const updatedInvitation = {
+      ...invitation,
+      ...data,
+    };
+    
+    this.invitations.set(id, updatedInvitation);
+    
+    // Log activity
+    this.createActivity({
+      userId: data.invitedBy || 1,
+      action: 'update',
+      targetType: 'invitation',
+      targetId: id,
+      details: {
+        eventId: invitation.eventId,
+        musicianId: invitation.musicianId,
+        status: updatedInvitation.status,
+        previousStatus: invitation.status
+      }
+    });
+    
+    return updatedInvitation;
+  }
+  
   // Booking management methods
   async getBookings(eventId?: number, musicianId?: number): Promise<Booking[]> {
     let bookings = Array.from(this.bookings.values());
