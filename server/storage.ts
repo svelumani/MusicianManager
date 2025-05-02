@@ -4070,28 +4070,49 @@ Musician: ________________________ Date: ______________`,
       }
       
       // Update the musician status to "contract-signed" in the event statuses
-      if (contractLink.eventId && contractLink.musicianId) {
+      if (contractLink.eventId && contractLink.musicianId && contractLink.eventDate) {
         const eventId = contractLink.eventId;
         const musicianId = contractLink.musicianId;
         
-        // Get the assignments to find the date
+        // Get the assignments to verify this musician is assigned to this date
         const assignments = await this.getEventMusicianAssignments(eventId);
-        let assignedDate: string | null = null;
         
-        // Find which date this musician is assigned to
-        for (const [date, musicians] of Object.entries(assignments)) {
-          if (musicians.includes(musicianId)) {
-            assignedDate = date;
-            break;
+        // Find the correct format of the date in assignments
+        // Event assignments might store dates in a slightly different format
+        let matchingDateKey = null;
+        const contractDateStr = contractLink.eventDate.toISOString();
+        
+        // Look for exact match first
+        if (assignments[contractDateStr] && assignments[contractDateStr].includes(musicianId)) {
+          matchingDateKey = contractDateStr;
+        } else {
+          // Try to find a date that matches by comparing date components
+          const contractDate = new Date(contractDateStr);
+          for (const [dateKey, musicians] of Object.entries(assignments)) {
+            if (musicians.includes(musicianId)) {
+              const assignmentDate = new Date(dateKey);
+              // Check if year, month, and day are the same
+              if (assignmentDate.getFullYear() === contractDate.getFullYear() &&
+                  assignmentDate.getMonth() === contractDate.getMonth() &&
+                  assignmentDate.getDate() === contractDate.getDate()) {
+                matchingDateKey = dateKey;
+                break;
+              }
+            }
           }
         }
         
-        if (assignedDate) {
-          // Update musician status to contract-signed
+        // Check if we found a matching date
+        const isAssigned = matchingDateKey !== null;
+        
+        if (isAssigned && matchingDateKey) {
+          // Update musician status to contract-signed ONLY for the specific date in the contract
           const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
-          const dateStatuses = eventStatuses[assignedDate] || {};
+          
+          // Use the matching date key that we found in the event assignments
+          const dateStatuses = eventStatuses[matchingDateKey] || {};
           dateStatuses[musicianId] = "contract-signed";
-          eventStatuses[assignedDate] = dateStatuses;
+          eventStatuses[matchingDateKey] = dateStatuses;
           this.eventMusicianStatuses.set(eventId, eventStatuses);
           
           // Update availability calendar
