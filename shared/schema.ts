@@ -285,6 +285,7 @@ export const insertBookingSchema = createInsertSchema(bookings).pick({
   finalPaidAt: true,
   contractDetails: true,
   notes: true,
+  date: true, // Include the date field
 });
 
 // Payment model for musicians
