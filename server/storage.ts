@@ -47,6 +47,7 @@ export interface IStorage {
   getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>>;
   getEventMusicianStatuses(eventId: number): Promise<Record<string, Record<number, string>>>;
   updateMusicianEventStatus(eventId: number, musicianId: number, status: string): Promise<boolean>;
+  updateMusicianEventStatusForDate(eventId: number, musicianId: number, status: string, dateStr: string): Promise<boolean>;
   
   // Invitation management
   getInvitations(eventId?: number, musicianId?: number): Promise<Invitation[]>;
@@ -1370,64 +1371,75 @@ Musician: ________________________ Date: ______________`,
   async updateMusicianEventStatus(eventId: number, musicianId: number, status: string): Promise<boolean> {
     const assignments = await this.getEventMusicianAssignments(eventId);
     let found = false;
-    let assignedDate: string | null = null;
     
-    // Find which date this musician is assigned to
+    // Loop through all dates this musician is assigned to
     for (const [date, musicians] of Object.entries(assignments)) {
       if (musicians.includes(musicianId)) {
         found = true;
-        assignedDate = date;
         
-        // Check if we're setting the status to "accepted", which triggers contract creation
-        if (status === "accepted" && assignedDate) {
-          // Handle the special "accepted" status case which will create contracts
-          await this.handleAcceptedStatus(eventId, musicianId, assignedDate);
-          // Note: This method will set status to "contract-sent" after creating contract
-          return true;
-        }
-        
-        // Check if we're setting the status to "rejected", which may need to cancel contracts
-        if (status === "rejected" && assignedDate) {
-          // Get current status to see if we need to cancel an existing contract
-          const currentStatuses = this.eventMusicianStatuses.get(eventId) || {};
-          const currentDateStatuses = currentStatuses[date] || {};
-          const currentStatus = currentDateStatuses[musicianId];
-          
-          // If the musician had already signed a contract, we need to cancel it
-          if (currentStatus === "contract-signed" || currentStatus === "contract-sent") {
-            await this.handleRejectedStatus(eventId, musicianId);
-          }
-        }
-        
-        // Get current statuses for this event, create if doesn't exist
-        const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
-        
-        // Get current statuses for this date, create if doesn't exist
-        const dateStatuses = eventStatuses[date] || {};
-        
-        // Update status for this musician
-        dateStatuses[musicianId] = status;
-        
-        // Update date statuses in event statuses
-        eventStatuses[date] = dateStatuses;
-        
-        // Update event statuses in map
-        this.eventMusicianStatuses.set(eventId, eventStatuses);
-        
-        // Log the activity
-        this.createActivity({
-          userId: 1, // Default admin user
-          action: `Updated musician #${musicianId} status to "${status}" for event #${eventId}`,
-          timestamp: new Date(),
-          entityId: musicianId,
-          entityType: "musician"
-        });
-        
-        break;
+        // Update status for this specific date
+        await this.updateMusicianEventStatusForDate(eventId, musicianId, status, date);
       }
     }
     
     return found;
+  }
+  
+  async updateMusicianEventStatusForDate(eventId: number, musicianId: number, status: string, dateStr: string): Promise<boolean> {
+    const assignments = await this.getEventMusicianAssignments(eventId);
+    
+    // Check if musician is assigned to this date
+    const musicians = assignments[dateStr] || [];
+    if (!musicians.includes(musicianId)) {
+      return false;
+    }
+    
+    // Check if we're setting the status to "accepted", which triggers contract creation
+    if (status === "accepted") {
+      // Handle the special "accepted" status case which will create contracts
+      await this.handleAcceptedStatus(eventId, musicianId, dateStr);
+      // Note: This method will set status to "contract-sent" after creating contract
+      return true;
+    }
+    
+    // Check if we're setting the status to "rejected", which may need to cancel contracts
+    if (status === "rejected") {
+      // Get current status to see if we need to cancel an existing contract
+      const currentStatuses = this.eventMusicianStatuses.get(eventId) || {};
+      const currentDateStatuses = currentStatuses[dateStr] || {};
+      const currentStatus = currentDateStatuses[musicianId];
+      
+      // If the musician had already signed a contract, we need to cancel it
+      if (currentStatus === "contract-signed" || currentStatus === "contract-sent") {
+        await this.handleRejectedStatus(eventId, musicianId);
+      }
+    }
+    
+    // Get current statuses for this event, create if doesn't exist
+    const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
+    
+    // Get current statuses for this date, create if doesn't exist
+    const dateStatuses = eventStatuses[dateStr] || {};
+    
+    // Update status for this musician
+    dateStatuses[musicianId] = status;
+    
+    // Update date statuses in event statuses
+    eventStatuses[dateStr] = dateStatuses;
+    
+    // Update event statuses in map
+    this.eventMusicianStatuses.set(eventId, eventStatuses);
+    
+    // Log the activity
+    this.createActivity({
+      userId: 1, // Default admin user
+      action: `Updated musician #${musicianId} status to "${status}" for event #${eventId} on date ${dateStr}`,
+      timestamp: new Date(),
+      entityId: musicianId,
+      entityType: "musician"
+    });
+    
+    return true;
   }
   
   // New method to handle the accepted status case, which creates contracts
