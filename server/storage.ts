@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import {
   users, venues, categories, musicianCategories, venueCategories, eventCategories,
   musicians, musicianPayRates, availability, events, bookings, payments, collections, expenses, 
@@ -1291,11 +1292,13 @@ Musician: ________________________ Date: ______________`,
   async updateMusicianEventStatus(eventId: number, musicianId: number, status: string): Promise<boolean> {
     const assignments = await this.getEventMusicianAssignments(eventId);
     let found = false;
+    let assignedDate: string | null = null;
     
     // Find which date this musician is assigned to
     for (const [date, musicians] of Object.entries(assignments)) {
       if (musicians.includes(musicianId)) {
         found = true;
+        assignedDate = date;
         
         // Get current statuses for this event, create if doesn't exist
         const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
@@ -1322,6 +1325,69 @@ Musician: ________________________ Date: ______________`,
         });
         
         break;
+      }
+    }
+    
+    // If musician accepted the invitation, automatically create a contract
+    if (found && status === "accepted" && assignedDate) {
+      // Create booking record if it doesn't exist
+      let bookingId: number;
+      const existingBookings = await this.getBookings(eventId, musicianId);
+      
+      if (existingBookings.length === 0) {
+        // Create a new booking
+        const musician = await this.getMusician(musicianId);
+        const newBooking = await this.createBooking({
+          eventId,
+          musicianId,
+          invitedAt: new Date(),
+          isAccepted: true,
+          contractSent: false,
+          paymentAmount: musician?.payRate || 0
+        });
+        bookingId = newBooking.id;
+      } else {
+        // Use existing booking
+        bookingId = existingBookings[0].id;
+        // Update booking to mark as accepted
+        await this.updateBooking(bookingId, { isAccepted: true });
+      }
+      
+      // Get default contract template
+      const defaultTemplate = await this.getDefaultContractTemplate();
+      if (defaultTemplate) {
+        // Generate a unique token for the contract link
+        const token = crypto.randomBytes(32).toString('hex');
+        
+        // Set default expiry date to 7 days from now
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        
+        // Create a contract link
+        await this.createContractLink({
+          bookingId,
+          eventId,
+          musicianId,
+          token,
+          expiresAt,
+          status: 'pending',
+          eventDate: new Date(assignedDate)
+        });
+        
+        // Update musician status to contract-sent
+        const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
+        const dateStatuses = eventStatuses[assignedDate] || {};
+        dateStatuses[musicianId] = "contract-sent";
+        eventStatuses[assignedDate] = dateStatuses;
+        this.eventMusicianStatuses.set(eventId, eventStatuses);
+        
+        // Log contract creation activity
+        this.createActivity({
+          userId: 1, // Default admin user
+          action: `Contract sent to musician #${musicianId} for event #${eventId}`,
+          timestamp: new Date(),
+          entityId: musicianId,
+          entityType: "contract"
+        });
       }
     }
     
