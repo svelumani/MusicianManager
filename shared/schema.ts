@@ -617,6 +617,31 @@ export const insertContractLinkSchema = createInsertSchema(contractLinks).pick({
 export type ContractLink = typeof contractLinks.$inferSelect;
 export type InsertContractLink = z.infer<typeof insertContractLinkSchema>;
 
+// Contract Templates for standardizing contract content
+export const contractTemplates = pgTable("contract_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  content: text("content").notNull(),
+  isDefault: boolean("is_default").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+  createdBy: integer("created_by"), // User ID
+  variables: jsonb("variables"), // List of variables that can be used in the template
+});
+
+export const insertContractTemplateSchema = createInsertSchema(contractTemplates).pick({
+  name: true,
+  description: true,
+  content: true,
+  isDefault: true,
+  createdBy: true,
+  variables: true,
+});
+
+export type ContractTemplate = typeof contractTemplates.$inferSelect;
+export type InsertContractTemplate = z.infer<typeof insertContractTemplateSchema>;
+
 // Performance Rating and Improvement Plans
 export const performanceRatings = pgTable("performance_ratings", {
   id: serial("id").primaryKey(),
