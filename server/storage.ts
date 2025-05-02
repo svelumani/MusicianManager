@@ -724,6 +724,83 @@ export class MemStorage implements IStorage {
       isDefault: true
     });
     
+    // Initialize with default contract template
+    const defaultContractTemplate: ContractTemplate = {
+      id: this.currentContractTemplateId++,
+      name: "Standard Performance Contract",
+      description: "Default contract template for musical performances",
+      content: 
+`# MUSICIAN PERFORMANCE AGREEMENT
+
+## PARTIES
+
+This agreement is made on \{\{today_date\}\} between:
+
+**Client:** \{\{client_name\}\} ("Client")
+**Musician:** \{\{musician_name\}\} ("Musician")
+
+## EVENT DETAILS
+
+- **Venue:** \{\{venue_name\}\}
+- **Address:** \{\{venue_address\}\}
+- **Date:** \{\{event_date\}\}
+- **Performance Time:** \{\{start_time\}\} to \{\{end_time\}\}
+- **Setup Time:** \{\{setup_time\}\} (Musician should arrive at least 30 minutes prior to setup time)
+
+## SERVICES
+
+The Musician agrees to provide musical performance services for the event described above. 
+The Musician shall perform the following type of music: \{\{music_type\}\} for a duration of \{\{performance_duration\}\} hours.
+
+## COMPENSATION
+
+The Client agrees to pay the Musician the sum of $\{\{fee_amount\}\} as compensation for services.
+
+- **Deposit:** $\{\{deposit_amount\}\} due upon signing this contract
+- **Balance:** $\{\{balance_amount\}\} due on or before the performance date
+
+## CANCELLATION
+
+If the Client cancels the performance less than 14 days before the scheduled date, the deposit shall be non-refundable.
+If the Musician cancels for any reason other than illness, injury, or other legitimate emergency, the Musician shall:
+1. Return any deposit received
+2. Assist in finding a suitable replacement performer of similar quality and style
+
+## RECORDING
+
+The Client may record the performance for personal, non-commercial use only.
+Any commercial use of recordings requires separate written permission from the Musician.
+
+## SIGNATURES
+
+By signing below, both parties acknowledge their agreement to these terms.
+
+Client: __________________________ Date: ______________
+
+Musician: ________________________ Date: ______________`,
+      isDefault: true,
+      createdAt: new Date(),
+      updatedAt: null,
+      createdBy: 1, // Admin
+      variables: {
+        "today_date": "The current date in format MM/DD/YYYY",
+        "client_name": "The name of the client hiring the musician",
+        "musician_name": "The name of the performing musician",
+        "venue_name": "The name of the performance venue",
+        "venue_address": "The address of the venue",
+        "event_date": "The date of the performance",
+        "start_time": "The start time of the performance",
+        "end_time": "The end time of the performance",
+        "setup_time": "The time when the musician should set up equipment",
+        "music_type": "The type or genre of music to be performed",
+        "performance_duration": "The duration of the performance in hours",
+        "fee_amount": "The total payment for the performance",
+        "deposit_amount": "The initial deposit amount",
+        "balance_amount": "The remaining balance to be paid"
+      }
+    };
+    this.contractTemplates.set(defaultContractTemplate.id, defaultContractTemplate);
+    
     // Initialize with sample musician types (synchronously since we're in the constructor)
     const pianistType: MusicianType = {
       id: this.currentMusicianTypeId++,
@@ -3287,6 +3364,162 @@ export class MemStorage implements IStorage {
     });
     
     return updatedContractLink;
+  }
+
+  // Contract Template methods
+  async getContractTemplates(): Promise<ContractTemplate[]> {
+    return Array.from(this.contractTemplates.values())
+      .sort((a, b) => (a.isDefault === b.isDefault) ? 0 : a.isDefault ? -1 : 1);
+  }
+  
+  async getContractTemplate(id: number): Promise<ContractTemplate | undefined> {
+    return this.contractTemplates.get(id);
+  }
+  
+  async getDefaultContractTemplate(): Promise<ContractTemplate | undefined> {
+    return Array.from(this.contractTemplates.values()).find(
+      template => template.isDefault === true
+    );
+  }
+  
+  async createContractTemplate(template: InsertContractTemplate): Promise<ContractTemplate> {
+    const id = this.currentContractTemplateId++;
+    const newTemplate: ContractTemplate = { 
+      ...template, 
+      id,
+      createdAt: new Date(),
+      updatedAt: null,
+      isDefault: template.isDefault || false
+    };
+    
+    // If this is set as default, update any existing default templates
+    if (newTemplate.isDefault) {
+      await this.clearDefaultContractTemplates();
+    }
+    
+    this.contractTemplates.set(id, newTemplate);
+    
+    // Log activity
+    this.createActivity({
+      action: 'create',
+      entityType: 'contract-template',
+      entityId: id,
+      timestamp: new Date(),
+      userId: template.createdBy,
+      details: { 
+        name: template.name,
+        isDefault: template.isDefault
+      }
+    });
+    
+    return newTemplate;
+  }
+  
+  async updateContractTemplate(id: number, data: Partial<InsertContractTemplate>): Promise<ContractTemplate | undefined> {
+    const template = await this.getContractTemplate(id);
+    if (!template) return undefined;
+    
+    // If setting this as default, update other templates
+    if (data.isDefault) {
+      await this.clearDefaultContractTemplates();
+    }
+    
+    const updatedTemplate = { 
+      ...template, 
+      ...data,
+      updatedAt: new Date() 
+    };
+    
+    this.contractTemplates.set(id, updatedTemplate);
+    
+    // Log activity
+    this.createActivity({
+      action: 'update',
+      entityType: 'contract-template',
+      entityId: id,
+      timestamp: new Date(),
+      userId: data.createdBy || template.createdBy,
+      details: { 
+        name: updatedTemplate.name,
+        isDefault: updatedTemplate.isDefault
+      }
+    });
+    
+    return updatedTemplate;
+  }
+  
+  async deleteContractTemplate(id: number): Promise<boolean> {
+    // Don't allow deletion if this is the only template or if it's the default
+    const templates = await this.getContractTemplates();
+    const template = await this.getContractTemplate(id);
+    
+    if (!template || templates.length <= 1 || template.isDefault) {
+      return false;
+    }
+    
+    const success = this.contractTemplates.delete(id);
+    
+    if (success) {
+      // Log activity
+      this.createActivity({
+        action: 'delete',
+        entityType: 'contract-template',
+        entityId: id,
+        timestamp: new Date(),
+        userId: null,
+        details: { 
+          name: template.name
+        }
+      });
+    }
+    
+    return success;
+  }
+  
+  async setDefaultContractTemplate(id: number): Promise<boolean> {
+    const template = await this.getContractTemplate(id);
+    if (!template) return false;
+    
+    // Clear existing defaults
+    await this.clearDefaultContractTemplates();
+    
+    // Set this one as default
+    const updatedTemplate = { 
+      ...template, 
+      isDefault: true,
+      updatedAt: new Date() 
+    };
+    
+    this.contractTemplates.set(id, updatedTemplate);
+    
+    // Log activity
+    this.createActivity({
+      action: 'set-default',
+      entityType: 'contract-template',
+      entityId: id,
+      timestamp: new Date(),
+      userId: null,
+      details: { 
+        name: template.name
+      }
+    });
+    
+    return true;
+  }
+  
+  // Helper method to clear default status from all templates
+  private async clearDefaultContractTemplates(): Promise<void> {
+    const templates = await this.getContractTemplates();
+    for (const template of templates) {
+      if (template.isDefault) {
+        const updated = { 
+          ...template, 
+          isDefault: false,
+          updatedAt: new Date() 
+        };
+        this.contractTemplates.set(template.id, updated);
+      }
+    }
   }
 }
 
