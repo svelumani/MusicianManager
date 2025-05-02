@@ -205,6 +205,24 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   }, [selectedDates, activeDate]);
   
+  // Extra effect to fetch musicians when editing an event with existing musician types
+  useEffect(() => {
+    console.log("Initial musicianTypeIds:", initialData?.musicianTypeIds);
+    
+    // Only run this effect once on initial render if initialData is available
+    if (initialData?.musicianTypeIds?.length > 0 && form) {
+      console.log("Setting form musicianTypeIds", initialData.musicianTypeIds);
+      form.setValue("musicianTypeIds", initialData.musicianTypeIds);
+    }
+    
+    // Also load existing musician assignments when editing
+    if (initialData?.musicianAssignments) {
+      console.log("Initial musician assignments:", initialData.musicianAssignments);
+      // Update the musicianAssignments state with the initial assignments
+      setMusicianAssignments(initialData.musicianAssignments);
+    }
+  }, [initialData, form]);
+  
   // Handle musician selection/deselection for a specific date
   const toggleMusicianSelection = (musicianId: number, date: Date = activeDate!) => {
     if (!date) return; // Make sure we have a date

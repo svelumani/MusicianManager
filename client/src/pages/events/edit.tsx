@@ -52,6 +52,38 @@ export default function EditEventPage() {
     );
   }
 
+  // Debug log for event data
+  console.log("Edit Page Event Data:", event);
+
+  // Query for musicians based on IDs in musicianAssignments to get their types
+  const musicianIds = Object.values(event.musicianAssignments || {}).flat();
+  console.log("Musician IDs from assignments:", musicianIds);
+  
+  const { data: musicians } = useQuery({
+    queryKey: ["/api/musicians"],
+    enabled: musicianIds.length > 0,
+  });
+  
+  // Extract musician type IDs from the musicians in the assignments
+  let musicianTypeIds: number[] = [];
+  
+  if (musicians && musicianIds.length > 0) {
+    // Find all musicians in the assignments and get their typeIds
+    const assignedMusicians = musicians.filter(
+      (musician: any) => musicianIds.includes(musician.id)
+    );
+    
+    // Extract unique typeIds from the assigned musicians
+    musicianTypeIds = [...new Set(assignedMusicians.map((m: any) => m.typeId))];
+    console.log("Extracted musician type IDs:", musicianTypeIds);
+  }
+  
+  // Create a modified event object with musicianTypeIds
+  const eventWithTypes = {
+    ...event,
+    musicianTypeIds
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-4">
@@ -66,7 +98,7 @@ export default function EditEventPage() {
           <EventForm 
             onSuccess={() => navigate(`/events/${eventId}`)} 
             onCancel={() => navigate(`/events/${eventId}`)}
-            initialData={event}
+            initialData={eventWithTypes}
           />
         </CardContent>
       </Card>
