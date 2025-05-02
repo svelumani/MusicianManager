@@ -46,7 +46,9 @@ const getStatusBadge = (status: string) => {
     accepted: { color: "bg-green-100 text-green-800", label: "Accepted" },
     rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
     expired: { color: "bg-gray-100 text-gray-800", label: "Expired" },
-    cancelled: { color: "bg-red-100 text-red-800", label: "Contract Cancelled" }
+    cancelled: { color: "bg-red-100 text-red-800", label: "Contract Cancelled" },
+    "contract-sent": { color: "bg-blue-100 text-blue-800", label: "Contract Sent" },
+    "contract-signed": { color: "bg-green-100 text-green-800", label: "Contract Signed" }
   };
 
   const { color, label } = statusMap[status] || { color: "bg-gray-100 text-gray-800", label: status };
@@ -222,6 +224,12 @@ export default function ContractsPage() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setStatusFilter("cancelled")}>
                   Contract Cancelled
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("contract-sent")}>
+                  Contract Sent
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("contract-signed")}>
+                  Contract Signed
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

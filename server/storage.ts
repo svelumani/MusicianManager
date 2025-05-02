@@ -1537,7 +1537,7 @@ Musician: ________________________ Date: ______________`,
         invitationId,
         token,
         expiresAt,
-        status: 'pending',
+        status: 'contract-sent',
         eventDate: new Date(assignedDate),
         amount: 100 // Default amount
       });
