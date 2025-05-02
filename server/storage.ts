@@ -1382,6 +1382,19 @@ Musician: ________________________ Date: ______________`,
           return true;
         }
         
+        // Check if we're setting the status to "rejected", which may need to cancel contracts
+        if (status === "rejected" && assignedDate) {
+          // Get current status to see if we need to cancel an existing contract
+          const currentStatuses = this.eventMusicianStatuses.get(eventId) || {};
+          const currentDateStatuses = currentStatuses[date] || {};
+          const currentStatus = currentDateStatuses[musicianId];
+          
+          // If the musician had already signed a contract, we need to cancel it
+          if (currentStatus === "contract-signed" || currentStatus === "contract-sent") {
+            await this.handleRejectedStatus(eventId, musicianId);
+          }
+        }
+        
         // Get current statuses for this event, create if doesn't exist
         const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
         
@@ -1414,6 +1427,47 @@ Musician: ________________________ Date: ______________`,
   }
   
   // New method to handle the accepted status case, which creates contracts
+  // Method to handle rejected status with contract cancellation
+  async handleRejectedStatus(eventId: number, musicianId: number): Promise<void> {
+    // Find any contract links for this musician and event
+    const contracts = Array.from(this.contractLinks.values())
+      .filter(contract => contract.eventId === eventId && contract.musicianId === musicianId);
+    
+    if (contracts.length > 0) {
+      // Update all contracts to cancelled status
+      for (const contract of contracts) {
+        const updatedContract = {
+          ...contract,
+          status: 'cancelled'
+        };
+        
+        this.contractLinks.set(contract.id, updatedContract);
+        
+        // Log contract cancellation
+        this.createActivity({
+          userId: 1, // Default admin user
+          action: `Contract cancelled for musician #${musicianId} for event #${eventId}`,
+          timestamp: new Date(),
+          entityId: musicianId,
+          entityType: "contract"
+        });
+        
+        // In a real implementation, here we would send an email notification about contract cancellation
+        console.log(`Contract cancellation notification would be sent to musician ${musicianId} for event: ${eventId}`);
+      }
+    }
+    
+    // Also update any bookings to cancelled status
+    const bookings = await this.getBookings(eventId, musicianId);
+    for (const booking of bookings) {
+      await this.updateBooking(booking.id, { 
+        status: 'cancelled',
+        cancellationDate: new Date(),
+        cancellationReason: 'Musician rejected'
+      });
+    }
+  }
+  
   async handleAcceptedStatus(eventId: number, musicianId: number, assignedDate: string): Promise<void> {
     // Create booking record if it doesn't exist
     let bookingId: number;

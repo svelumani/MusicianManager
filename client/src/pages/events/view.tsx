@@ -173,7 +173,7 @@ function ContractsTable({ eventId }: ContractsTableProps) {
                       case "rejected":
                         return <Badge variant="destructive">Rejected</Badge>;
                       case "cancelled":
-                        return <Badge variant="destructive">Cancelled</Badge>;
+                        return <Badge variant="destructive">Contract Cancelled</Badge>;
                       case "contract-sent":
                         return <Badge className="bg-indigo-500">Contract Sent</Badge>;
                       case "contract-signed":
@@ -661,14 +661,29 @@ export default function ViewEventPage() {
                                             
                                             <DropdownMenuItem 
                                               onClick={() => {
+                                                // Check if musician already has a contract
+                                                const currentStatus = getMusicianStatus(date, musicianId);
+                                                const isCancellingContract = currentStatus === "contract-signed" || currentStatus === "contract-sent";
+                                                
                                                 updateMusicianStatusMutation.mutate(
                                                   { musicianId, status: "rejected" },
                                                   {
                                                     onSuccess: () => {
-                                                      toast({
-                                                        title: "Status Updated",
-                                                        description: `${musician?.name}'s status updated to Rejected`
-                                                      });
+                                                      if (isCancellingContract) {
+                                                        toast({
+                                                          title: "Contract Cancelled",
+                                                          description: `${musician?.name}'s contract has been cancelled and status updated to Rejected`,
+                                                          variant: "destructive"
+                                                        });
+                                                        // Refresh contracts when a contract is cancelled
+                                                        queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+                                                      } else {
+                                                        toast({
+                                                          title: "Status Updated",
+                                                          description: `${musician?.name}'s status updated to Rejected`,
+                                                          variant: "destructive"
+                                                        });
+                                                      }
                                                     }
                                                   }
                                                 );
@@ -676,7 +691,9 @@ export default function ViewEventPage() {
                                               disabled={updateMusicianStatusMutation.isPending}
                                             >
                                               <X className="mr-2 h-4 w-4" />
-                                              <span>Mark as Rejected</span>
+                                              <span>{getMusicianStatus(date, musicianId) === "contract-signed" || getMusicianStatus(date, musicianId) === "contract-sent" 
+                                                ? "Cancel Contract & Reject" 
+                                                : "Mark as Rejected"}</span>
                                             </DropdownMenuItem>
                                             
                                             <DropdownMenuSeparator />
