@@ -3191,7 +3191,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const event = await storage.getEvent(contract.eventId);
       
       // If the contract was accepted, update related records and send notification
-      if (status === 'accepted') {
+      // Note: After normalized in storage, 'accepted' becomes 'contract-signed'
+      if (status === 'accepted' || contract.status === 'contract-signed') {
         // Update the invitation status to accepted if it exists
         if (contract.invitationId) {
           const invitation = await storage.getInvitation(contract.invitationId);
