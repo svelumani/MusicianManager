@@ -140,7 +140,7 @@ export interface IStorage {
   getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>>;
   
   // Booking management
-  getBookings(eventId?: number): Promise<Booking[]>;
+  getBookings(eventId?: number, musicianId?: number): Promise<Booking[]>;
   getBooking(id: number): Promise<Booking | undefined>;
   getBookingsByMusician(musicianId: number): Promise<Booking[]>;
   getBookingsByMusicianAndMonth(musicianId: number, month: number, year: number): Promise<Booking[]>;
@@ -1422,11 +1422,20 @@ Musician: ________________________ Date: ______________`,
   }
   
   // Booking management methods
-  async getBookings(eventId?: number): Promise<Booking[]> {
+  async getBookings(eventId?: number, musicianId?: number): Promise<Booking[]> {
+    let bookings = Array.from(this.bookings.values());
+    
+    // Filter by eventId if provided
     if (eventId) {
-      return Array.from(this.bookings.values()).filter(b => b.eventId === eventId);
+      bookings = bookings.filter(b => b.eventId === eventId);
     }
-    return Array.from(this.bookings.values());
+    
+    // Filter by musicianId if provided
+    if (musicianId) {
+      bookings = bookings.filter(b => b.musicianId === musicianId);
+    }
+    
+    return bookings;
   }
   
   async getBooking(id: number): Promise<Booking | undefined> {
@@ -1434,13 +1443,15 @@ Musician: ________________________ Date: ______________`,
   }
   
   async getBookingsByMusician(musicianId: number): Promise<Booking[]> {
-    return Array.from(this.bookings.values()).filter(b => b.musicianId === musicianId);
+    return this.getBookings(undefined, musicianId);
   }
   
   async getBookingsByMusicianAndMonth(musicianId: number, month: number, year: number): Promise<Booking[]> {
-    return Array.from(this.bookings.values()).filter(b => {
-      if (b.musicianId !== musicianId) return false;
-      
+    // First get all bookings for this musician
+    const musicianBookings = await this.getBookings(undefined, musicianId);
+    
+    // Then filter by month and year
+    return musicianBookings.filter(b => {
       const bookingDate = new Date(b.date);
       return bookingDate.getMonth() + 1 === month && bookingDate.getFullYear() === year;
     });
