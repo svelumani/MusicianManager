@@ -19,7 +19,7 @@ import MusiciansPage from "@/pages/musicians/index";
 import AddMusicianPage from "@/pages/musicians/add";
 import ViewMusicianPage from "@/pages/musicians/view";
 import EditMusicianPage from "@/pages/musicians/edit";
-import MusicianPerformancePage from "@/pages/musicians/performance";
+
 import MusicianAvailabilityPage from "@/pages/musicians/availability";
 import EventsPage from "@/pages/events/index";
 import AddEventPage from "@/pages/events/add";
@@ -88,13 +88,7 @@ function Router() {
           <AddMusicianPage />
         </AppLayout>
       </Route>
-      <Route path="/musicians/:id/performance">
-        {(params) => (
-          <AppLayout>
-            <MusicianPerformancePage />
-          </AppLayout>
-        )}
-      </Route>
+      {/* Performance metrics route has been removed */}
       <Route path="/musicians/:id/availability">
         {(params) => (
           <AppLayout>

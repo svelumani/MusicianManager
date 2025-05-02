@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Loader2, Mail, Phone, Star } from "lucide-react";
+import { ChevronLeft, Loader2, Mail, Phone } from "lucide-react";
 import type { Musician, Category, MusicianType, MusicianPayRate } from "@shared/schema";
 
 export default function ViewMusicianPage() {
@@ -208,12 +208,7 @@ export default function ViewMusicianPage() {
             <CardTitle>Actions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button 
-              className="w-full" 
-              onClick={() => navigate(`/musicians/${musician.id}/performance`)}
-            >
-              View Performance Metrics
-            </Button>
+            {/* Performance metrics button removed */}
             <Button 
               className="w-full bg-blue-600 hover:bg-blue-700" 
               onClick={() => navigate(`/musicians/${musician.id}/availability`)}
