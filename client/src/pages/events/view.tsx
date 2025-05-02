@@ -44,6 +44,11 @@ export default function ViewEventPage() {
   const { data: musicians } = useQuery<Musician[]>({
     queryKey: ["/api/musicians"],
   });
+  
+  // Fetch musician types
+  const { data: musicianTypes = [] } = useQuery<any[]>({
+    queryKey: ["/api/musician-types"],
+  });
 
   // Show error if event can't be loaded
   useEffect(() => {
@@ -95,6 +100,10 @@ export default function ViewEventPage() {
   const formattedStartDate = event.startDate ? format(new Date(event.startDate), "MMMM d, yyyy") : "Not specified";
   const formattedEndDate = event.endDate ? format(new Date(event.endDate), "MMMM d, yyyy") : "Not specified";
   const isMultiDay = event.eventDates && event.eventDates.length > 1;
+  
+  // Debug information for musician assignments
+  console.log("Event data:", event);
+  console.log("Musician assignments:", event.musicianAssignments);
 
   // Get status badge styling
   const getStatusBadge = (status: string) => {
@@ -260,8 +269,9 @@ export default function ViewEventPage() {
                 <div className="space-y-6">
                   {event.eventDates?.map((dateStr, index) => {
                     const date = new Date(dateStr);
-                    const formattedDate = format(date, 'yyyy-MM-dd');
-                    const assignedMusicians = event.musicianAssignments?.[formattedDate] || [];
+                    // Use the exact same format as in the response
+                    const assignedMusicians = event.musicianAssignments?.[dateStr] || [];
+                    console.log(`Looking for assignments on date ${dateStr}:`, assignedMusicians);
                     
                     return (
                       <div key={index} className="space-y-3">
@@ -281,7 +291,7 @@ export default function ViewEventPage() {
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {assignedMusicians.map((musicianId) => {
+                              {assignedMusicians.map((musicianId: number) => {
                                 const musician = musicians?.find(m => m.id === musicianId);
                                 return (
                                   <TableRow key={musicianId}>
@@ -303,10 +313,11 @@ export default function ViewEventPage() {
                                       </div>
                                     </TableCell>
                                     <TableCell>
-                                      {/* Show musician type - we'll need to fetch this data */}
                                       <Badge variant="outline">
                                         <Music className="h-3 w-3 mr-1" />
-                                        {musician?.typeId ? `Type ${musician.typeId}` : "Unknown"}
+                                        {musician?.typeId && musicianTypes ? 
+                                          musicianTypes.find((type: any) => type.id === musician.typeId)?.title || `Type ${musician.typeId}` 
+                                          : "Unknown"}
                                       </Badge>
                                     </TableCell>
                                     <TableCell>
