@@ -12,7 +12,17 @@ interface BookingData {
   eventId: number;
   musicianId: number;
   date: string;
+  status?: string;
+  contractStatus?: string;
   // Other booking fields will be available but not used in calendar view
+}
+
+interface EventData {
+  eventId: number;
+  date: Date;
+  status: string;
+  venueName: string;
+  contractStatus: string;
 }
 
 interface AvailabilityData {
@@ -29,6 +39,7 @@ interface CalendarData {
   year: number;
   availability: AvailabilityData[];
   bookings: BookingData[];
+  events?: EventData[];
 }
 
 interface AvailabilityCalendarProps {
@@ -65,7 +76,8 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
       }
       
       try {
-        const response = await fetch(
+        // Fetch availability calendar data
+        const availabilityResponse = await fetch(
           `/api/musicians/${musicianId}/availability-calendar/${month}/${year}`,
           {
             headers: {
@@ -75,15 +87,44 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
           }
         );
         
-        if (!response.ok) {
-          throw new Error(`Error fetching availability: ${response.statusText}`);
+        if (!availabilityResponse.ok) {
+          throw new Error(`Error fetching availability: ${availabilityResponse.statusText}`);
         }
         
-        const data = await response.json();
-        availabilityCache.set(cacheKey, data);
-        setCalendarData(data);
+        const availabilityData = await availabilityResponse.json();
+        
+        // Fetch musician's event dates for this month/year
+        const eventDatesResponse = await fetch(
+          `/api/musicians/${musicianId}/event-dates/${month}/${year}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+          }
+        );
+        
+        if (!eventDatesResponse.ok) {
+          console.warn(`Error fetching event dates: ${eventDatesResponse.statusText}`);
+          // Continue even if event dates fetch fails - don't block availability display
+          
+          // Use availability data without events
+          availabilityCache.set(cacheKey, availabilityData);
+          setCalendarData(availabilityData);
+        } else {
+          // Combine availability and event data
+          const eventDates = await eventDatesResponse.json();
+          
+          const combinedData = {
+            ...availabilityData,
+            events: eventDates
+          };
+          
+          availabilityCache.set(cacheKey, combinedData);
+          setCalendarData(combinedData);
+        }
       } catch (err) {
-        console.error("Error fetching availability calendar data:", err);
+        console.error("Error fetching calendar data:", err);
         setError("Failed to load availability data");
       } finally {
         setLoading(false);
@@ -111,6 +152,34 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
     return calendarData.bookings.find(
       b => new Date(b.date).toISOString().split('T')[0] === dateStr
     );
+  };
+  
+  // Helper function to get events for a specific date
+  const getEventsForDate = (date: Date): EventData[] => {
+    if (!calendarData || !calendarData.events) return [];
+    
+    return calendarData.events.filter(event => 
+      isSameDay(new Date(event.date), date)
+    );
+  };
+  
+  // Helper function to determine the event status class
+  const getEventStatusClass = (status: string): string => {
+    switch (status) {
+      case 'contract-signed':
+        return 'bg-green-500';
+      case 'contract-sent':
+        return 'bg-blue-500';
+      case 'accepted':
+        return 'bg-blue-300';
+      case 'pending':
+        return 'bg-yellow-300';
+      case 'rejected':
+      case 'cancelled':
+        return 'bg-red-400';
+      default:
+        return 'bg-gray-300';
+    }
   };
   
   // Month selection options
