@@ -3245,12 +3245,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: 'confirmed'
           });
           
-          // Update the musician's status in the event to "contract-signed"
+          // Update the musician's status in the event to "contract-signed" ONLY for the specific date
           if (contract.eventId && contract.musicianId && contract.eventDate) {
-            await storage.updateMusicianEventStatus(
+            // Use the specific date from the contract
+            const eventDateStr = contract.eventDate.toISOString();
+            await storage.updateMusicianEventStatusForDate(
               contract.eventId, 
               contract.musicianId,
-              "contract-signed"
+              "contract-signed",
+              eventDateStr
             );
           }
           
@@ -3292,12 +3295,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             bookingId: booking.id
           });
           
-          // Update the musician's status in the event to "contract-signed"
+          // Update the musician's status in the event to "contract-signed" ONLY for the specific date
           if (contract.eventId && contract.musicianId && contract.eventDate) {
-            await storage.updateMusicianEventStatus(
+            // Use the specific date from the contract
+            const eventDateStr = contract.eventDate.toISOString();
+            await storage.updateMusicianEventStatusForDate(
               contract.eventId, 
               contract.musicianId,
-              "contract-signed"
+              "contract-signed",
+              eventDateStr
             );
           }
         }
