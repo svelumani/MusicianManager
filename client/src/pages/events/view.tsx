@@ -5,13 +5,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Edit, User, Users, MapPin, FileText, Briefcase, Clock, Calendar, Music } from "lucide-react";
+import { 
+  CalendarDays, Edit, User, Users, MapPin, FileText, 
+  Briefcase, Clock, Calendar, Music, Mail, 
+  CheckCircle, X, AlertCircle, File, MoreVertical, 
+  DollarSign, FileCheck
+} from "lucide-react";
 import { format } from "date-fns";
 import type { Event as EventType, Venue, Musician } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // Extended event type to include musician assignments
 interface EventWithAssignments extends EventType {
@@ -324,14 +337,104 @@ export default function ViewEventPage() {
                                       <Badge variant="outline">Pending</Badge>
                                     </TableCell>
                                     <TableCell>
-                                      <div className="flex gap-2">
-                                        <Button 
-                                          size="sm" 
-                                          variant="ghost"
-                                          onClick={() => navigate(`/musicians/${musicianId}`)}
-                                        >
-                                          <User className="h-4 w-4" />
-                                        </Button>
+                                      <div className="flex gap-2 justify-end">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button size="sm" variant="ghost">
+                                              <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end" className="w-56">
+                                            <DropdownMenuLabel>Musician Actions</DropdownMenuLabel>
+                                            
+                                            <DropdownMenuItem onClick={() => navigate(`/musicians/${musicianId}`)}>
+                                              <User className="mr-2 h-4 w-4" />
+                                              <span>View Profile</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuSeparator />
+                                            
+                                            <DropdownMenuLabel>Invitation</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => 
+                                              toast({
+                                                title: "Invitation Sent",
+                                                description: `Invitation has been sent to ${musician?.name}`
+                                              })
+                                            }>
+                                              <Mail className="mr-2 h-4 w-4" />
+                                              <span>Send Invitation</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuItem onClick={() => 
+                                              toast({
+                                                title: "Status Updated",
+                                                description: `${musician?.name}'s status updated to Accepted`
+                                              })
+                                            }>
+                                              <CheckCircle className="mr-2 h-4 w-4" />
+                                              <span>Mark as Accepted</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuItem onClick={() => 
+                                              toast({
+                                                title: "Status Updated",
+                                                description: `${musician?.name}'s status updated to Rejected`
+                                              })
+                                            }>
+                                              <X className="mr-2 h-4 w-4" />
+                                              <span>Mark as Rejected</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuSeparator />
+                                            
+                                            <DropdownMenuLabel>Contract</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => 
+                                              toast({
+                                                title: "Contract Sent",
+                                                description: `Contract has been sent to ${musician?.name}`
+                                              })
+                                            }>
+                                              <FileText className="mr-2 h-4 w-4" />
+                                              <span>Send Contract</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuItem onClick={() => 
+                                              toast({
+                                                title: "Contract Updated",
+                                                description: `${musician?.name}'s contract marked as signed`
+                                              })
+                                            }>
+                                              <FileCheck className="mr-2 h-4 w-4" />
+                                              <span>Mark Contract as Signed</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuSeparator />
+                                            
+                                            <DropdownMenuLabel>Payment</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => 
+                                              toast({
+                                                title: "Payment Status Updated",
+                                                description: `${musician?.name}'s payment marked as paid`
+                                              })
+                                            }>
+                                              <DollarSign className="mr-2 h-4 w-4" />
+                                              <span>Mark as Paid</span>
+                                            </DropdownMenuItem>
+                                            
+                                            <DropdownMenuSeparator />
+                                            
+                                            <DropdownMenuItem className="text-destructive" onClick={() => 
+                                              toast({
+                                                variant: "destructive",
+                                                title: "Musician Removed",
+                                                description: `${musician?.name} has been removed from this event date`
+                                              })
+                                            }>
+                                              <X className="mr-2 h-4 w-4" />
+                                              <span>Remove from Event</span>
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
                                       </div>
                                     </TableCell>
                                   </TableRow>
