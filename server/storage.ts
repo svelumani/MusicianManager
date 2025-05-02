@@ -3670,6 +3670,47 @@ Musician: ________________________ Date: ______________`,
       }
     });
     
+    // If the contract was accepted/signed, update the booking and musician status
+    if (status === 'accepted') {
+      // Update the booking to mark the contract as signed
+      if (contractLink.bookingId) {
+        const booking = await this.getBooking(contractLink.bookingId);
+        if (booking) {
+          await this.updateBooking(contractLink.bookingId, {
+            contractSigned: true,
+            contractSignedAt: new Date()
+          });
+        }
+      }
+      
+      // Update the musician status to "contract-signed" in the event statuses
+      if (contractLink.eventId && contractLink.musicianId) {
+        const eventId = contractLink.eventId;
+        const musicianId = contractLink.musicianId;
+        
+        // Get the assignments to find the date
+        const assignments = await this.getEventMusicianAssignments(eventId);
+        let assignedDate: string | null = null;
+        
+        // Find which date this musician is assigned to
+        for (const [date, musicians] of Object.entries(assignments)) {
+          if (musicians.includes(musicianId)) {
+            assignedDate = date;
+            break;
+          }
+        }
+        
+        if (assignedDate) {
+          // Update musician status to contract-signed
+          const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
+          const dateStatuses = eventStatuses[assignedDate] || {};
+          dateStatuses[musicianId] = "contract-signed";
+          eventStatuses[assignedDate] = dateStatuses;
+          this.eventMusicianStatuses.set(eventId, eventStatuses);
+        }
+      }
+    }
+    
     return updatedContractLink;
   }
 
