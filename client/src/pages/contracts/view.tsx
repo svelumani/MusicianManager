@@ -29,6 +29,7 @@ const getStatusBadge = (status: string) => {
   const statusMap: Record<string, { color: string; label: string }> = {
     pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
     accepted: { color: "bg-green-100 text-green-800", label: "Accepted" },
+    "contract-signed": { color: "bg-green-100 text-green-800", label: "Accepted" },
     rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
     expired: { color: "bg-gray-100 text-gray-800", label: "Expired" }
   };
@@ -222,7 +223,7 @@ export default function ContractViewPage() {
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Responded</dt>
                   <dd className="mt-1 flex items-center">
-                    {contract.status === "accepted" ? (
+                    {contract.status === "accepted" || contract.status === "contract-signed" ? (
                       <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
                     ) : (
                       <XCircle className="h-4 w-4 mr-2 text-red-500" />
@@ -241,7 +242,7 @@ export default function ContractViewPage() {
                 </div>
               )}
               
-              {contract.status === 'accepted' && (
+              {(contract.status === 'accepted' || contract.status === 'contract-signed') && (
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Signatures</dt>
                   <dd className="mt-2 grid grid-cols-2 gap-4">
@@ -302,7 +303,7 @@ export default function ContractViewPage() {
               </>
             ) : (
               <div className="flex flex-col items-center justify-center py-6 text-center">
-                {contract.status === "accepted" ? (
+                {contract.status === "accepted" || contract.status === "contract-signed" ? (
                   <>
                     <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
                       <CheckCircle className="h-8 w-8 text-green-500" />
@@ -390,7 +391,7 @@ export default function ContractViewPage() {
             <div className="flex justify-between mt-8">
               <div>
                 <h3 className="font-bold mb-2">Client Signature</h3>
-                {contract.status === 'accepted' && contract.companySignature ? (
+                {(contract.status === 'accepted' || contract.status === 'contract-signed') && contract.companySignature ? (
                   <div className="h-12 border-b border-gray-300 w-48 mb-1 flex items-center justify-center">
                     <p className="italic text-primary font-medium">{contract.companySignature}</p>
                   </div>
@@ -401,7 +402,7 @@ export default function ContractViewPage() {
               </div>
               <div>
                 <h3 className="font-bold mb-2">Musician Signature</h3>
-                {contract.status === 'accepted' && contract.musicianSignature ? (
+                {(contract.status === 'accepted' || contract.status === 'contract-signed') && contract.musicianSignature ? (
                   <div className="h-12 border-b border-gray-300 w-48 mb-1 flex items-center justify-center">
                     <p className="italic text-primary font-medium">{contract.musicianSignature}</p>
                   </div>
