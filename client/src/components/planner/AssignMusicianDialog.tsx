@@ -87,6 +87,22 @@ const AssignMusicianDialog = ({
     queryFn: () => apiRequest(`/api/planner-assignments?slotId=${slot.id}`),
     enabled: !!slot?.id,
   });
+  
+  // Query for available musicians based on date and selected categories
+  const { 
+    data: availableMusicians = [], 
+    isLoading: isAvailableMusiciansLoading 
+  } = useQuery({
+    queryKey: ['/api/musicians/available-by-categories', date.toISOString(), selectedCategories],
+    queryFn: async () => {
+      if (!selectedCategories.length) return [];
+      
+      const categoryParams = selectedCategories.map(id => `categoryIds=${id}`).join('&');
+      const response = await apiRequest(`/api/musicians/available-by-categories?date=${date.toISOString()}&${categoryParams}`);
+      return response;
+    },
+    enabled: selectedCategories.length > 0
+  });
 
   // Set selected musicians from assignments
   useEffect(() => {
@@ -310,9 +326,11 @@ const AssignMusicianDialog = ({
     }
   }, [selectedCategories, activeCategory]);
 
-  // Filter musicians by active category
+  // Filter musicians by any of the selected categories
   const filteredMusicians = musicians.filter(
-    (musician) => activeCategory ? musician.categoryId === parseInt(activeCategory) : false
+    (musician) => selectedCategories.length > 0 
+      ? selectedCategories.includes(musician.categoryId.toString())
+      : false
   );
 
   return (
@@ -530,9 +548,68 @@ const AssignMusicianDialog = ({
           </TabsContent>
           
           <TabsContent value="available" className="border rounded-md p-4">
-            <div className="text-center p-6 text-gray-500">
-              Available musicians feature coming soon. Will show only musicians with availability marked for this date.
-            </div>
+            {selectedCategories.length === 0 ? (
+              <div className="text-center p-6 text-gray-500">
+                Please select at least one musician type above to see available musicians
+              </div>
+            ) : (
+              <>
+                <div className="mb-4">
+                  <h3 className="font-medium mb-2">Musicians available on {format(date, "MMM d, yyyy")}</h3>
+                  <p className="text-sm text-gray-500">
+                    Showing musicians who match any of the selected categories and have marked availability for this date
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  {isAvailableMusiciansLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                      <Skeleton className="h-16 w-full" />
+                    </div>
+                  ) : availableMusicians.length > 0 ? (
+                    availableMusicians.map((musician) => (
+                      <div
+                        key={musician.id}
+                        className="flex items-center justify-between p-3 border rounded-md hover:bg-gray-50"
+                      >
+                        <div>
+                          <div className="font-medium">{musician.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {categories.find((c) => c.id === musician.categoryId)?.title} - 
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                            }).format(musician.payRate || 0)}
+                          </div>
+                        </div>
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAssignMusician(musician.id)}
+                          disabled={selectedMusicians.some((m) => m.id === musician.id)}
+                        >
+                          {selectedMusicians.some((m) => m.id === musician.id) ? (
+                            <Check className="h-4 w-4 mr-1" />
+                          ) : (
+                            <Plus className="h-4 w-4 mr-1" />
+                          )}
+                          {selectedMusicians.some((m) => m.id === musician.id)
+                            ? "Assigned"
+                            : "Assign"}
+                        </Button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center p-6 text-gray-500">
+                      No available musicians found for the selected date and categories
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </TabsContent>
         </Tabs>
 
