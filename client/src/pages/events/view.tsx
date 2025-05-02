@@ -12,6 +12,7 @@ import {
   DollarSign, FileCheck, ExternalLink, XCircle,
   MailPlus, MoreHorizontal
 } from "lucide-react";
+import { FileContract } from "@/components/icons/FileContract";
 import { format } from "date-fns";
 import type { Event as EventType, Venue, Musician, ContractLink } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -162,7 +163,27 @@ function ContractsTable({ eventId }: ContractsTableProps) {
                     <span>{musician?.name || "Unknown Musician"}</span>
                   </div>
                 </TableCell>
-                <TableCell>{getStatusBadge(contract.status)}</TableCell>
+                <TableCell>
+                  {(() => {
+                    switch (contract.status?.toLowerCase()) {
+                      case "confirmed":
+                        return <Badge className="bg-green-600">Confirmed</Badge>;
+                      case "accepted":
+                        return <Badge className="bg-green-500">Accepted</Badge>;
+                      case "rejected":
+                        return <Badge variant="destructive">Rejected</Badge>;
+                      case "cancelled":
+                        return <Badge variant="destructive">Cancelled</Badge>;
+                      case "contract-sent":
+                        return <Badge className="bg-indigo-500">Contract Sent</Badge>;
+                      case "contract-signed":
+                        return <Badge className="bg-emerald-600">Contract Signed</Badge>;
+                      case "pending":
+                      default:
+                        return <Badge variant="outline">Pending</Badge>;
+                    }
+                  })()}
+                </TableCell>
                 <TableCell>
                   {contract.eventDate ? format(new Date(contract.eventDate), "MMM d, yyyy") : "Not specified"}
                 </TableCell>

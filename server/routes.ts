@@ -2814,6 +2814,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contract Link routes
   apiRouter.get("/contracts", isAuthenticated, async (req, res) => {
     try {
+      // Check if eventId is provided as a query parameter
+      const eventId = req.query.eventId ? parseInt(req.query.eventId as string) : undefined;
+      
+      // If eventId is provided, get contracts for that event
+      if (eventId && !isNaN(eventId)) {
+        const contracts = await storage.getContractLinksByEvent(eventId);
+        return res.json(contracts);
+      }
+      
+      // Otherwise, get all contracts
       const contracts = await storage.getContractLinks();
       res.json(contracts);
     } catch (error) {
