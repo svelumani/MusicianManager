@@ -3028,9 +3028,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contract not found or expired" });
       }
       
-      // If the contract was accepted, create a booking record
+      // Get additional information
+      const musician = await storage.getMusician(contract.musicianId);
+      const event = await storage.getEvent(contract.eventId);
+      
+      // If the contract was accepted, update related records and send notification
       if (status === 'accepted') {
-        // Update the invitation status to accepted
+        // Update the invitation status to accepted if it exists
         if (contract.invitationId) {
           const invitation = await storage.getInvitation(contract.invitationId);
           if (invitation) {
@@ -3048,6 +3052,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contractSignedAt: new Date(),
             status: 'confirmed'
           });
+          
+          // Log that we would send an email notification in a real system
+          console.log(`Contract signed notification would be sent to ${musician?.email} for event: ${event?.name}`);
+          console.log(`Contract details: 
+            - Event: ${event?.name}
+            - Date: ${contract.eventDate ? new Date(contract.eventDate).toLocaleDateString() : 'Multiple dates'}
+            - Signatures: 
+              - Company: ${contract.companySignature || 'VAMP Management'}
+              - Musician: ${contract.musicianSignature || musician?.name}
+            - Amount: $${contract.amount || 0}
+          `);
         } else {
           // Create new booking if one doesn't exist yet
           const booking = await storage.createBooking({

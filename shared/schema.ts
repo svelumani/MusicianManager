@@ -601,6 +601,8 @@ export const contractLinks = pgTable("contract_links", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   amount: doublePrecision("amount"), // Amount to be paid to musician
   eventDate: timestamp("event_date"), // Specific date for the event if multi-day
+  companySignature: text("company_signature"), // Company digital signature
+  musicianSignature: text("musician_signature"), // Musician digital signature
 });
 
 export const insertContractLinkSchema = createInsertSchema(contractLinks).pick({
@@ -612,6 +614,8 @@ export const insertContractLinkSchema = createInsertSchema(contractLinks).pick({
   status: true,
   amount: true,
   eventDate: true,
+  companySignature: true,
+  musicianSignature: true,
 });
 
 export type ContractLink = typeof contractLinks.$inferSelect;

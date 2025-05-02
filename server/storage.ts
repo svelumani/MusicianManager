@@ -3328,6 +3328,9 @@ Musician: ________________________ Date: ______________`,
   // Contract Link Methods
   
   async createContractLink(contractData: InsertContractLink): Promise<ContractLink> {
+    // Default company signature - a simple base64 encoded text that represents the signature
+    const companySignature = "VAMP Management";
+    
     const contractLink: ContractLink = {
       id: this.currentContractLinkId++,
       bookingId: contractData.bookingId,
@@ -3340,7 +3343,9 @@ Musician: ________________________ Date: ______________`,
       response: null,
       createdAt: new Date(),
       amount: contractData.amount || null,
-      eventDate: contractData.eventDate ? new Date(contractData.eventDate) : null
+      eventDate: contractData.eventDate ? new Date(contractData.eventDate) : null,
+      companySignature, // Add company signature
+      musicianSignature: null // Initialize musician signature as null
     };
     
     this.contractLinks.set(contractLink.id, contractLink);
@@ -3420,11 +3425,21 @@ Musician: ________________________ Date: ______________`,
     const contractLink = await this.getContractLinkByToken(token);
     if (!contractLink) return undefined;
     
+    // Get the musician's name to use as a signature if accepting
+    let musicianSignature = null;
+    if (status === 'accepted') {
+      const musician = await this.getMusician(contractLink.musicianId);
+      if (musician) {
+        musicianSignature = musician.name; // Use musician's name as a signature
+      }
+    }
+    
     const updatedContractLink = {
       ...contractLink,
       status,
       respondedAt: new Date(),
-      response: response || null
+      response: response || null,
+      musicianSignature
     };
     
     this.contractLinks.set(contractLink.id, updatedContractLink);
