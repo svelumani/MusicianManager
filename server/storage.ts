@@ -1374,6 +1374,14 @@ Musician: ________________________ Date: ______________`,
         found = true;
         assignedDate = date;
         
+        // Check if we're setting the status to "accepted", which triggers contract creation
+        if (status === "accepted" && assignedDate) {
+          // Handle the special "accepted" status case which will create contracts
+          await this.handleAcceptedStatus(eventId, musicianId, assignedDate);
+          // Note: This method will set status to "contract-sent" after creating contract
+          return true;
+        }
+        
         // Get current statuses for this event, create if doesn't exist
         const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
         
@@ -1402,100 +1410,112 @@ Musician: ________________________ Date: ______________`,
       }
     }
     
-    // If musician accepted the invitation, automatically create a contract
-    if (found && status === "accepted" && assignedDate) {
-      // Create booking record if it doesn't exist
-      let bookingId: number;
-      const existingBookings = await this.getBookings(eventId, musicianId);
-      
-      // First, try to create or find an invitation record
-      let invitationId: number;
-      const existingInvitations = await this.getInvitationsByEventAndMusician(eventId, musicianId);
-      
-      if (existingInvitations.length === 0) {
-        // Create a new invitation if one doesn't exist
-        const musician = await this.getMusician(musicianId);
-        const invitation = await this.createInvitation({
-          eventId,
-          musicianId,
-          invitedAt: new Date(),
-          status: "accepted",
-          email: musician?.email || "",
-          messageSubject: "Event Invitation",
-          messageBody: "You've been invited to an event"
-        });
-        invitationId = invitation.id;
-      } else {
-        // Use existing invitation
-        invitationId = existingInvitations[0].id;
-        // Update invitation to mark as accepted
-        await this.updateInvitation(invitationId, { 
-          status: "accepted",
-          respondedAt: new Date() 
-        });
-      }
-      
-      if (existingBookings.length === 0) {
-        // Create a new booking
-        const newBooking = await this.createBooking({
-          eventId,
-          musicianId,
-          invitationId,
-          contractSent: false,
-          paymentAmount: 100 // Default payment amount
-        });
-        bookingId = newBooking.id;
-      } else {
-        // Use existing booking
-        bookingId = existingBookings[0].id;
-        // Update booking to mark as having contract sent
-        await this.updateBooking(bookingId, { 
-          contractSent: true,
-          contractSentAt: new Date()
-        });
-      }
-      
-      // Get default contract template
-      const defaultTemplate = await this.getDefaultContractTemplate();
-      if (defaultTemplate) {
-        // Generate a unique token for the contract link
-        const token = crypto.randomBytes(32).toString('hex');
-        
-        // Set default expiry date to 7 days from now
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        
-        // Create a contract link
-        await this.createContractLink({
-          bookingId,
-          eventId,
-          musicianId,
-          invitationId,
-          token,
-          expiresAt,
-          status: 'pending',
-          eventDate: new Date(assignedDate),
-          amount: 100 // Default amount
-        });
-        
-        // Update musician status to contract-sent
-        const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
-        const dateStatuses = eventStatuses[assignedDate] || {};
-        dateStatuses[musicianId] = "contract-sent";
-        eventStatuses[assignedDate] = dateStatuses;
-        this.eventMusicianStatuses.set(eventId, eventStatuses);
-        
-        // Log contract creation activity
-        this.createActivity({
-          userId: 1, // Default admin user
-          action: `Contract sent to musician #${musicianId} for event #${eventId}`,
-          timestamp: new Date(),
-          entityId: musicianId,
-          entityType: "contract"
-        });
-      }
+    return found;
+  }
+  
+  // New method to handle the accepted status case, which creates contracts
+  async handleAcceptedStatus(eventId: number, musicianId: number, assignedDate: string): Promise<void> {
+    // Create booking record if it doesn't exist
+    let bookingId: number;
+    const existingBookings = await this.getBookings(eventId, musicianId);
+    
+    // First, try to create or find an invitation record
+    let invitationId: number;
+    const existingInvitations = await this.getInvitationsByEventAndMusician(eventId, musicianId);
+    
+    if (existingInvitations.length === 0) {
+      // Create a new invitation if one doesn't exist
+      const musician = await this.getMusician(musicianId);
+      const invitation = await this.createInvitation({
+        eventId,
+        musicianId,
+        invitedAt: new Date(),
+        status: "accepted",
+        email: musician?.email || "",
+        messageSubject: "Event Invitation",
+        messageBody: "You've been invited to an event"
+      });
+      invitationId = invitation.id;
+    } else {
+      // Use existing invitation
+      invitationId = existingInvitations[0].id;
+      // Update invitation to mark as accepted
+      await this.updateInvitation(invitationId, { 
+        status: "accepted",
+        respondedAt: new Date() 
+      });
     }
     
-    return found;
+    if (existingBookings.length === 0) {
+      // Create a new booking
+      const newBooking = await this.createBooking({
+        eventId,
+        musicianId,
+        invitationId,
+        contractSent: false,
+        paymentAmount: 100 // Default payment amount
+      });
+      bookingId = newBooking.id;
+    } else {
+      // Use existing booking
+      bookingId = existingBookings[0].id;
+      // Update booking to mark as having contract sent
+      await this.updateBooking(bookingId, { 
+        contractSent: true,
+        contractSentAt: new Date()
+      });
+    }
+    
+    // Get default contract template
+    const defaultTemplate = await this.getDefaultContractTemplate();
+    if (defaultTemplate) {
+      // Generate a unique token for the contract link
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set default expiry date to 7 days from now
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      
+      // Create a contract link
+      await this.createContractLink({
+        bookingId,
+        eventId,
+        musicianId,
+        invitationId,
+        token,
+        expiresAt,
+        status: 'pending',
+        eventDate: new Date(assignedDate),
+        amount: 100 // Default amount
+      });
+      
+      // Update musician status to contract-sent
+      const eventStatuses = this.eventMusicianStatuses.get(eventId) || {};
+      const dateStatuses = eventStatuses[assignedDate] || {};
+      dateStatuses[musicianId] = "contract-sent";
+      eventStatuses[assignedDate] = dateStatuses;
+      this.eventMusicianStatuses.set(eventId, eventStatuses);
+      
+      // Log contract creation activity
+      this.createActivity({
+        userId: 1, // Default admin user
+        action: `Contract sent to musician #${musicianId} for event #${eventId}`,
+        timestamp: new Date(),
+        entityId: musicianId,
+        entityType: "contract"
+      });
+      
+      // Log email sent activity (mock)
+      this.createActivity({
+        userId: 1, // Default admin user
+        action: `Contract email sent to musician #${musicianId} for event #${eventId}`,
+        timestamp: new Date(),
+        entityId: musicianId,
+        entityType: "email"
+      });
+      
+      // In a real implementation, here we would send an email with the contract link
+      console.log(`Contract link would be sent to musician ${musicianId}: /contracts/respond/${token}`);
+    }
   }
   
   async updateEvent(id: number, data: Partial<InsertEvent>): Promise<Event | undefined> {

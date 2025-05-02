@@ -644,17 +644,19 @@ export default function ViewEventPage() {
                                                   {
                                                     onSuccess: () => {
                                                       toast({
-                                                        title: "Status Updated",
-                                                        description: `${musician?.name}'s status updated to Accepted`
+                                                        title: "Contract Sent",
+                                                        description: `${musician?.name} has been accepted and a contract has been sent automatically.`
                                                       });
+                                                      // Also refresh contracts
+                                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
                                                     }
                                                   }
                                                 );
                                               }}
                                               disabled={updateMusicianStatusMutation.isPending}
                                             >
-                                              <CheckCircle className="mr-2 h-4 w-4" />
-                                              <span>Mark as Accepted</span>
+                                              <FileContract className="mr-2 h-4 w-4" />
+                                              <span>Accept & Send Contract</span>
                                             </DropdownMenuItem>
                                             
                                             <DropdownMenuItem 
