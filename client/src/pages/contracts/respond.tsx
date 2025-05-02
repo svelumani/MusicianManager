@@ -376,8 +376,8 @@ export default function ContractResponsePage() {
             <div className="flex justify-between mt-8">
               <div>
                 <h3 className="font-bold mb-2">Client Signature</h3>
-                {contract.adminSignature ? (
-                  <div className="italic text-lg font-medium mb-1 text-primary">{contract.adminSignature}</div>
+                {contract.companySignature ? (
+                  <div className="italic text-lg font-medium mb-1 text-primary">{contract.companySignature}</div>
                 ) : (
                   <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
                 )}
