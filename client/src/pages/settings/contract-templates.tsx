@@ -44,16 +44,13 @@ export default function ContractTemplatesPage() {
   // Fetch templates
   const { data: templates, isLoading, error } = useQuery<ContractTemplate[]>({
     queryKey: ["/api/contract-templates"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/contract-templates");
-      return await response.json();
-    }
+    // Use the default queryFn already set up in queryClient
   });
 
   // Set default template mutation
   const setDefaultMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("POST", `/api/contract-templates/${id}/set-default`);
+      await apiRequest(`/api/contract-templates/${id}/set-default`, "POST");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-templates"] });
@@ -74,8 +71,7 @@ export default function ContractTemplatesPage() {
   // Create template mutation
   const createTemplateMutation = useMutation({
     mutationFn: async (data: TemplateFormValues) => {
-      const response = await apiRequest("POST", "/api/contract-templates", data);
-      return await response.json();
+      return await apiRequest("/api/contract-templates", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-templates"] });
@@ -97,8 +93,7 @@ export default function ContractTemplatesPage() {
   // Update template mutation
   const updateTemplateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: TemplateFormValues }) => {
-      const response = await apiRequest("PUT", `/api/contract-templates/${id}`, data);
-      return await response.json();
+      return await apiRequest(`/api/contract-templates/${id}`, "PUT", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-templates"] });
