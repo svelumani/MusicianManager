@@ -6,12 +6,13 @@ import * as z from "zod";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import MemoryStore from "memorystore";
 import { format } from "date-fns";
 import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "./services/settings";
 import { sendMusicianAssignmentEmail, initializeSendGrid } from "./services/email";
 import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
+import pgSession from 'connect-pg-simple';
+import { pool } from './db';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -39,7 +40,7 @@ import {
   type Musician
 } from "@shared/schema";
 
-const SessionStore = MemoryStore(session);
+const PgSession = pgSession(session);
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure session middleware
@@ -49,8 +50,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       resave: false,
       saveUninitialized: false,
       cookie: { secure: process.env.NODE_ENV === "production" },
-      store: new SessionStore({
-        checkPeriod: 86400000 // prune expired entries every 24h
+      store: new PgSession({
+        pool: pool,
+        createTableIfMissing: true,
+        tableName: 'session' // default
       })
     })
   );
