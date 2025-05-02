@@ -415,13 +415,6 @@ export default function ViewEventPage() {
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
-            onClick={() => navigate(`/events/${eventId}/invite`)}
-          >
-            <Users className="mr-2 h-4 w-4" />
-            Invite Musicians
-          </Button>
-          <Button 
-            variant="outline" 
             onClick={() => navigate(`/events/${eventId}/edit`)}
           >
             <Edit className="mr-2 h-4 w-4" />
@@ -818,10 +811,10 @@ export default function ViewEventPage() {
                   </p>
                   <Button 
                     variant="outline" 
-                    onClick={() => navigate(`/events/${eventId}/invite`)}
+                    onClick={() => navigate(`/events/${eventId}/edit`)}
                   >
-                    <Users className="mr-2 h-4 w-4" />
-                    Invite Musicians
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Event to Add Musicians
                   </Button>
                 </div>
               )}
