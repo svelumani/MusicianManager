@@ -609,27 +609,6 @@ export default function ViewEventPage() {
                                             
                                             <DropdownMenuSeparator />
                                             
-                                            <DropdownMenuLabel>Invitation</DropdownMenuLabel>
-                                            <DropdownMenuItem 
-                                              onClick={() => {
-                                                updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "invited" },
-                                                  {
-                                                    onSuccess: () => {
-                                                      toast({
-                                                        title: "Invitation Sent",
-                                                        description: `Invitation has been sent to ${musician?.name}`
-                                                      });
-                                                    }
-                                                  }
-                                                );
-                                              }}
-                                              disabled={updateMusicianStatusMutation.isPending}
-                                            >
-                                              <Mail className="mr-2 h-4 w-4" />
-                                              <span>Send Invitation</span>
-                                            </DropdownMenuItem>
-                                            
                                             <DropdownMenuItem 
                                               onClick={() => {
                                                 updateMusicianStatusMutation.mutate(
@@ -797,10 +776,10 @@ export default function ViewEventPage() {
                   <div className="mt-4">
                     <Button 
                       variant="outline" 
-                      onClick={() => navigate(`/events/${eventId}/invite`)}
+                      onClick={() => navigate(`/events/${eventId}/edit`)}
                     >
-                      <Users className="mr-2 h-4 w-4" />
-                      Invite More Musicians
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Event to Add More Musicians
                     </Button>
                   </div>
                 </div>
