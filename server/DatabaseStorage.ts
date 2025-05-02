@@ -376,6 +376,40 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]> {
+    // If categoryIds are provided, delegate to the specialized method
+    if (categoryIds && categoryIds.length > 0) {
+      return this.getAvailableMusiciansForDateAndCategories(date, categoryIds);
+    }
+    
+    // Otherwise, get all available musicians for the date regardless of category
+    const dateStart = new Date(date);
+    dateStart.setHours(0, 0, 0, 0);
+    
+    const dateEnd = new Date(date);
+    dateEnd.setHours(23, 59, 59, 999);
+    
+    // Base query to find all musicians who have availability for this date
+    const query = db.select()
+      .from(musicians)
+      .innerJoin(
+        availability,
+        and(
+          eq(musicians.id, availability.musicianId),
+          eq(availability.isAvailable, true),
+          gte(availability.date, dateStart),
+          lte(availability.date, dateEnd)
+        )
+      )
+      .orderBy(musicians.name);
+    
+    // Execute query
+    const availableMusicians = await query;
+    
+    // Return just the musician objects
+    return availableMusicians.map(({ musicians }) => musicians);
+  }
+  
   async getAvailableMusiciansForDateAndCategories(date: Date, categoryIds: number[]): Promise<Musician[]> {
     const dateStart = new Date(date);
     dateStart.setHours(0, 0, 0, 0);
