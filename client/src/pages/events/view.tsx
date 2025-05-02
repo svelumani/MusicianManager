@@ -9,10 +9,11 @@ import {
   CalendarDays, Edit, User, Users, MapPin, FileText, 
   Briefcase, Clock, Calendar, Music, Mail, 
   CheckCircle, X, AlertCircle, File, MoreVertical, 
-  DollarSign, FileCheck
+  DollarSign, FileCheck, ExternalLink, XCircle,
+  MailPlus, MoreHorizontal, FileContract
 } from "lucide-react";
 import { format } from "date-fns";
-import type { Event as EventType, Venue, Musician } from "@shared/schema";
+import type { Event as EventType, Venue, Musician, ContractLink } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -607,9 +608,8 @@ export default function ViewEventPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                First invite musicians to the event, then you can manage their contracts from here.
-              </p>
+              {/* Fetch and display contracts for this specific event */}
+              <ContractsTable eventId={parseInt(id)} />
             </CardContent>
           </Card>
         </TabsContent>
