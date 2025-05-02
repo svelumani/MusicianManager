@@ -1329,15 +1329,18 @@ Musician: ________________________ Date: ______________`,
     // Start with all musicians, then filter based on availability and bookings
     let musicians: Musician[];
     
-    // If we have explicit availability data
-    if (availableIds.length > 0) {
+    // Get all musicians with explicit availability for this date
+    const allMusiciansWithExplicitAvailability = new Set([...availableIds, ...unavailableIds]);
+    
+    // If we have explicit availability data for ANY musician for this date
+    if (allMusiciansWithExplicitAvailability.size > 0) {
       // Get only musicians who are explicitly marked as available and not booked elsewhere
       musicians = Array.from(this.musicians.values())
         .filter(m => availableIds.includes(m.id) && !unavailableMusicianIds.has(m.id));
     } else {
-      // If no explicit availability data exists, include all musicians who aren't explicitly unavailable or booked
+      // If NO availability data exists for this date at all, include all musicians who aren't booked
       musicians = Array.from(this.musicians.values())
-        .filter(m => !unavailableMusicianIds.has(m.id));
+        .filter(m => !bookedIds.includes(m.id) && !contractedIds.includes(m.id));
     }
     
     // Filter by categories if provided
