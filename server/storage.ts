@@ -182,7 +182,7 @@ export interface IStorage {
   getContractLinksByMusician(musicianId: number): Promise<ContractLink[]>;
   createContractLink(contract: InsertContractLink): Promise<ContractLink>;
   updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined>;
-  updateContractLinkStatus(token: string, status: string, response?: string): Promise<ContractLink | undefined>;
+  updateContractLinkStatus(token: string, status: string, response?: string, signature?: string): Promise<ContractLink | undefined>;
   
   // Contract Template management
   getContractTemplates(): Promise<ContractTemplate[]>;
@@ -330,7 +330,7 @@ export interface IStorage {
   getContractLinksByEvent(eventId: number): Promise<ContractLink[]>;
   getContractLinksByMusician(musicianId: number): Promise<ContractLink[]>;
   updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined>;
-  updateContractLinkStatus(token: string, status: string, response?: string): Promise<ContractLink | undefined>;
+  updateContractLinkStatus(token: string, status: string, response?: string, signature?: string): Promise<ContractLink | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -3421,17 +3421,29 @@ Musician: ________________________ Date: ______________`,
     return updatedContractLink;
   }
   
-  async updateContractLinkStatus(token: string, status: string, response?: string): Promise<ContractLink | undefined> {
+  async updateContractLinkStatus(token: string, status: string, response?: string, signature?: string): Promise<ContractLink | undefined> {
     const contractLink = await this.getContractLinkByToken(token);
     if (!contractLink) return undefined;
     
-    // Get the musician's name to use as a signature if accepting
+    // If accepting and no signature provided, get musician's name for signature
     let musicianSignature = null;
     if (status === 'accepted') {
-      const musician = await this.getMusician(contractLink.musicianId);
-      if (musician) {
-        musicianSignature = musician.name; // Use musician's name as a signature
+      if (signature) {
+        // Use provided signature if available
+        musicianSignature = signature;
+      } else {
+        // Fallback to musician's name if no signature provided
+        const musician = await this.getMusician(contractLink.musicianId);
+        if (musician) {
+          musicianSignature = musician.name;
+        }
       }
+    }
+    
+    // Set company signature if not already set
+    let companySignature = contractLink.companySignature;
+    if (!companySignature && status === 'accepted') {
+      companySignature = 'VAMP Management'; // Default company signature
     }
     
     const updatedContractLink = {
@@ -3439,7 +3451,8 @@ Musician: ________________________ Date: ______________`,
       status,
       respondedAt: new Date(),
       response: response || null,
-      musicianSignature
+      musicianSignature,
+      adminSignature
     };
     
     this.contractLinks.set(contractLink.id, updatedContractLink);
