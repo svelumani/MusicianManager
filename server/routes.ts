@@ -649,6 +649,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Musician routes
   apiRouter.get("/musicians", isAuthenticated, async (req, res) => {
     try {
+      // Parse query parameters for filtering available musicians by date
+      const { date, dates } = req.query;
+      
+      // If dates parameter is provided, fetch musicians available for all given dates
+      if (dates) {
+        const dateArray = Array.isArray(dates) ? dates : [dates];
+        
+        // Get musicians available for each date
+        const availableMusiciansPromises = dateArray.map(async (dateStr) => {
+          const dateObj = new Date(dateStr as string);
+          return await storage.getAvailableMusiciansForDate(dateObj);
+        });
+        
+        const availableMusiciansArrays = await Promise.all(availableMusiciansPromises);
+        
+        // Find musicians available for all requested dates (intersection)
+        const musiciansByAllDates = availableMusiciansArrays.reduce((result, musicians, index) => {
+          if (index === 0) return musicians;
+          return result.filter(m1 => musicians.some(m2 => m2.id === m1.id));
+        }, [] as Musician[]);
+        
+        return res.json(musiciansByAllDates);
+      }
+      
+      // If a single date parameter is provided
+      if (date) {
+        const dateObj = new Date(date as string);
+        const availableMusicians = await storage.getAvailableMusiciansForDate(dateObj);
+        return res.json(availableMusicians);
+      }
+      
+      // Otherwise, fetch all musicians
       const musicians = await storage.getMusicians();
       res.json(musicians);
     } catch (error) {

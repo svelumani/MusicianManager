@@ -1294,12 +1294,51 @@ Musician: ________________________ Date: ______________`,
   async getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]> {
     // Get all available musicians for the date
     const dateStr = date.toISOString().split('T')[0];
+    
+    // First, get musicians explicitly marked as available
     const availableIds = Array.from(this.availability.values())
       .filter(a => a.isAvailable && a.date.toISOString().split('T')[0] === dateStr)
       .map(a => a.musicianId);
     
-    let musicians = Array.from(this.musicians.values())
-      .filter(m => availableIds.includes(m.id));
+    // Then, get musicians who are explicitly marked as unavailable
+    const unavailableIds = Array.from(this.availability.values())
+      .filter(a => !a.isAvailable && a.date.toISOString().split('T')[0] === dateStr)
+      .map(a => a.musicianId);
+    
+    // Also exclude musicians who already have confirmed bookings for this date
+    const bookings = Array.from(this.bookings.values());
+    const bookedIds = bookings
+      .filter(b => {
+        if (!b.date) return false;
+        return b.date.toISOString().split('T')[0] === dateStr && b.contractSigned;
+      })
+      .map(b => b.musicianId);
+    
+    // Exclude musicians who have contract links that are signed for this date
+    const contractLinks = Array.from(this.contractLinks.values());
+    const contractedIds = contractLinks
+      .filter(c => {
+        if (!c.eventDate) return false;
+        return c.eventDate.toISOString().split('T')[0] === dateStr && c.status === 'contract-signed';
+      })
+      .map(c => c.musicianId);
+    
+    // Combine all unavailable musician IDs
+    const unavailableMusicianIds = new Set([...unavailableIds, ...bookedIds, ...contractedIds]);
+    
+    // Start with all musicians, then filter based on availability and bookings
+    let musicians: Musician[];
+    
+    // If we have explicit availability data
+    if (availableIds.length > 0) {
+      // Get only musicians who are explicitly marked as available and not booked elsewhere
+      musicians = Array.from(this.musicians.values())
+        .filter(m => availableIds.includes(m.id) && !unavailableMusicianIds.has(m.id));
+    } else {
+      // If no explicit availability data exists, include all musicians who aren't explicitly unavailable or booked
+      musicians = Array.from(this.musicians.values())
+        .filter(m => !unavailableMusicianIds.has(m.id));
+    }
     
     // Filter by categories if provided
     if (categoryIds && categoryIds.length > 0) {
