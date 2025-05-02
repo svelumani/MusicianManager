@@ -3933,7 +3933,45 @@ Musician: ________________________ Date: ______________`,
           dateStatuses[musicianId] = "contract-signed";
           eventStatuses[assignedDate] = dateStatuses;
           this.eventMusicianStatuses.set(eventId, eventStatuses);
+          
+          // Update availability calendar
+          if (contractLink.eventDate) {
+            const dateStr = contractLink.eventDate.toISOString().split('T')[0];
+            const month = contractLink.eventDate.getMonth() + 1; // 0-based to 1-based
+            const year = contractLink.eventDate.getFullYear();
+            const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+            
+            // Mark the date as unavailable in the musician's availability calendar
+            await this.updateAvailabilityForDate(
+              musicianId,
+              dateStr,
+              false, // When contract is signed, musician is no longer available for other bookings
+              monthStr,
+              year
+            );
+            
+            console.log(`Updated availability calendar for musician ${musicianId} on ${dateStr} to unavailable (contract signed)`);
+          }
         }
+      }
+    } else if (normalizedStatus === 'rejected') {
+      // When contract is rejected, make sure to update the musician's availability
+      if (contractLink.eventDate) {
+        const dateStr = contractLink.eventDate.toISOString().split('T')[0];
+        const month = contractLink.eventDate.getMonth() + 1; // 0-based to 1-based
+        const year = contractLink.eventDate.getFullYear();
+        const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+        
+        // Mark the date as available again in the musician's availability calendar
+        await this.updateAvailabilityForDate(
+          contractLink.musicianId,
+          dateStr,
+          true, // When contract is rejected, musician is available for other bookings
+          monthStr,
+          year
+        );
+        
+        console.log(`Updated availability calendar for musician ${contractLink.musicianId} on ${dateStr} to available (contract rejected)`);
       }
     }
     
