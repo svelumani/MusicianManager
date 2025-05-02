@@ -1,14 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { 
   Search, 
   CalendarDays, 
   Loader2,
-  Filter 
+  Filter,
+  MailPlus,
+  XCircle,
+  MoreHorizontal
 } from "lucide-react";
 import FileContract from "@/components/icons/FileContract";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -56,9 +61,52 @@ export default function ContractsPage() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const { data: contracts, isLoading } = useQuery<ContractLink[]>({
+  const { data: contracts, isLoading, refetch } = useQuery<ContractLink[]>({
     queryKey: ["/api/contracts"],
+  });
+  
+  // Mutation for resending a contract
+  const resendContractMutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      return apiRequest(`/api/contracts/${contractId}/resend`, "POST");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Contract resent",
+        description: "The contract has been resent to the musician.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error resending contract",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Mutation for canceling a contract
+  const cancelContractMutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      return apiRequest(`/api/contracts/${contractId}/cancel`, "POST");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Contract canceled",
+        description: "The contract has been canceled successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error canceling contract",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   });
 
   const { data: musicians } = useQuery<Musician[]>({
