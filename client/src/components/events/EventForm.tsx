@@ -122,7 +122,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     mutationFn: async (values: EventApiValues) => {
       // If initialData exists, we're updating an existing event
       if (initialData?.id) {
-        const res = await apiRequest(`/api/events/${initialData.id}`, "PATCH", values);
+        const res = await apiRequest(`/api/events/${initialData.id}`, "PUT", values);
         return res;
       } else {
         // Otherwise, we're creating a new event
