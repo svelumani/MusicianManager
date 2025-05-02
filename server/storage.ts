@@ -310,6 +310,16 @@ export interface IStorage {
   getAvailabilityShareLink(id: number): Promise<AvailabilityShareLink | undefined>;
   getAvailabilityShareLinkByToken(token: string): Promise<AvailabilityShareLink | undefined>;
   deleteAvailabilityShareLink(id: number): Promise<boolean>;
+  
+  // Contract Link management
+  createContractLink(contract: InsertContractLink): Promise<ContractLink>;
+  getContractLinks(): Promise<ContractLink[]>;
+  getContractLink(id: number): Promise<ContractLink | undefined>;
+  getContractLinkByToken(token: string): Promise<ContractLink | undefined>;
+  getContractLinksByEvent(eventId: number): Promise<ContractLink[]>;
+  getContractLinksByMusician(musicianId: number): Promise<ContractLink[]>;
+  updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined>;
+  updateContractLinkStatus(token: string, status: string, response?: string): Promise<ContractLink | undefined>;
 }
 
 export class MemStorage implements IStorage {

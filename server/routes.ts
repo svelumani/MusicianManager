@@ -2811,6 +2811,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Contract Link routes
+  apiRouter.get("/contracts", isAuthenticated, async (req, res) => {
+    try {
+      const contracts = await storage.getContractLinks();
+      res.json(contracts);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contracts" });
+    }
+  });
+
+  apiRouter.get("/contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contract = await storage.getContractLink(parseInt(req.params.id));
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contract" });
+    }
+  });
+
+  apiRouter.get("/contracts/event/:eventId", isAuthenticated, async (req, res) => {
+    try {
+      const contracts = await storage.getContractLinksByEvent(parseInt(req.params.eventId));
+      res.json(contracts);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contracts for event" });
+    }
+  });
+
+  apiRouter.get("/contracts/musician/:musicianId", isAuthenticated, async (req, res) => {
+    try {
+      const contracts = await storage.getContractLinksByMusician(parseInt(req.params.musicianId));
+      res.json(contracts);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contracts for musician" });
+    }
+  });
+
+  apiRouter.get("/contracts/token/:token", async (req, res) => {
+    try {
+      const contract = await storage.getContractLinkByToken(req.params.token);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found or expired" });
+      }
+
+      // Check if contract has already been responded to
+      if (contract.respondedAt) {
+        return res.status(400).json({ 
+          message: "This contract has already been responded to", 
+          status: contract.status,
+          respondedAt: contract.respondedAt 
+        });
+      }
+
+      // Check if contract is expired
+      if (new Date() > new Date(contract.expiresAt)) {
+        return res.status(400).json({ message: "This contract link has expired" });
+      }
+      
+      // Get event and musician details for the contract view
+      const event = await storage.getEvent(contract.eventId);
+      const musician = await storage.getMusician(contract.musicianId);
+      
+      res.json({
+        contract,
+        event,
+        musician
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching contract" });
+    }
+  });
+
+  apiRouter.post("/contracts", isAuthenticated, async (req, res) => {
+    try {
+      // Generate a unique token for the contract link
+      const token = crypto.randomBytes(32).toString('hex');
+      
+      // Set default expiry date to 7 days from now if not provided
+      const expiresAt = req.body.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      
+      const contractData = insertContractLinkSchema.parse({
+        ...req.body,
+        token,
+        expiresAt,
+        status: 'pending'
+      });
+      
+      const contract = await storage.createContractLink(contractData);
+      res.status(201).json(contract);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating contract" });
+    }
+  });
+
+  apiRouter.put("/contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contractData = insertContractLinkSchema.partial().parse(req.body);
+      const contract = await storage.updateContractLink(parseInt(req.params.id), contractData);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      res.json(contract);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating contract" });
+    }
+  });
+
+  apiRouter.post("/contracts/token/:token/respond", async (req, res) => {
+    try {
+      const { status, response } = req.body;
+      
+      if (!status || !['accepted', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value. Must be 'accepted' or 'rejected'" });
+      }
+      
+      const contract = await storage.updateContractLinkStatus(req.params.token, status, response);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found or expired" });
+      }
+      
+      // If the contract was accepted, create a booking record
+      if (status === 'accepted') {
+        // Update the invitation status to accepted
+        if (contract.invitationId) {
+          const invitation = await storage.getInvitation(contract.invitationId);
+          if (invitation) {
+            await storage.updateInvitation(invitation.id, {
+              status: 'confirmed',
+              respondedAt: new Date()
+            });
+          }
+        }
+        
+        // Create a booking or update existing booking with contract signed status
+        if (contract.bookingId) {
+          await storage.updateBooking(contract.bookingId, {
+            contractSigned: true,
+            contractSignedAt: new Date(),
+            status: 'confirmed'
+          });
+        } else {
+          // Create new booking if one doesn't exist yet
+          const booking = await storage.createBooking({
+            eventId: contract.eventId,
+            musicianId: contract.musicianId,
+            invitationId: contract.invitationId || 0,
+            contractSent: true,
+            contractSentAt: contract.createdAt,
+            contractSigned: true,
+            contractSignedAt: new Date(),
+            status: 'confirmed',
+            amount: contract.amount,
+            advancePayment: null,
+            balancePayment: null,
+            paymentStatus: 'pending',
+            notes: null,
+            contractDetails: {
+              contractId: contract.id,
+              eventDate: contract.eventDate,
+              agreedAmount: contract.amount
+            }
+          });
+          
+          // Update the contract with the booking ID
+          await storage.updateContractLink(contract.id, {
+            bookingId: booking.id
+          });
+        }
+      } else if (status === 'rejected') {
+        // Update the invitation status to rejected if it exists
+        if (contract.invitationId) {
+          const invitation = await storage.getInvitation(contract.invitationId);
+          if (invitation) {
+            await storage.updateInvitation(invitation.id, {
+              status: 'rejected',
+              respondedAt: new Date(),
+              responseMessage: response || 'Contract declined'
+            });
+          }
+        }
+        
+        // Update booking status if it exists
+        if (contract.bookingId) {
+          await storage.updateBooking(contract.bookingId, {
+            status: 'cancelled',
+            notes: response || 'Contract declined'
+          });
+        }
+      }
+      
+      res.json({ success: true, contract });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error responding to contract" });
+    }
+  });
+
   // Mount the API router
   app.use("/api", apiRouter);
 
