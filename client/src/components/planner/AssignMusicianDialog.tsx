@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { X, Plus, Check } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface AssignMusicianDialogProps {
   plannerId: number;
@@ -60,8 +61,14 @@ const AssignMusicianDialog = ({
   categories,
 }: AssignMusicianDialogProps) => {
   const { toast } = useToast();
-  const [selectedCategory, setSelectedCategory] = useState<string>(
-    slot?.categoryId?.toString() || (categories[0]?.id.toString() || "1")
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    slot?.categoryIds 
+      ? Array.isArray(slot.categoryIds) 
+        ? slot.categoryIds.map(id => id.toString()) 
+        : [slot.categoryIds.toString()]
+      : slot?.categoryId 
+        ? [slot.categoryId.toString()] 
+        : []
   );
   const [selectedStatus, setSelectedStatus] = useState<string>(
     slot?.status || "draft"
@@ -192,7 +199,15 @@ const AssignMusicianDialog = ({
   const setUpNewSlot = (newSlot: any) => {
     if (newSlot) {
       // Update the component with the new slot information
-      setSelectedCategory(newSlot.categoryId.toString());
+      if (newSlot.categoryIds) {
+        setSelectedCategories(
+          Array.isArray(newSlot.categoryIds)
+            ? newSlot.categoryIds.map(id => id.toString())
+            : [newSlot.categoryIds.toString()]
+        );
+      } else if (newSlot.categoryId) {
+        setSelectedCategories([newSlot.categoryId.toString()]);
+      }
       setSelectedStatus(newSlot.status);
       setStartTime(newSlot.startTime);
       setEndTime(newSlot.endTime);
@@ -325,22 +340,16 @@ const AssignMusicianDialog = ({
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium">Category</label>
-              <Select
-                value={selectedCategory}
-                onValueChange={setSelectedCategory}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id.toString()}>
-                      {category.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium">Musician Types</label>
+              <MultiSelect
+                options={categories.map((category) => ({
+                  value: category.id.toString(),
+                  label: category.title
+                }))}
+                selected={selectedCategories}
+                onChange={setSelectedCategories}
+                placeholder="Select musician types"
+              />
             </div>
             
             <div className="space-y-2">

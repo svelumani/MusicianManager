@@ -690,6 +690,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  apiRouter.get("/musicians/available-by-categories", isAuthenticated, async (req, res) => {
+    try {
+      const { date, categoryIds } = req.query;
+      
+      if (!date) {
+        return res.status(400).json({ message: "Date parameter is required" });
+      }
+      
+      const dateObj = new Date(date as string);
+      
+      // Parse category IDs
+      const parsedCategoryIds = Array.isArray(categoryIds)
+        ? (categoryIds as string[]).map(id => parseInt(id))
+        : categoryIds
+        ? [parseInt(categoryIds as string)]
+        : [];
+      
+      console.log(`Finding musicians available on ${dateObj.toISOString()} for categories:`, parsedCategoryIds);
+      
+      const musicians = await storage.getAvailableMusiciansForDateAndCategories(dateObj, parsedCategoryIds);
+      res.json(musicians);
+    } catch (error) {
+      console.error("Error fetching available musicians by categories:", error);
+      res.status(500).json({ message: "Error fetching available musicians" });
+    }
+  });
+  
   apiRouter.get("/musicians/:id", isAuthenticated, async (req, res) => {
     try {
       const musician = await storage.getMusician(parseInt(req.params.id));
