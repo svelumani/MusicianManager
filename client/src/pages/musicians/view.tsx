@@ -97,14 +97,7 @@ export default function ViewMusicianPage() {
           <h1 className="text-3xl font-bold">{musician.name}</h1>
           <p className="text-muted-foreground">{getMusicianTypeName(musician.typeId)}</p>
         </div>
-        <div className="flex items-center gap-1">
-          <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
-          <span className="text-2xl font-bold">
-            {musician.rating !== null && musician.rating !== undefined
-              ? musician.rating.toFixed(1)
-              : "N/A"}
-          </span>
-        </div>
+        {/* Rating display removed */}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
