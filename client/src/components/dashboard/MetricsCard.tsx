@@ -49,10 +49,8 @@ export default function MetricsCard({
       </CardContent>
       <div className="bg-gray-50 px-5 py-3">
         <div className="text-sm">
-          <Link href={link}>
-            <a className="font-medium text-primary-600 hover:text-primary-500">
-              View all
-            </a>
+          <Link href={link} className="font-medium text-primary-600 hover:text-primary-500">
+            View all
           </Link>
         </div>
       </div>
