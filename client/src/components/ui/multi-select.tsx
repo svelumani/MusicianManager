@@ -1,137 +1,128 @@
-import * as React from "react";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { useState, useRef, useEffect } from "react";
+import { X, Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-
-export type Option = {
-  value: string;
-  label: string;
-};
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface MultiSelectProps {
-  options: Option[];
+  options: { value: string; label: string }[];
   selected: string[];
-  onChange: (value: string[]) => void;
+  onChange: (values: string[]) => void;
   placeholder?: string;
   className?: string;
-  badgeClassName?: string;
 }
 
 export function MultiSelect({
   options,
   selected,
   onChange,
-  placeholder = "Select items...",
+  placeholder = "Select options",
   className,
-  badgeClassName,
 }: MultiSelectProps) {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleUnselect = (value: string) => {
+  useEffect(() => {
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const handleSelect = (value: string) => {
+    if (selected.includes(value)) {
+      // Remove value
+      onChange(selected.filter((item) => item !== value));
+    } else {
+      // Add value
+      onChange([...selected, value]);
+    }
+  };
+
+  const handleRemove = (value: string) => {
     onChange(selected.filter((item) => item !== value));
   };
 
-  const handleSelect = (value: string) => {
-    onChange([...selected, value]);
-  };
-
-  const selectedLabels = options
-    .filter((option) => selected.includes(option.value))
-    .map((option) => option.label);
+  const selectedLabels = selected.map(
+    (value) => options.find((option) => option.value === value)?.label || value
+  );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn("min-h-10 h-auto w-full justify-between", className)}
-        >
-          <div className="flex flex-wrap gap-1">
-            {selectedLabels.length > 0 ? (
-              selectedLabels.map((label) => (
-                <Badge
-                  key={label}
-                  variant="secondary"
-                  className={cn("mr-1 mb-1", badgeClassName)}
-                >
-                  {label}
-                  <button
-                    className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+    <div ref={containerRef} className={cn("relative", className)}>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between"
+          >
+            {selected.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {selectedLabels.map((label, i) => (
+                  <Badge 
+                    key={`selected-${i}`} 
+                    variant="secondary"
+                    className="mr-1"
+                  >
+                    {label}
+                    <button
+                      className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      onMouseDown={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        const option = options.find((option) => option.label === label);
-                        if (option) handleUnselect(option.value);
-                      }
-                    }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const option = options.find((option) => option.label === label);
-                      if (option) handleUnselect(option.value);
-                    }}
-                  >
-                    <X className="h-3 w-3 text-muted-foreground" />
-                  </button>
-                </Badge>
-              ))
+                        handleRemove(selected[i]);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
             )}
-          </div>
-          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command>
-          <CommandInput placeholder="Search..." />
-          <CommandEmpty>No item found.</CommandEmpty>
-          <CommandGroup className="max-h-64 overflow-y-auto">
-            {options.map((option) => (
-              <CommandItem
-                key={option.value}
-                value={option.value}
-                onSelect={() => {
-                  if (selected.includes(option.value)) {
-                    handleUnselect(option.value);
-                  } else {
-                    handleSelect(option.value);
-                  }
-                  setOpen(true); // Keep the popover open
-                }}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    selected.includes(option.value) ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                {option.label}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0">
+          <Command>
+            <CommandInput placeholder="Search options..." />
+            <CommandEmpty>No options found.</CommandEmpty>
+            <CommandGroup className="max-h-64 overflow-auto">
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  onSelect={() => handleSelect(option.value)}
+                  className="flex items-center gap-2"
+                >
+                  <div
+                    className={cn(
+                      "flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                      selected.includes(option.value)
+                        ? "bg-primary text-primary-foreground"
+                        : "opacity-50 [&_svg]:invisible"
+                    )}
+                  >
+                    <Check className="h-3 w-3" />
+                  </div>
+                  <span>{option.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

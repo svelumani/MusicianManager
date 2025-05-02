@@ -221,7 +221,7 @@ const AssignMusicianDialog = ({
     const slotData: any = {
       plannerId,
       venueId,
-      categoryId: parseInt(selectedCategory),
+      categoryIds: selectedCategories.map(id => parseInt(id)),
       startTime,
       endTime,
       status: selectedStatus,
@@ -244,7 +244,7 @@ const AssignMusicianDialog = ({
         plannerId,
         date: new Date(date), // Use proper Date object
         venueId,
-        categoryId: parseInt(selectedCategory),
+        categoryIds: selectedCategories.map(id => parseInt(id)),
         startTime,
         endTime,
         status: selectedStatus,
@@ -294,9 +294,25 @@ const AssignMusicianDialog = ({
     }
   };
 
-  // Filter musicians by category
+  // Filter musicians by selected categories
+  const [activeCategory, setActiveCategory] = useState<string | null>(
+    selectedCategories.length > 0 ? selectedCategories[0] : null
+  );
+
+  // Update active category when selected categories change
+  useEffect(() => {
+    if (selectedCategories.length > 0 && !activeCategory) {
+      setActiveCategory(selectedCategories[0]);
+    } else if (selectedCategories.length === 0) {
+      setActiveCategory(null);
+    } else if (activeCategory && !selectedCategories.includes(activeCategory)) {
+      setActiveCategory(selectedCategories[0]);
+    }
+  }, [selectedCategories, activeCategory]);
+
+  // Filter musicians by active category
   const filteredMusicians = musicians.filter(
-    (musician) => musician.categoryId === parseInt(selectedCategory)
+    (musician) => activeCategory ? musician.categoryId === parseInt(activeCategory) : false
   );
 
   return (
@@ -440,6 +456,34 @@ const AssignMusicianDialog = ({
           </TabsList>
           
           <TabsContent value="all" className="border rounded-md p-4">
+            <div className="mb-4">
+              <label className="text-sm font-medium mb-2 block">Filter by Musician Type</label>
+              <Select
+                value={activeCategory || ""}
+                onValueChange={value => setActiveCategory(value || null)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedCategories.length > 0 ? (
+                    selectedCategories.map(catId => {
+                      const category = categories.find(c => c.id.toString() === catId);
+                      return (
+                        <SelectItem key={catId} value={catId}>
+                          {category?.title || "Unknown"}
+                        </SelectItem>
+                      );
+                    })
+                  ) : (
+                    <SelectItem value="" disabled>
+                      No categories selected
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               {filteredMusicians.length > 0 ? (
                 filteredMusicians.map((musician) => (
@@ -477,7 +521,9 @@ const AssignMusicianDialog = ({
                 ))
               ) : (
                 <div className="text-center p-6 text-gray-500">
-                  No musicians found in this category
+                  {selectedCategories.length > 0 
+                    ? "No musicians found in this category" 
+                    : "Please select at least one musician type above"}
                 </div>
               )}
             </div>
