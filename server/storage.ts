@@ -172,6 +172,16 @@ export interface IStorage {
   getActivity(id: number): Promise<Activity | undefined>;
   createActivity(activity: InsertActivity): Promise<Activity>;
   
+  // Contract management
+  getContractLinks(): Promise<ContractLink[]>;
+  getContractLink(id: number): Promise<ContractLink | undefined>;
+  getContractLinkByToken(token: string): Promise<ContractLink | undefined>;
+  getContractLinksByEvent(eventId: number): Promise<ContractLink[]>;
+  getContractLinksByMusician(musicianId: number): Promise<ContractLink[]>;
+  createContractLink(contract: InsertContractLink): Promise<ContractLink>;
+  updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined>;
+  updateContractLinkStatus(token: string, status: string, response?: string): Promise<ContractLink | undefined>;
+  
   // Dashboard metrics
   getDashboardMetrics(): Promise<{
     totalBookings: number;
@@ -335,6 +345,7 @@ export class MemStorage implements IStorage {
   private improvementPlans: Map<number, ImprovementPlan>;
   private improvementActions: Map<number, ImprovementAction>;
   private availabilityShareLinks: Map<number, AvailabilityShareLink>;
+  private contractLinks: Map<number, ContractLink>;
   
   // Current ID trackers
   private currentUserId: number;
@@ -367,6 +378,7 @@ export class MemStorage implements IStorage {
   private currentImprovementPlanId: number;
   private currentImprovementActionId: number;
   private currentAvailabilityShareLinkId: number;
+  private currentContractLinkId: number;
 
   constructor() {
     // Initialize maps
@@ -400,6 +412,7 @@ export class MemStorage implements IStorage {
     this.improvementPlans = new Map();
     this.improvementActions = new Map();
     this.availabilityShareLinks = new Map();
+    this.contractLinks = new Map();
     
     // Storage for musician assignments to events by date
     this.eventMusicianAssignments = new Map();
@@ -438,6 +451,7 @@ export class MemStorage implements IStorage {
     this.currentImprovementPlanId = 1;
     this.currentImprovementActionId = 1;
     this.currentAvailabilityShareLinkId = 1;
+    this.currentContractLinkId = 1;
     
     // Initialize with default admin user
     this.createUser({
