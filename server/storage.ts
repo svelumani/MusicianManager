@@ -1248,7 +1248,19 @@ Musician: ________________________ Date: ______________`,
   }
   
   async getEvent(id: number): Promise<Event | undefined> {
-    return this.events.get(id);
+    const event = this.events.get(id);
+    if (!event) return undefined;
+    
+    // Create a new object with both the event data and assignments
+    const eventWithAssignments = { ...event };
+    
+    // Add assignments to the returned object
+    (eventWithAssignments as any).musicianAssignments = await this.getEventMusicianAssignments(id);
+    
+    // Add musician statuses to returned object
+    (eventWithAssignments as any).musicianStatuses = await this.getEventMusicianStatuses(id);
+    
+    return eventWithAssignments;
   }
   
   async createEvent(event: InsertEvent): Promise<Event> {
@@ -1403,9 +1415,26 @@ Musician: ________________________ Date: ______________`,
     const event = await this.getEvent(id);
     if (!event) return undefined;
     
+    // Store musician assignments separately if they exist in the update data
+    const musicianAssignments = (data as any).musicianAssignments;
+    if (musicianAssignments) {
+      this.eventMusicianAssignments.set(id, musicianAssignments);
+      
+      // Don't include assignments in the event object as it's not part of the schema
+      delete (data as any).musicianAssignments;
+    }
+    
     const updatedEvent = { ...event, ...data };
     this.events.set(id, updatedEvent);
-    return updatedEvent;
+    
+    // Add assignments back to the returned object
+    const returnedEvent = { ...updatedEvent };
+    (returnedEvent as any).musicianAssignments = await this.getEventMusicianAssignments(id);
+    
+    // Add musician statuses to returned object
+    (returnedEvent as any).musicianStatuses = await this.getEventMusicianStatuses(id);
+    
+    return returnedEvent;
   }
   
   async deleteEvent(id: number): Promise<boolean> {
