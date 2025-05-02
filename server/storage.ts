@@ -40,8 +40,10 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<InsertUser>): Promise<User | undefined>;
   
-  // Event musician assignments
+  // Event musician assignments and invitations
   getEventMusicianAssignments(eventId: number): Promise<Record<string, number[]>>;
+  getEventMusicianStatuses(eventId: number): Promise<Record<string, Record<number, string>>>;
+  updateMusicianEventStatus(eventId: number, musicianId: number, status: string): Promise<boolean>;
   
   // Settings management
   getSettings(type: string): Promise<Settings | undefined>;
