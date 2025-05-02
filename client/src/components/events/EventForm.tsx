@@ -107,10 +107,37 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   // Watch the musician type selection to find available musicians
   const selectedMusicianTypes = form.watch("musicianTypeIds");
   
-  // Query for available musicians based on selected musician types
+  // Create a watch for event dates to filter available musicians
+  const eventDates = form.watch("eventDates");
+  
+  // Query for available musicians based on selected musician types and dates
   const { data: availableMusicians, isLoading: isLoadingMusicians } = useQuery<Musician[]>({
-    queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes }],
-    enabled: selectedMusicianTypes.length > 0,
+    queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes, dates: selectedDates.map(d => d.toISOString()) }],
+    enabled: selectedMusicianTypes.length > 0 && selectedDates.length > 0,
+    queryFn: async ({ queryKey }) => {
+      // Extract dates from the query key for availability checking
+      const params = queryKey[1] as { dates?: string[] };
+      
+      // If we have dates, include them in the query string to filter by availability
+      if (params.dates && params.dates.length > 0) {
+        const dateParams = params.dates.map(date => `dates=${encodeURIComponent(date)}`).join('&');
+        const response = await fetch(`/api/musicians?${dateParams}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch available musicians');
+        }
+        
+        return response.json();
+      }
+      
+      // If no dates, fetch all musicians
+      const response = await fetch('/api/musicians');
+      if (!response.ok) {
+        throw new Error('Failed to fetch musicians');
+      }
+      
+      return response.json();
+    }
   });
 
   // Define the API value type to avoid type issues

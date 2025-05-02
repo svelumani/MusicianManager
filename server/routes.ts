@@ -35,7 +35,8 @@ import {
   insertMusicianTypeSchema,
   insertAvailabilityShareLinkSchema,
   insertContractLinkSchema,
-  insertInvitationSchema
+  insertInvitationSchema,
+  type Musician
 } from "@shared/schema";
 
 const SessionStore = MemoryStore(session);
