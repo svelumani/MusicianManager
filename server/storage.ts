@@ -4,7 +4,7 @@ import {
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
   settings, emailTemplates, musicianTypes, musicianTypeCategories,
   performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
-  improvementPlans, improvementActions, availabilityShareLinks,
+  improvementPlans, improvementActions, availabilityShareLinks, contractLinks,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type MusicianCategory, type InsertMusicianCategory,
@@ -29,7 +29,8 @@ import {
   type MusicianSkillTag, type InsertMusicianSkillTag,
   type ImprovementPlan, type InsertImprovementPlan,
   type ImprovementAction, type InsertImprovementAction,
-  type AvailabilityShareLink, type InsertAvailabilityShareLink
+  type AvailabilityShareLink, type InsertAvailabilityShareLink,
+  type ContractLink, type InsertContractLink
 } from "@shared/schema";
 
 // Define the storage interface

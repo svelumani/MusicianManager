@@ -587,6 +587,36 @@ export const insertShareLinkSchema = createInsertSchema(shareLinks).pick({
 export type ShareLink = typeof shareLinks.$inferSelect;
 export type InsertShareLink = z.infer<typeof insertShareLinkSchema>;
 
+// Contract Links model for sending private contract links to musicians
+export const contractLinks = pgTable("contract_links", {
+  id: serial("id").primaryKey(),
+  bookingId: integer("booking_id").notNull(), // Foreign key to bookings
+  eventId: integer("event_id").notNull(), // Foreign key to events
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  token: text("token").notNull().unique(), // Unique token for access
+  expiresAt: timestamp("expires_at").notNull(),
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected
+  respondedAt: timestamp("responded_at"),
+  response: text("response"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  amount: doublePrecision("amount"), // Amount to be paid to musician
+  eventDate: timestamp("event_date"), // Specific date for the event if multi-day
+});
+
+export const insertContractLinkSchema = createInsertSchema(contractLinks).pick({
+  bookingId: true,
+  eventId: true,
+  musicianId: true,
+  token: true,
+  expiresAt: true,
+  status: true,
+  amount: true,
+  eventDate: true,
+});
+
+export type ContractLink = typeof contractLinks.$inferSelect;
+export type InsertContractLink = z.infer<typeof insertContractLinkSchema>;
+
 // Performance Rating and Improvement Plans
 export const performanceRatings = pgTable("performance_ratings", {
   id: serial("id").primaryKey(),
