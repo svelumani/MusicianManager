@@ -266,6 +266,7 @@ export const bookings = pgTable("bookings", {
   finalPaidAt: timestamp("final_paid_at"),
   contractDetails: jsonb("contract_details"),
   notes: text("notes"),
+  date: timestamp("date"), // Added date field to track which specific date this booking is for
 });
 
 export const insertBookingSchema = createInsertSchema(bookings).pick({

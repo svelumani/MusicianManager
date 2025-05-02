@@ -1862,7 +1862,12 @@ Musician: ________________________ Date: ______________`,
   
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const id = this.currentBookingId++;
-    const newBooking: Booking = { ...booking, id };
+    // Make sure we have a date for the booking
+    const bookingWithDate = {
+      ...booking,
+      date: booking.date || new Date()
+    };
+    const newBooking: Booking = { ...bookingWithDate, id };
     this.bookings.set(id, newBooking);
     
     // Create activity
@@ -3879,9 +3884,26 @@ Musician: ________________________ Date: ______________`,
         if (booking) {
           await this.updateBooking(contractLink.bookingId, {
             contractSigned: true,
-            contractSignedAt: new Date()
+            contractSignedAt: new Date(),
+            date: contractLink.eventDate || new Date() // Add the event date to the booking
           });
         }
+      } else {
+        // If no booking yet, create one
+        const newBooking = await this.createBooking({
+          eventId: contractLink.eventId,
+          musicianId: contractLink.musicianId,
+          invitationId: contractLink.invitationId || 1, // Default invitation ID if none exists
+          contractSigned: true,
+          contractSignedAt: new Date(),
+          paymentAmount: contractLink.amount || 100, // Default payment amount
+          date: contractLink.eventDate || new Date() // Add the event date to the booking
+        });
+        
+        // Update the contract link with the booking ID
+        await this.updateContractLink(contractLink.id, {
+          bookingId: newBooking.id
+        });
       }
       
       // Update the musician status to "contract-signed" in the event statuses
