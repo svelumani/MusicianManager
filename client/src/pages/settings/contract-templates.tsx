@@ -115,7 +115,7 @@ export default function ContractTemplatesPage() {
   // Delete template mutation
   const deleteTemplateMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/contract-templates/${id}`);
+      await apiRequest(`/api/contract-templates/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contract-templates"] });
