@@ -1362,6 +1362,10 @@ Musician: ________________________ Date: ______________`,
         // Set default expiry date to 7 days from now
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         
+        // Get the musician to determine payment amount
+        const musician = await this.getMusician(musicianId);
+        const amount = musician?.payRate || 100; // Default to 100 if no pay rate set
+        
         // Create a contract link
         await this.createContractLink({
           bookingId,
@@ -1370,7 +1374,8 @@ Musician: ________________________ Date: ______________`,
           token,
           expiresAt,
           status: 'pending',
-          eventDate: new Date(assignedDate)
+          eventDate: new Date(assignedDate),
+          amount // Add amount to the contract
         });
         
         // Update musician status to contract-sent
