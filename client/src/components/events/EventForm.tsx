@@ -110,8 +110,27 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   // Create a watch for event dates to filter available musicians
   const eventDates = form.watch("eventDates");
   
-  // Query for available musicians based on selected musician types and dates
-  const { data: availableMusicians, isLoading: isLoadingMusicians } = useQuery<Musician[]>({
+  // Query for all musicians
+  const { data: allMusicians = [], isLoading: isLoadingAllMusicians } = useQuery<Musician[]>({
+    queryKey: ["/api/musicians"],
+    enabled: selectedMusicianTypes.length > 0,
+  });
+  
+  // Get a map of musician availability for each specific date
+  const dateAvailabilityMap = useMemo(() => {
+    const map: Record<string, Record<number, boolean>> = {};
+    
+    // Initialize map for each selected date
+    selectedDates.forEach(date => {
+      const dateKey = date.toISOString();
+      map[dateKey] = {};
+    });
+    
+    return map;
+  }, [selectedDates]);
+  
+  // Query for available musicians based on all selected musician types and dates (intersection)
+  const { data: availableMusicians = [], isLoading: isLoadingMusicians } = useQuery<Musician[]>({
     queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes, dates: selectedDates.map(d => d.toISOString()) }],
     enabled: selectedMusicianTypes.length > 0 && selectedDates.length > 0,
     queryFn: async ({ queryKey }) => {
@@ -138,6 +157,29 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       
       return response.json();
     }
+  });
+  
+  // For each selected date, fetch the musicians available just for that date
+  const dateAvailabilityQueries = selectedDates.map(date => {
+    const dateStr = date.toISOString();
+    return useQuery<Musician[]>({
+      queryKey: ["/api/musicians", { date: dateStr }],
+      enabled: selectedDates.length > 0 && selectedMusicianTypes.length > 0,
+      onSuccess: (data) => {
+        // When we get the data, update our availability map
+        const availableMusicianIds = new Set(data.map(m => m.id));
+        
+        // For each musician, mark as available or not for this date
+        if (allMusicians) {
+          allMusicians.forEach(musician => {
+            dateAvailabilityMap[dateStr] = {
+              ...dateAvailabilityMap[dateStr],
+              [musician.id]: availableMusicianIds.has(musician.id)
+            };
+          });
+        }
+      }
+    });
   });
 
   // Define the API value type to avoid type issues
@@ -238,9 +280,13 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     
     return (
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800">
+        <p className="text-sm mb-2">
+          <strong>Note:</strong> Musician availability is checked for each specific date. Dates where a musician is unavailable 
+          are marked with <span className="line-through text-red-800">strikethrough</span> and an ❌ symbol.
+        </p>
         <p className="text-sm">
-          <strong>Note:</strong> Only musicians available on <strong>all</strong> selected dates are shown below. 
-          Selecting musicians who are already booked on these dates is not possible.
+          <strong>Date-specific availability:</strong> Attempting to select a musician for a date they've marked as unavailable 
+          will show an error message. Only available musicians can be assigned to events.
         </p>
       </div>
     );
@@ -264,9 +310,58 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   }, [initialData, form]);
   
+  // Function to check if a musician is available on a specific date
+  const isMusicianAvailableForDate = (musicianId: number, date: Date): boolean => {
+    try {
+      // Convert to date string for comparison
+      const dateStr = date.toISOString().split('T')[0];
+      
+      // Check if this musician is in the list of available musicians
+      // If they're not in the availableMusicians list, it means they're not available for at least one date
+      const musician = allMusicians.find(m => m.id === musicianId);
+      if (!musician) return false;
+      
+      // If the musician is in the availableMusicians list, they are available for all dates
+      const isInAvailableList = availableMusicians.some(m => m.id === musicianId);
+      
+      // For the specific date being checked:
+      // 1. Find all musicians that are available specifically for this date
+      const dateAvailabilityQuery = dateAvailabilityQueries.find(query => {
+        const queryDate = query.queryKey[1] as { date?: string };
+        if (!queryDate.date) return false;
+        return new Date(queryDate.date).toISOString().split('T')[0] === dateStr;
+      });
+      
+      // If we have date-specific data, use it
+      if (dateAvailabilityQuery && dateAvailabilityQuery.data) {
+        return dateAvailabilityQuery.data.some(m => m.id === musicianId);
+      }
+      
+      // If the musician is in the available list for all dates, they're available for this specific date too
+      return isInAvailableList;
+    } catch (error) {
+      console.error("Error checking musician availability:", error);
+      // Default to not available in case of error to prevent incorrect bookings
+      return false;
+    }
+  };
+
   // Handle musician selection/deselection for a specific date
   const toggleMusicianSelection = (musicianId: number, date: Date = activeDate!) => {
     if (!date) return; // Make sure we have a date
+    
+    // Check if musician is available for this specific date
+    const isAvailable = isMusicianAvailableForDate(musicianId, date);
+    
+    // Don't allow assigning unavailable musicians
+    if (!isAvailable) {
+      toast({
+        title: "Musician unavailable",
+        description: "This musician is not available on this date. Please choose another musician or date.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     const dateKey = date.toISOString();
     setMusicianAssignments(prev => {
@@ -698,11 +793,25 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                       // Check if musician is assigned to this date
                                       const isAssignedToDate = musicianAssignments[date.toISOString()]?.includes(musician.id) || false;
                                       
+                                      // Check if musician is available for this specific date
+                                      const isAvailableForDate = isMusicianAvailableForDate(musician.id, date);
+                                      
+                                      // Determine badge styling based on availability and assignment
+                                      let badgeVariant: "default" | "destructive" | "outline" | "secondary" | null | undefined = "outline";
+                                      let badgeClass = "text-xs cursor-pointer ";
+                                      
+                                      if (isAssignedToDate) {
+                                        badgeVariant = "default";
+                                        badgeClass += 'bg-green-600 hover:bg-green-700';
+                                      } else if (!isAvailableForDate) {
+                                        badgeClass += 'bg-red-100 border-red-300 text-red-800 line-through opacity-60';
+                                      }
+                                      
                                       return (
                                         <Badge 
                                           key={idx}
-                                          variant={isAssignedToDate ? "default" : "outline"}
-                                          className={`text-xs cursor-pointer ${isAssignedToDate ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                                          variant={badgeVariant}
+                                          className={badgeClass}
                                           onClick={(e) => {
                                             e.preventDefault(); // Prevent form submission
                                             e.stopPropagation(); // Prevent event bubbling
@@ -710,6 +819,9 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                           }}
                                         >
                                           {format(date, "MMM d")}
+                                          {!isAvailableForDate && !isAssignedToDate && (
+                                            <span className="ml-1">❌</span>
+                                          )}
                                         </Badge>
                                       );
                                     })}
