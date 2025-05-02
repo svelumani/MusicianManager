@@ -3,9 +3,20 @@ import { Calendar } from "../ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, CheckCircle, XCircle, Info, Calendar as CalendarIcon } from "lucide-react";
 import { format, getMonth, getYear, setMonth, setYear, isSameDay } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 interface BookingData {
   id: number;
@@ -180,6 +191,44 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
       default:
         return 'bg-gray-300';
     }
+  };
+  
+  // Component to render events for a date
+  const DateCellContent = ({date}: {date: Date}) => {
+    const events = getEventsForDate(date);
+    
+    if (events.length === 0) {
+      return null;
+    }
+    
+    return (
+      <div className="absolute bottom-1 right-1 left-1 flex flex-col gap-0.5">
+        {events.map((event, index) => (
+          <TooltipProvider key={`${event.eventId}-${index}`}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div 
+                  className={`${getEventStatusClass(event.contractStatus)} rounded-sm h-1.5 cursor-pointer`} 
+                />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[250px]">
+                <div className="text-xs space-y-1">
+                  <p className="font-semibold">{event.venueName}</p>
+                  <div className="flex items-center gap-1">
+                    <CalendarIcon className="h-3 w-3" />
+                    <span>{format(new Date(event.date), "PPP")}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="font-medium">Status:</span>
+                    <span className="capitalize">{event.contractStatus.replace('-', ' ')}</span>
+                  </div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ))}
+      </div>
+    );
   };
   
   // Month selection options
@@ -415,12 +464,22 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                         a => new Date(a.date).toISOString().split('T')[0] === dateStr && !a.isAvailable
                       );
                     },
-                    booked: (date) => getBookingForDate(date) !== undefined
+                    booked: (date) => getBookingForDate(date) !== undefined,
+                    hasEvents: (date) => getEventsForDate(date).length > 0
                   }}
                   modifiersClassNames={{
                     available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
                     unavailable: "bg-red-50 hover:bg-red-100 text-red-700",
-                    booked: "bg-green-100 hover:bg-green-200 text-green-900"
+                    booked: "bg-green-100 hover:bg-green-200 text-green-900",
+                    hasEvents: "relative"
+                  }}
+                  components={{
+                    DayContent: (props) => (
+                      <>
+                        {props.date.getDate()}
+                        <DateCellContent date={props.date} />
+                      </>
+                    )
                   }}
                 />
               ) : (
@@ -438,40 +497,81 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                         a => new Date(a.date).toISOString().split('T')[0] === dateStr && !a.isAvailable
                       );
                     },
-                    booked: (date) => getBookingForDate(date) !== undefined
+                    booked: (date) => getBookingForDate(date) !== undefined,
+                    hasEvents: (date) => getEventsForDate(date).length > 0
                   }}
                   modifiersClassNames={{
                     available: "bg-blue-100 hover:bg-blue-200 text-blue-900",
                     unavailable: "bg-red-50 hover:bg-red-100 text-red-700",
-                    booked: "bg-green-100 hover:bg-green-200 text-green-900"
+                    booked: "bg-green-100 hover:bg-green-200 text-green-900",
+                    hasEvents: "relative"
+                  }}
+                  components={{
+                    DayContent: (props) => (
+                      <>
+                        {props.date.getDate()}
+                        <DateCellContent date={props.date} />
+                      </>
+                    )
                   }}
                 />
               )}
             </div>
             
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full bg-green-100 mr-2"></div>
-                <span className="text-sm">Booked</span>
-              </div>
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full bg-blue-100 mr-2"></div>
-                <span className="text-sm">Available</span>
-              </div>
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full bg-red-50 mr-2"></div>
-                <span className="text-sm">Unavailable</span>
-              </div>
-              <div className="flex items-center">
-                <div className="h-3 w-3 rounded-full bg-yellow-100 mr-2"></div>
-                <span className="text-sm">Today</span>
-              </div>
-              {multiSelectMode && (
-                <div className="flex items-center col-span-2">
-                  <div className="h-3 w-3 rounded-full bg-primary mr-2"></div>
-                  <span className="text-sm">Selected</span>
+            <div className="mt-6">
+              <h4 className="text-sm font-medium mb-2">Availability Status</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs mb-4">
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-green-100 mr-2"></div>
+                  <span className="text-sm">Booked</span>
                 </div>
-              )}
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-blue-100 mr-2"></div>
+                  <span className="text-sm">Available</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-red-50 mr-2"></div>
+                  <span className="text-sm">Unavailable</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-3 w-3 rounded-full bg-yellow-100 mr-2"></div>
+                  <span className="text-sm">Today</span>
+                </div>
+                {multiSelectMode && (
+                  <div className="flex items-center col-span-2">
+                    <div className="h-3 w-3 rounded-full bg-primary mr-2"></div>
+                    <span className="text-sm">Selected</span>
+                  </div>
+                )}
+              </div>
+              
+              <h4 className="text-sm font-medium mb-2">Contract Status</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                <div className="flex items-center">
+                  <div className="h-1.5 w-6 rounded-sm bg-green-500 mr-2"></div>
+                  <span className="text-sm">Contract Signed</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-1.5 w-6 rounded-sm bg-blue-500 mr-2"></div>
+                  <span className="text-sm">Contract Sent</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-1.5 w-6 rounded-sm bg-blue-300 mr-2"></div>
+                  <span className="text-sm">Accepted</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-1.5 w-6 rounded-sm bg-yellow-300 mr-2"></div>
+                  <span className="text-sm">Pending</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-1.5 w-6 rounded-sm bg-red-400 mr-2"></div>
+                  <span className="text-sm">Rejected/Cancelled</span>
+                </div>
+                <div className="flex items-center">
+                  <div className="h-1.5 w-6 rounded-sm bg-gray-300 mr-2"></div>
+                  <span className="text-sm">Other</span>
+                </div>
+              </div>
             </div>
             
             {multiSelectMode && (
