@@ -70,6 +70,7 @@ export default function ContractResponsePage() {
   const token = params.token;
   const { toast } = useToast();
   const [responseMessage, setResponseMessage] = useState("");
+  const [signature, setSignature] = useState("");
   const [responseSuccess, setResponseSuccess] = useState(false);
   const [responseError, setResponseError] = useState<string | null>(null);
 
@@ -83,11 +84,11 @@ export default function ContractResponsePage() {
   });
 
   const respondMutation = useMutation({
-    mutationFn: async ({ status, response }: { status: string; response: string }) => {
+    mutationFn: async ({ status, response, signature }: { status: string; response: string; signature?: string }) => {
       const res = await apiRequest(
         `/api/contracts/token/${token}/respond`,
         "POST", 
-        { status, response }
+        { status, response, signature }
       );
       return res;
     },
@@ -115,9 +116,19 @@ export default function ContractResponsePage() {
   }, [isError, error]);
 
   const handleAccept = () => {
+    if (!signature.trim()) {
+      toast({
+        title: "Signature required",
+        description: "Please add your signature to accept the contract.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     respondMutation.mutate({ 
       status: "accepted", 
-      response: responseMessage 
+      response: responseMessage,
+      signature: signature
     });
   };
 
@@ -234,6 +245,8 @@ export default function ContractResponsePage() {
   const { contract, event, musician } = contractData;
   const isExpired = new Date() > new Date(contract.expiresAt);
 
+  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
+  
   return (
     <div className="container py-12 max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -445,25 +458,42 @@ export default function ContractResponsePage() {
                   Accept Contract
                 </Button>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className="max-w-md">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Confirm Contract Acceptance</AlertDialogTitle>
                   <AlertDialogDescription>
                     By accepting this contract, you agree to all the terms and conditions outlined in the document. Your acceptance is legally binding.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="mb-4">
+                  <div className="mb-2">
+                    <Label htmlFor="signature" className="text-sm font-medium">
+                      Your Signature <span className="text-destructive">*</span>
+                    </Label>
+                  </div>
+                  <Input
+                    id="signature"
+                    placeholder="Type your full name as signature"
+                    value={signature}
+                    onChange={(e) => setSignature(e.target.value)}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    By typing your name above, you agree this constitutes your electronic signature.
+                  </p>
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction 
                     onClick={handleAccept}
-                    disabled={respondMutation.isPending}
+                    disabled={respondMutation.isPending || !signature.trim()}
                   >
                     {respondMutation.isPending ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Processing...
                       </>
-                    ) : "Yes, Accept"}
+                    ) : "Sign & Accept"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
