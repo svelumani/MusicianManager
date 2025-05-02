@@ -10,7 +10,7 @@ import {
   Briefcase, Clock, Calendar, Music, Mail, 
   CheckCircle, X, AlertCircle, File, MoreVertical, 
   DollarSign, FileCheck, ExternalLink, XCircle,
-  MailPlus, MoreHorizontal, FileContract
+  MailPlus, MoreHorizontal
 } from "lucide-react";
 import { format } from "date-fns";
 import type { Event as EventType, Venue, Musician, ContractLink } from "@shared/schema";
@@ -32,6 +32,196 @@ import { apiRequest } from "@/lib/queryClient";
 interface EventWithAssignments extends EventType {
   musicianAssignments?: Record<string, number[]>;
   musicianStatuses?: Record<string, Record<number, string>>;
+}
+
+// Contracts Table Component
+interface ContractsTableProps {
+  eventId: number;
+}
+
+function ContractsTable({ eventId }: ContractsTableProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Fetch contracts for this event
+  const {
+    data: contracts = [],
+    isLoading,
+    error
+  } = useQuery<ContractLink[]>({
+    queryKey: ["/api/contracts", { eventId }],
+    queryFn: async () => {
+      const res = await fetch(`/api/contracts?eventId=${eventId}`);
+      if (!res.ok) throw new Error("Failed to load contracts");
+      return res.json();
+    }
+  });
+  
+  // Fetch musicians data for the event
+  const { data: musicians = [] } = useQuery<Musician[]>({
+    queryKey: ["/api/musicians"],
+  });
+  
+  // Mutation to resend a contract
+  const resendContractMutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      const res = await apiRequest(
+        `/api/contracts/${contractId}/resend`,
+        'POST'
+      );
+      if (!res.ok) throw new Error("Failed to resend contract");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Contract Resent",
+        description: "The contract was successfully resent to the musician."
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Resend Contract",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Mutation to cancel a contract
+  const cancelContractMutation = useMutation({
+    mutationFn: async (contractId: number) => {
+      const res = await apiRequest(
+        `/api/contracts/${contractId}/cancel`,
+        'POST'
+      );
+      if (!res.ok) throw new Error("Failed to cancel contract");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Contract Cancelled",
+        description: "The contract was successfully cancelled."
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to Cancel Contract",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+  
+  if (isLoading) {
+    return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div>;
+  }
+  
+  if (error) {
+    return (
+      <div className="py-4 text-center">
+        <p className="text-destructive">Error loading contracts: {error instanceof Error ? error.message : "Unknown error"}</p>
+      </div>
+    );
+  }
+  
+  if (contracts.length === 0) {
+    return (
+      <div className="py-4 text-center">
+        <p className="text-muted-foreground">No contracts found for this event yet.</p>
+        <p className="text-sm mt-2">Contracts will appear here after musicians accept invitations.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Musician</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Event Date</TableHead>
+            <TableHead>Sent Date</TableHead>
+            <TableHead>Amount</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {contracts.map((contract) => {
+            const musician = musicians.find(m => m.id === contract.musicianId);
+            return (
+              <TableRow key={contract.id}>
+                <TableCell className="font-medium">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={musician?.profileImage || undefined} alt={musician?.name} />
+                      <AvatarFallback>{musician?.name.charAt(0) || '?'}</AvatarFallback>
+                    </Avatar>
+                    <span>{musician?.name || "Unknown Musician"}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{getStatusBadge(contract.status)}</TableCell>
+                <TableCell>
+                  {contract.eventDate ? format(new Date(contract.eventDate), "MMM d, yyyy") : "Not specified"}
+                </TableCell>
+                <TableCell>
+                  {contract.createdAt ? format(new Date(contract.createdAt), "MMM d, yyyy") : "Not sent"}
+                </TableCell>
+                <TableCell>${contract.amount?.toFixed(2) || "0.00"}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => window.open(`/contracts/${contract.id}`, '_blank')}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        <span>View Contract</span>
+                      </DropdownMenuItem>
+                      
+                      {contract.status !== "contract-signed" && contract.status !== "cancelled" && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => resendContractMutation.mutate(contract.id)}
+                            disabled={resendContractMutation.isPending}
+                          >
+                            <MailPlus className="mr-2 h-4 w-4" />
+                            <span>Resend Contract</span>
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => cancelContractMutation.mutate(contract.id)}
+                            disabled={cancelContractMutation.isPending}
+                          >
+                            <XCircle className="mr-2 h-4 w-4" />
+                            <span>Cancel Contract</span>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      
+                      <DropdownMenuItem
+                        onClick={() => window.open(`/contracts/respond/${contract.token}`, '_blank')}
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        <span>Response Link</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  );
 }
 
 export default function ViewEventPage() {
@@ -609,7 +799,7 @@ export default function ViewEventPage() {
             </CardHeader>
             <CardContent>
               {/* Fetch and display contracts for this specific event */}
-              <ContractsTable eventId={parseInt(id)} />
+              <ContractsTable eventId={eventId} />
             </CardContent>
           </Card>
         </TabsContent>
