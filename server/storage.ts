@@ -312,6 +312,7 @@ export class MemStorage implements IStorage {
   private availability: Map<number, Availability>;
   private events: Map<number, Event>;
   private eventMusicianAssignments: Map<number, Record<string, number[]>>;
+  private eventMusicianStatuses: Map<number, Record<string, Record<number, string>>>;
   private bookings: Map<number, Booking>;
   private payments: Map<number, Payment>;
   private collections: Map<number, Collection>;
@@ -401,6 +402,9 @@ export class MemStorage implements IStorage {
     
     // Storage for musician assignments to events by date
     this.eventMusicianAssignments = new Map();
+    
+    // Storage for musician statuses by event and date
+    this.eventMusicianStatuses = new Map();
     
     // Initialize IDs
     this.currentUserId = 1;
