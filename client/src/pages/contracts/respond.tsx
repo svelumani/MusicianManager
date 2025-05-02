@@ -192,7 +192,11 @@ export default function ContractResponsePage() {
   }
 
   if (responseSuccess) {
-    const isAccepted = contractData?.contract.status === "accepted" || respondMutation.data?.contract?.status === "accepted";
+    const isAccepted = 
+      contractData?.contract.status === "accepted" || 
+      contractData?.contract.status === "contract-signed" ||
+      respondMutation.data?.contract?.status === "accepted" || 
+      respondMutation.data?.contract?.status === "contract-signed";
     
     return (
       <div className="container py-12 max-w-3xl mx-auto">
