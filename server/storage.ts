@@ -1397,23 +1397,51 @@ Musician: ________________________ Date: ______________`,
       let bookingId: number;
       const existingBookings = await this.getBookings(eventId, musicianId);
       
-      if (existingBookings.length === 0) {
-        // Create a new booking
+      // First, try to create or find an invitation record
+      let invitationId: number;
+      const existingInvitations = await this.getInvitationsByEventAndMusician(eventId, musicianId);
+      
+      if (existingInvitations.length === 0) {
+        // Create a new invitation if one doesn't exist
         const musician = await this.getMusician(musicianId);
-        const newBooking = await this.createBooking({
+        const invitation = await this.createInvitation({
           eventId,
           musicianId,
           invitedAt: new Date(),
-          isAccepted: true,
+          status: "accepted",
+          email: musician?.email || "",
+          messageSubject: "Event Invitation",
+          messageBody: "You've been invited to an event"
+        });
+        invitationId = invitation.id;
+      } else {
+        // Use existing invitation
+        invitationId = existingInvitations[0].id;
+        // Update invitation to mark as accepted
+        await this.updateInvitation(invitationId, { 
+          status: "accepted",
+          respondedAt: new Date() 
+        });
+      }
+      
+      if (existingBookings.length === 0) {
+        // Create a new booking
+        const newBooking = await this.createBooking({
+          eventId,
+          musicianId,
+          invitationId,
           contractSent: false,
-          paymentAmount: musician?.payRate || 0
+          paymentAmount: 100 // Default payment amount
         });
         bookingId = newBooking.id;
       } else {
         // Use existing booking
         bookingId = existingBookings[0].id;
-        // Update booking to mark as accepted
-        await this.updateBooking(bookingId, { isAccepted: true });
+        // Update booking to mark as having contract sent
+        await this.updateBooking(bookingId, { 
+          contractSent: true,
+          contractSentAt: new Date()
+        });
       }
       
       // Get default contract template
@@ -1425,20 +1453,17 @@ Musician: ________________________ Date: ______________`,
         // Set default expiry date to 7 days from now
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         
-        // Get the musician to determine payment amount
-        const musician = await this.getMusician(musicianId);
-        const amount = musician?.payRate || 100; // Default to 100 if no pay rate set
-        
         // Create a contract link
         await this.createContractLink({
           bookingId,
           eventId,
           musicianId,
+          invitationId,
           token,
           expiresAt,
           status: 'pending',
           eventDate: new Date(assignedDate),
-          amount // Add amount to the contract
+          amount: 100 // Default amount
         });
         
         // Update musician status to contract-sent
