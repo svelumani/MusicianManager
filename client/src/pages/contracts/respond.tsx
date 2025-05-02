@@ -77,6 +77,7 @@ export default function ContractResponsePage() {
   const [signature, setSignature] = useState("");
   const [responseSuccess, setResponseSuccess] = useState(false);
   const [responseError, setResponseError] = useState<string | null>(null);
+  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
 
   const { 
     data: contractData, 
@@ -248,8 +249,6 @@ export default function ContractResponsePage() {
 
   const { contract, event, musician } = contractData;
   const isExpired = new Date() > new Date(contract.expiresAt);
-
-  const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
   
   return (
     <div className="container py-12 max-w-3xl mx-auto">
