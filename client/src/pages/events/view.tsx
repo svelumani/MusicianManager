@@ -533,13 +533,24 @@ export default function ViewEventPage() {
                                             
                                             <DropdownMenuSeparator />
                                             
-                                            <DropdownMenuItem className="text-destructive" onClick={() => 
-                                              toast({
-                                                variant: "destructive",
-                                                title: "Musician Removed",
-                                                description: `${musician?.name} has been removed from this event date`
-                                              })
-                                            }>
+                                            <DropdownMenuItem 
+                                              className="text-destructive" 
+                                              onClick={() => {
+                                                updateMusicianStatusMutation.mutate(
+                                                  { musicianId, status: "cancelled" },
+                                                  {
+                                                    onSuccess: () => {
+                                                      toast({
+                                                        variant: "destructive",
+                                                        title: "Musician Removed",
+                                                        description: `${musician?.name} has been removed from this event date`
+                                                      });
+                                                    }
+                                                  }
+                                                );
+                                              }}
+                                              disabled={updateMusicianStatusMutation.isPending}
+                                            >
                                               <X className="mr-2 h-4 w-4" />
                                               <span>Remove from Event</span>
                                             </DropdownMenuItem>
