@@ -635,7 +635,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                       </h5>
                       <div className="flex flex-wrap gap-2">
                         {musicianAssignments[activeDate.toISOString()]?.map(musicianId => {
-                          const musician = availableMusicians?.find(m => m.id === musicianId);
+                          const musician = allMusicians?.find(m => m.id === musicianId);
                           if (!musician) return null;
                           
                           return (
@@ -667,7 +667,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                       <h5 className="text-sm font-medium mb-2">All Selected Musicians ({selectedMusicians.length})</h5>
                       <div className="flex flex-wrap gap-2">
                         {selectedMusicians.map(id => {
-                          const musician = availableMusicians?.find(m => m.id === id);
+                          const musician = allMusicians?.find(m => m.id === id);
                           if (!musician) return null;
                           
                           // Count how many dates this musician is assigned to
@@ -840,7 +840,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
               </div>
             ) : (
               <div className="text-center p-6 bg-muted rounded-md">
-                <p className="text-muted-foreground">No musicians available for the selected type(s) and date(s)</p>
+                <p className="text-muted-foreground">No musicians found for the selected type(s)</p>
               </div>
             )}
           </div>
