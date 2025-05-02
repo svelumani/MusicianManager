@@ -55,11 +55,19 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   });
 
   // State to track selected dates for multi-day events
-  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [selectedDates, setSelectedDates] = useState<Date[]>(
+    initialData?.eventDates 
+      ? (Array.isArray(initialData.eventDates) 
+          ? initialData.eventDates.map(d => typeof d === 'string' ? new Date(d) : d) 
+          : [])
+      : []
+  );
   
   // State to track selected musicians with date assignments
   // Structure: { dateString: [musicianId1, musicianId2, ...], ... }
-  const [musicianAssignments, setMusicianAssignments] = useState<Record<string, number[]>>({});
+  const [musicianAssignments, setMusicianAssignments] = useState<Record<string, number[]>>(
+    initialData?.musicianAssignments || {}
+  );
   
   // Derived state: flat array of all selected musicians across all dates
   const selectedMusicians = useMemo(() => {
@@ -181,7 +189,11 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   };
   
   // Add a state to track the currently active date for assignments
-  const [activeDate, setActiveDate] = useState<Date | null>(null);
+  const [activeDate, setActiveDate] = useState<Date | null>(
+    initialData?.eventDates && initialData.eventDates.length > 0
+      ? new Date(initialData.eventDates[0])
+      : null
+  );
   
   // When selectedDates changes, set the active date to the first date if not already set
   useEffect(() => {
