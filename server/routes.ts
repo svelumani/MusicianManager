@@ -1334,6 +1334,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching musician bookings by month" });
     }
   });
+  
+  // Get all musician events with contract and invitation status
+  apiRouter.get("/musicians/:musicianId/events", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId } = req.params;
+      const { status, timeframe } = req.query;
+      
+      const events = await storage.getMusicianEvents(
+        parseInt(musicianId),
+        status as string | undefined,
+        timeframe as string | undefined
+      );
+      
+      res.json(events);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician events" });
+    }
+  });
+  
+  // Get musician event dates in a specific month
+  apiRouter.get("/musicians/:musicianId/event-dates/:month/:year", isAuthenticated, async (req, res) => {
+    try {
+      const { musicianId, month, year } = req.params;
+      
+      const eventDates = await storage.getMusicianEventDatesInMonth(
+        parseInt(musicianId),
+        parseInt(month),
+        parseInt(year)
+      );
+      
+      res.json(eventDates);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching musician event dates" });
+    }
+  });
 
   apiRouter.get("/bookings/:id", isAuthenticated, async (req, res) => {
     try {

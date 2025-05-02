@@ -120,6 +120,10 @@ export interface IStorage {
   updateMusician(id: number, data: Partial<InsertMusician>): Promise<Musician | undefined>;
   deleteMusician(id: number): Promise<boolean>;
   
+  // Musician events and contracts integration
+  getMusicianEvents(musicianId: number, status?: string, timeframe?: string): Promise<any[]>;
+  getMusicianEventDatesInMonth(musicianId: number, month: number, year: number): Promise<any[]>;
+  
   // Musician Pay Rates management
   getMusicianPayRates(): Promise<MusicianPayRate[]>;
   getMusicianPayRate(id: number): Promise<MusicianPayRate | undefined>;
@@ -1730,6 +1734,117 @@ Musician: ________________________ Date: ______________`,
     return musicianBookings.filter(b => {
       const bookingDate = new Date(b.date);
       return bookingDate.getMonth() + 1 === month && bookingDate.getFullYear() === year;
+    });
+  }
+  
+  async getMusicianEvents(musicianId: number, status?: string, timeframe?: string): Promise<any[]> {
+    // Get all bookings and contract links for the musician
+    const bookings = await this.getBookingsByMusician(musicianId);
+    const contractLinks = await this.getContractLinksByMusician(musicianId);
+    const invitations = await this.getInvitations(undefined, musicianId);
+    
+    // Get related events
+    const eventIds = new Set([
+      ...bookings.map(b => b.eventId),
+      ...contractLinks.map(c => c.eventId),
+      ...invitations.map(i => i.eventId)
+    ]);
+    
+    const events = await Promise.all(
+      Array.from(eventIds).map(async eventId => this.getEvent(eventId))
+    );
+    
+    // Filter out any undefined events
+    const validEvents = events.filter(e => e) as Event[];
+    
+    // Build combined result with event, status, and contract info
+    const result = await Promise.all(validEvents.map(async event => {
+      // Find relevant booking, contract, and invitation
+      const booking = bookings.find(b => b.eventId === event.id);
+      const contract = contractLinks.find(c => c.eventId === event.id);
+      const invitation = invitations.find(i => i.eventId === event.id);
+      
+      // Get venue information
+      const venue = await this.getVenue(event.venueId);
+      
+      // Determine current status across invitation, booking, and contract
+      let currentStatus = 'unknown';
+      if (invitation) {
+        currentStatus = invitation.status;
+      }
+      if (booking) {
+        if (booking.contractSigned) {
+          currentStatus = 'contract-signed';
+        } else if (booking.contractSent) {
+          currentStatus = 'contract-sent';
+        } else if (booking.isAccepted) {
+          currentStatus = 'accepted';
+        } else if (booking.isRejected) {
+          currentStatus = 'rejected';
+        } else {
+          currentStatus = 'pending';
+        }
+      }
+      if (contract) {
+        currentStatus = contract.status;
+      }
+      
+      // Filter by status if provided
+      if (status && currentStatus !== status) {
+        return null;
+      }
+      
+      // Filter by timeframe if provided
+      if (timeframe) {
+        const now = new Date();
+        const eventDate = event.startDate;
+        
+        if (timeframe === 'past' && eventDate >= now) {
+          return null;
+        }
+        if (timeframe === 'upcoming' && eventDate < now) {
+          return null;
+        }
+      }
+      
+      return {
+        event,
+        venue: venue || { name: 'Unknown Venue' },
+        status: currentStatus,
+        bookingId: booking?.id,
+        contractId: contract?.id,
+        invitationId: invitation?.id,
+        contractSent: booking?.contractSent || false,
+        contractSigned: booking?.contractSigned || false,
+        contractStatus: contract?.status || 'none',
+        payRate: booking?.advancePayment || 0
+      };
+    }));
+    
+    // Remove null values from filtering
+    return result.filter(item => item !== null);
+  }
+  
+  async getMusicianEventDatesInMonth(musicianId: number, month: number, year: number): Promise<any[]> {
+    const events = await this.getMusicianEvents(musicianId);
+    
+    // Filter events to only include those in the specified month/year
+    const filteredEvents = events.filter(eventInfo => {
+      const eventDate = eventInfo.event.startDate;
+      return eventDate && 
+             eventDate.getMonth() + 1 === month && 
+             eventDate.getFullYear() === year;
+    });
+    
+    // Format the events as dates with relevant status info
+    return filteredEvents.map(eventInfo => {
+      return {
+        date: eventInfo.event.startDate,
+        eventId: eventInfo.event.id,
+        status: eventInfo.status,
+        venueName: eventInfo.venue.name,
+        contractStatus: eventInfo.contractStatus
+      };
     });
   }
   
