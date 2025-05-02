@@ -166,9 +166,12 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       await Promise.all(selectedDates.map(async (date) => {
         const dateStr = date.toISOString();
         try {
-          const response = await fetch(`/api/musicians?date=${encodeURIComponent(dateStr)}`);
+          const response = await fetch(`/api/musicians?date=${encodeURIComponent(dateStr)}`, {
+            credentials: 'include'
+          });
           if (response.ok) {
             const musicians = await response.json();
+            console.log(`Available musicians for date ${dateStr}:`, musicians);
             dateAvailability[dateStr] = musicians.map((m: Musician) => m.id);
           }
         } catch (error) {

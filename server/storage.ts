@@ -1326,21 +1326,28 @@ Musician: ________________________ Date: ______________`,
     // Combine all unavailable musician IDs
     const unavailableMusicianIds = new Set([...unavailableIds, ...bookedIds, ...contractedIds]);
     
-    // Start with all musicians, then filter based on availability and bookings
+    // Start with all musicians
+    let allMusicians = Array.from(this.musicians.values());
     let musicians: Musician[];
+
+    // First filter: Remove musicians who are explicitly marked as unavailable
+    if (unavailableIds.length > 0) {
+      console.log(`Explicitly unavailable musicians for ${dateStr}:`, unavailableIds);
+      allMusicians = allMusicians.filter(m => !unavailableIds.includes(m.id));
+    }
     
-    // Get all musicians with explicit availability for this date
-    const allMusiciansWithExplicitAvailability = new Set([...availableIds, ...unavailableIds]);
+    // Second filter: Remove musicians who are booked or have signed contracts
+    allMusicians = allMusicians.filter(m => 
+      !bookedIds.includes(m.id) && !contractedIds.includes(m.id)
+    );
     
-    // If we have explicit availability data for ANY musician for this date
-    if (allMusiciansWithExplicitAvailability.size > 0) {
-      // Get only musicians who are explicitly marked as available and not booked elsewhere
-      musicians = Array.from(this.musicians.values())
-        .filter(m => availableIds.includes(m.id) && !unavailableMusicianIds.has(m.id));
+    // Final filter: If we have explicit availability data, use only those musicians
+    if (availableIds.length > 0) {
+      console.log(`Explicitly available musicians for ${dateStr}:`, availableIds);
+      musicians = allMusicians.filter(m => availableIds.includes(m.id));
     } else {
-      // If NO availability data exists for this date at all, include all musicians who aren't booked
-      musicians = Array.from(this.musicians.values())
-        .filter(m => !bookedIds.includes(m.id) && !contractedIds.includes(m.id));
+      // If no explicit availability data, use all remaining musicians
+      musicians = allMusicians;
     }
     
     // Filter by categories if provided
