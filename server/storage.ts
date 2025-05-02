@@ -3828,9 +3828,12 @@ Musician: ________________________ Date: ______________`,
     const contractLink = await this.getContractLinkByToken(token);
     if (!contractLink) return undefined;
     
-    // If accepting and no signature provided, get musician's name for signature
+    // Convert status 'accepted' to 'contract-signed' for consistency
+    const normalizedStatus = status === 'accepted' ? 'contract-signed' : status;
+    
+    // If contract signed and no signature provided, get musician's name for signature
     let musicianSignature = null;
-    if (status === 'accepted') {
+    if (normalizedStatus === 'contract-signed') {
       if (signature) {
         // Use provided signature if available
         musicianSignature = signature;
@@ -3845,13 +3848,13 @@ Musician: ________________________ Date: ______________`,
     
     // Set company signature if not already set
     let companySignature = contractLink.companySignature;
-    if (!companySignature && status === 'accepted') {
+    if (!companySignature && normalizedStatus === 'contract-signed') {
       companySignature = 'VAMP Management'; // Default company signature
     }
     
     const updatedContractLink = {
       ...contractLink,
-      status,
+      status: normalizedStatus, // Use the normalized status
       respondedAt: new Date(),
       response: response || null,
       musicianSignature,
@@ -3871,13 +3874,13 @@ Musician: ________________________ Date: ______________`,
         musicianId: contractLink.musicianId,
         eventId: contractLink.eventId,
         bookingId: contractLink.bookingId,
-        status,
+        status: normalizedStatus, // Use the normalized status
         response
       }
     });
     
     // If the contract was accepted/signed, update the booking and musician status
-    if (status === 'accepted') {
+    if (normalizedStatus === 'contract-signed') {
       // Update the booking to mark the contract as signed
       if (contractLink.bookingId) {
         const booking = await this.getBooking(contractLink.bookingId);
