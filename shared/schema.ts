@@ -593,6 +593,7 @@ export const contractLinks = pgTable("contract_links", {
   bookingId: integer("booking_id").notNull(), // Foreign key to bookings
   eventId: integer("event_id").notNull(), // Foreign key to events
   musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  invitationId: integer("invitation_id").notNull(), // Foreign key to musician invitations
   token: text("token").notNull().unique(), // Unique token for access
   expiresAt: timestamp("expires_at").notNull(),
   status: text("status").notNull().default("pending"), // pending, accepted, rejected
@@ -609,6 +610,7 @@ export const insertContractLinkSchema = createInsertSchema(contractLinks).pick({
   bookingId: true,
   eventId: true,
   musicianId: true,
+  invitationId: true,
   token: true,
   expiresAt: true,
   status: true,

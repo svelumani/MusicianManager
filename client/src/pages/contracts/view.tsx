@@ -240,6 +240,26 @@ export default function ContractViewPage() {
                   </dd>
                 </div>
               )}
+              
+              {contract.status === 'accepted' && (
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground">Signatures</dt>
+                  <dd className="mt-2 grid grid-cols-2 gap-4">
+                    <div className="border rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Company</p>
+                      <div className="h-12 flex items-center justify-center border-b border-dashed">
+                        <p className="font-medium italic text-primary">{contract.companySignature || "VAMP Management"}</p>
+                      </div>
+                    </div>
+                    <div className="border rounded-md p-3">
+                      <p className="text-xs text-muted-foreground mb-1">Musician</p>
+                      <div className="h-12 flex items-center justify-center border-b border-dashed">
+                        <p className="font-medium italic text-primary">{contract.musicianSignature || musician?.name}</p>
+                      </div>
+                    </div>
+                  </dd>
+                </div>
+              )}
             </dl>
           </CardContent>
         </Card>
@@ -370,12 +390,24 @@ export default function ContractViewPage() {
             <div className="flex justify-between mt-8">
               <div>
                 <h3 className="font-bold mb-2">Client Signature</h3>
-                <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                {contract.status === 'accepted' && contract.companySignature ? (
+                  <div className="h-12 border-b border-gray-300 w-48 mb-1 flex items-center justify-center">
+                    <p className="italic text-primary font-medium">{contract.companySignature}</p>
+                  </div>
+                ) : (
+                  <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                )}
                 <p>VAMP Management</p>
               </div>
               <div>
                 <h3 className="font-bold mb-2">Musician Signature</h3>
-                <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                {contract.status === 'accepted' && contract.musicianSignature ? (
+                  <div className="h-12 border-b border-gray-300 w-48 mb-1 flex items-center justify-center">
+                    <p className="italic text-primary font-medium">{contract.musicianSignature}</p>
+                  </div>
+                ) : (
+                  <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
+                )}
                 <p>{musician?.name || "Musician"}</p>
               </div>
             </div>
