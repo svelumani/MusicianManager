@@ -500,7 +500,7 @@ export function useCancelContract() {
         const musicianStatusResult = await updateStatus.mutateAsync({
           entityType: 'musician',
           entityId: musicianId,
-          status: 'cancelled',
+          status: 'unavailable', // Use 'unavailable' to match the server-side status for musician
           eventId,
           eventDate,
           customStatus: 'contract-cancelled',
