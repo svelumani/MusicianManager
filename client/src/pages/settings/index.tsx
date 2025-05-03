@@ -2,17 +2,10 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Music, Tag, User, CreditCard, Clock, Mail, FileText } from "lucide-react";
+import { CreditCard, Clock, Mail, FileText } from "lucide-react";
 import FileContract from "@/components/icons/FileContract";
 
 const settingsSections = [
-  {
-    id: "instrument-manager",
-    title: "Instruments & Categories",
-    description: "Manage musical categories and their associated instruments",
-    icon: <Music className="h-8 w-8" />,
-    color: "text-blue-500 bg-blue-100",
-  },
   {
     id: "email",
     title: "Email Settings",
@@ -33,13 +26,6 @@ const settingsSections = [
     description: "Create and manage contract templates for musicians",
     icon: <FileContract className="h-8 w-8" />,
     color: "text-indigo-500 bg-indigo-100",
-  },
-  {
-    id: "musician-types",
-    title: "Musician Types",
-    description: "Configure types of musicians available in the system",
-    icon: <User className="h-8 w-8" />,
-    color: "text-green-500 bg-green-100",
   },
   {
     id: "payment-settings",
