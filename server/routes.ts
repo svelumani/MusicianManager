@@ -2247,7 +2247,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if the musician is available on this date
       // Convert to ISO date string format for consistent handling
       const dateStr = new Date(slot.date).toISOString().split('T')[0];
+      console.log(`Checking availability for musician ${assignmentData.musicianId} on date ${dateStr} (slot: ${slot.id})`);
+      
+      // Debug the availability record
+      const availabilityRecord = await db.select()
+        .from(availability)
+        .where(and(
+          eq(availability.musicianId, assignmentData.musicianId),
+          eq(availability.date, new Date(dateStr))
+        ));
+      console.log(`Found availability records:`, availabilityRecord);
+      
       const isAvailable = await storage.isMusicianAvailableForDate(assignmentData.musicianId, dateStr);
+      console.log(`Availability check result: ${isAvailable}`);
+      
       
       // If not available, return an error
       if (!isAvailable) {
