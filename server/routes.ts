@@ -795,6 +795,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get all musicians' availability for a month for planner
+  apiRouter.get("/availability", isAuthenticated, async (req, res) => {
+    try {
+      const { year, month } = req.query;
+      
+      if (!year || !month) {
+        return res.status(400).json({ message: "Year and month are required" });
+      }
+      
+      // Get all musicians
+      const musicians = await storage.getMusicians();
+      
+      // Format the month string as expected by the availability function
+      const monthStr = `${year}-${month.toString().padStart(2, '0')}`;
+      
+      // Get availability for each musician and format for frontend use
+      const availabilityPromises = musicians.map(async (musician) => {
+        const musicianAvailability = await storage.getAvailability(musician.id, monthStr);
+        
+        // Filter to only include available dates
+        const availableDates = musicianAvailability
+          .filter(a => a.isAvailable)
+          .map(a => a.date);
+        
+        return {
+          musicianId: musician.id,
+          dates: availableDates
+        };
+      });
+      
+      const availabilityData = await Promise.all(availabilityPromises);
+      res.json(availabilityData);
+    } catch (error) {
+      console.error("Error fetching monthly availability:", error);
+      res.status(500).json({ message: "Error fetching musicians availability" });
+    }
+  });
+  
   // Get musician availability calendar by month and year
   apiRouter.get("/musicians/:musicianId/availability-calendar/:month/:year", isAuthenticated, async (req, res) => {
     try {
