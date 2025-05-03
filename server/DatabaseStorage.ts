@@ -406,6 +406,117 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
+  async getEventCategories(): Promise<EventCategory[]> {
+    const result = await db.select().from(eventCategories).orderBy(eventCategories.title);
+    return result;
+  }
+  
+  async getEventCategory(id: number): Promise<EventCategory | undefined> {
+    const result = await db.select().from(eventCategories).where(eq(eventCategories.id, id)).limit(1);
+    return result[0];
+  }
+  
+  async getActivities(limit = 10): Promise<Activity[]> {
+    const result = await db.select()
+      .from(activities)
+      .orderBy(desc(activities.timestamp))
+      .limit(limit);
+    return result;
+  }
+  
+  async getMusicianTypes(): Promise<MusicianType[]> {
+    const result = await db.select().from(musicianTypes).orderBy(musicianTypes.title);
+    return result;
+  }
+  
+  async getMusicianType(id: number): Promise<MusicianType | undefined> {
+    const result = await db.select().from(musicianTypes).where(eq(musicianTypes.id, id)).limit(1);
+    return result[0];
+  }
+  
+  async getVenueCategories(): Promise<VenueCategory[]> {
+    const result = await db.select().from(venueCategories).orderBy(venueCategories.title);
+    return result;
+  }
+  
+  async getEvents(status?: string, start?: Date, end?: Date): Promise<Event[]> {
+    let query = db.select().from(events);
+    
+    if (status) {
+      query = query.where(eq(events.status, status));
+    }
+    
+    if (start) {
+      query = query.where(gte(events.startDate, start));
+    }
+    
+    if (end) {
+      query = query.where(lte(events.endDate, end));
+    }
+    
+    const result = await query.orderBy(desc(events.startDate));
+    return result;
+  }
+  
+  async getBookings(eventId?: number): Promise<Booking[]> {
+    let query = db.select().from(bookings);
+    
+    if (eventId) {
+      query = query.where(eq(bookings.eventId, eventId));
+    }
+    
+    const result = await query.orderBy(desc(bookings.date));
+    return result;
+  }
+  
+  async getPayments(invoiceId?: number): Promise<Payment[]> {
+    let query = db.select().from(payments);
+    
+    if (invoiceId) {
+      query = query.where(eq(payments.invoiceId, invoiceId));
+    }
+    
+    const result = await query.orderBy(desc(payments.date));
+    return result;
+  }
+  
+  async getUpcomingEvents(limit = 5): Promise<Event[]> {
+    const now = new Date();
+    const result = await db.select()
+      .from(events)
+      .where(gte(events.startDate, now))
+      .orderBy(events.startDate)
+      .limit(limit);
+    return result;
+  }
+  
+  async getDashboardMetrics(): Promise<any> {
+    // Calculate various metrics for the dashboard
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth() + 1;
+    const currentYear = currentDate.getFullYear();
+    
+    // Get counts for various entities
+    const musiciansCount = await db.select({ count: sql`count(*)` })
+      .from(musicians);
+      
+    const activeEventsCount = await db.select({ count: sql`count(*)` })
+      .from(events)
+      .where(eq(events.status, 'active'));
+      
+    const pendingInvoicesCount = await db.select({ count: sql`count(*)` })
+      .from(monthlyInvoices)
+      .where(eq(monthlyInvoices.status, 'pending'));
+    
+    return {
+      musiciansCount: Number(musiciansCount[0].count),
+      activeEventsCount: Number(activeEventsCount[0].count),
+      pendingInvoicesCount: Number(pendingInvoicesCount[0].count),
+      currentMonth,
+      currentYear
+    };
+  }
+  
   async getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]> {
     // If categoryIds are provided, delegate to the specialized method
     if (categoryIds && categoryIds.length > 0) {
