@@ -1271,17 +1271,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   
                   if (event) {
                     // Get musician's pay rates
-                    const payRates = await storage.getMusicianPayRatesByMusician(musicianId);
+                    const payRates = await storage.getMusicianPayRatesByMusicianId(musicianId);
                     
                     if (payRates && payRates.length > 0) {
                       // First try to find exact match by category ID
-                      let matchingRate = event.categoryIds ? 
-                        payRates.find(rate => rate.eventCategoryId === event.categoryIds) : undefined;
+                      let matchingRate = undefined;
                       
-                      // Fall back to event type match if no category match
-                      if (!matchingRate) {
-                        matchingRate = payRates.find(rate => rate.eventType === event.eventType);
+                      // Only try to match by category if the event has categories defined
+                      if (event.categoryIds && Array.isArray(event.categoryIds)) {
+                        matchingRate = payRates.find(rate => 
+                          rate.eventCategoryId && event.categoryIds.includes(rate.eventCategoryId)
+                        );
                       }
+                      
+                      // Remove fallback to event type match as it's not needed and causing issues
+                      // The pay rates are already specific to a musician, we'll just use the first one if no category match
                       
                       // If still no match, just use the first pay rate
                       if (!matchingRate && payRates.length > 0) {
@@ -1291,8 +1295,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       
                       if (matchingRate) {
                         // Use day rate if we have one, or hourly rate * 8 hours as a fallback
-                        contractAmount = matchingRate.dayRate || (matchingRate.hourlyRate * 8);
-                        console.log(`Using musician pay rate: ${contractAmount} for event ${eventId}, from rate ID ${matchingRate.id}`);
+                        if (matchingRate.dayRate) {
+                          contractAmount = matchingRate.dayRate;
+                          console.log(`Using day rate: $${contractAmount} for musician ${musicianId} from rate ID ${matchingRate.id}`);
+                        } else if (matchingRate.hourlyRate) {
+                          contractAmount = matchingRate.hourlyRate * 8;
+                          console.log(`Using hourly rate: $${matchingRate.hourlyRate} * 8 hours = $${contractAmount} for musician ${musicianId}`);
+                        } else {
+                          // If neither rate is available, use the "event rate" which is a fixed amount for the entire event
+                          contractAmount = matchingRate.eventRate || 0;
+                          console.log(`Using event rate: $${contractAmount} for musician ${musicianId} from rate ID ${matchingRate.id}`);
+                        }
                       }
                     }
                   }
