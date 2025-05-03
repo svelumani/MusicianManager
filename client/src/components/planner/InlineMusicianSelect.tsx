@@ -6,10 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X, Plus, User, Trash, Calendar, Save, Check } from "lucide-react";
+import { X, Plus, User, Trash, Calendar, Save, Check, DollarSign, Edit, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface InlineMusicianSelectProps {
   date: Date;
@@ -42,6 +48,10 @@ const InlineMusicianSelect = ({
   const [startTime, setStartTime] = useState(slot?.startTime || "19:00");
   const [endTime, setEndTime] = useState(slot?.endTime || "22:00");
   const [notes, setNotes] = useState(slot?.description || "");
+  
+  // Fee editing state
+  const [editingFeeId, setEditingFeeId] = useState<number | null>(null);
+  const [editingFeeValue, setEditingFeeValue] = useState<string>("");
   
   // Get current assignments for the slot
   const {
@@ -111,6 +121,34 @@ const InlineMusicianSelect = ({
       toast({
         title: "Error",
         description: "Failed to assign musician",
+        variant: "destructive",
+      });
+      console.error(error);
+    }
+  });
+  
+  // Update assignment fee mutation
+  const updateAssignmentFeeMutation = useMutation({
+    mutationFn: ({ id, actualFee }: { id: number, actualFee: number }) => 
+      apiRequest(`/api/planner-assignments/${id}`, "PUT", { actualFee }),
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Musician fee updated successfully",
+      });
+      
+      if (onMusicianAssigned) onMusicianAssigned();
+      
+      // Reset editing state
+      setEditingFeeId(null);
+      
+      // Refresh assignments
+      queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', slot?.id] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update musician fee",
         variant: "destructive",
       });
       console.error(error);
