@@ -1,7 +1,7 @@
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { activities, entityStatus } from '@shared/schema';
-import { Json } from 'drizzle-orm/pg-core';
+import { json } from 'drizzle-orm/pg-core';
 
 // Define entity types as constants for consistent use throughout the application
 export const ENTITY_TYPES = {
@@ -63,7 +63,6 @@ export class StatusService {
           eventDate: entityStatus.eventDate,
           statusDate: entityStatus.statusDate,
           metadata: entityStatus.metadata,
-          createdBy: entityStatus.createdBy,
           createdAt: entityStatus.createdAt,
           updatedAt: entityStatus.updatedAt
         })
@@ -102,8 +101,6 @@ export class StatusService {
           customStatus: entityStatus.customStatus, // Added customStatus
           timestamp: entityStatus.createdAt,
           statusDate: entityStatus.statusDate, // Added statusDate
-          details: entityStatus.details,
-          userName: entityStatus.createdBy,
           eventId: entityStatus.eventId,
           musicianId: entityStatus.musicianId, // Added musicianId
           eventDate: entityStatus.eventDate, // Added eventDate
@@ -149,7 +146,6 @@ export class StatusService {
           musicianId: musicianId || null,
           eventDate: eventDate || null,
           statusDate: new Date(), // Current date when this status is effective
-          createdBy: String(userId),
           metadata: metadata || null
         })
         .returning();

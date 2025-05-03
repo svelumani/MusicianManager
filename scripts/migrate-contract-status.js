@@ -80,7 +80,6 @@ async function migrateContractStatus() {
             musicianId: contract.musicianId,
             eventDate: contract.eventDate,
             createdAt: contract.createdAt,
-            createdBy: 'system-migration',
             metadata
           })
           .returning();
@@ -114,7 +113,6 @@ async function migrateContractStatus() {
                 eventId: contract.eventId,
                 eventDate: contract.eventDate,
                 createdAt: contract.createdAt,
-                createdBy: 'system-migration',
                 metadata: {
                   contractId: contract.id,
                   bookingId: contract.bookingId,
