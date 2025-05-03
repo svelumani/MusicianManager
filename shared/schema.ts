@@ -188,6 +188,8 @@ export const events = pgTable("events", {
   advancePayment: doublePrecision("advance_payment"), // Advance payment received
   secondPayment: doublePrecision("second_payment"), // Second payment received
   paymentModel: text("payment_model"), // hourly, daily, or event based payment
+  hoursCount: integer("hours_count"), // Number of hours for hourly payment model
+  daysCount: integer("days_count"), // Number of days for daily payment model
   notes: text("notes"), // Notes about the event
 });
 
@@ -195,7 +197,9 @@ export const insertEventSchema = createInsertSchema(events, {
   eventType: z.string().optional(),
   startDate: z.date().optional(),
   endDate: z.date().optional(),
-  paymentModel: z.string().optional()
+  paymentModel: z.string().optional(),
+  hoursCount: z.number().optional(),
+  daysCount: z.number().optional()
 })
   .pick({
     name: true,
@@ -213,6 +217,8 @@ export const insertEventSchema = createInsertSchema(events, {
     startDate: true,
     endDate: true,
     paymentModel: true, // Added payment model
+    hoursCount: true,   // Added hours count for hourly payment model
+    daysCount: true,    // Added days count for daily payment model
   })
   .extend({
     // Additional fields for our extended functionality

@@ -30,10 +30,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { apiRequest } from "@/lib/queryClient";
 
-// Extended event type to include musician assignments and statuses
+// Extended event type to include musician assignments, statuses and payment-related fields
 interface EventWithAssignments extends EventType {
   musicianAssignments?: Record<string, number[]>;
   musicianStatuses?: Record<string, Record<number, string>>;
+  paymentModel?: string; // hourly, daily, or event-based
+  hoursCount?: number;   // number of hours for hourly payment model
+  daysCount?: number;    // number of days for daily payment model
 }
 
 // Contracts Table Component
