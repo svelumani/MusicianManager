@@ -374,8 +374,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     // Calculate hours for the performance (default to 2 if not specified)
     const hours = slot.duration || 2;
     
-    // TEMPORARY FIX: Hardcode to Club Performance (ID 3) per client request
-    const eventCategoryId = 3; // Hardcoded to Club Performance
+    // TEMPORARY FIX: Hardcode to Club Performance (ID 7) per client request
+    const eventCategoryId = 7; // Hardcoded to Club Performance
     
     // Get category name for logging/debugging
     const eventCategory = eventCategories?.find((cat: any) => cat.id === eventCategoryId);
@@ -625,8 +625,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                     
                                     // Get hourly rate information for tooltip
                                     const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
-                                    // TEMPORARY FIX: Hardcode to Club Performance (ID 3) per client request
-                                    const eventCategoryId = 3; // Hardcoded to Club Performance
+                                    // TEMPORARY FIX: Hardcode to Club Performance (ID 7) per client request
+                                    const eventCategoryId = 7; // Hardcoded to Club Performance
                                     const hours = slot?.duration || 2;
                                     let hourlyRate = 0;
                                     let rateSource = "unknown";
@@ -640,7 +640,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                       console.log(`Found ${allRatesForMusician.length} pay rates for ${musician.name}:`);
                                       
                                       // Debug club performance rates
-                                      const clubRates = payRates.filter((rate: PayRate) => rate.eventCategoryId === 3);
+                                      const clubRates = payRates.filter((rate: PayRate) => rate.eventCategoryId === 7);
                                       console.log(`Found ${clubRates.length} Club Performance rates`);
                                       
                                       // Look for exact match for Club Performance category
