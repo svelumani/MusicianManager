@@ -1186,19 +1186,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Event not found" });
       }
       
-      // If a specific date was provided, only update that date's status
-      let updateResult;
-      if (dateStr) {
-        updateResult = await storage.updateMusicianEventStatusForDate(eventId, musicianId, status, dateStr);
-        if (!updateResult) {
-          return res.status(404).json({ message: "Musician not found in this event on the specified date" });
-        }
-      } else {
-        // Otherwise, update status for all dates this musician is assigned to
-        updateResult = await storage.updateMusicianEventStatus(eventId, musicianId, status);
-        if (!updateResult) {
-          return res.status(404).json({ message: "Musician not found in this event" });
-        }
+      // IMPORTANT: We always need a specific date for status updates
+      // If no date was provided, we can't proceed
+      if (!dateStr) {
+        return res.status(400).json({ message: "Missing required field: dateStr (date is required for status updates)" });
+      }
+      
+      console.log(`Updating status for event ${eventId}, musician ${musicianId}, date ${dateStr} to ${status}`);
+      
+      // Always update for a specific date only
+      const updateResult = await storage.updateMusicianEventStatusForDate(eventId, musicianId, status, dateStr);
+      if (!updateResult) {
+        return res.status(404).json({ message: "Musician not found in this event on the specified date" });
       }
       
       // If the status is 'accepted' or 'contract-sent', create a contract (if one doesn't already exist)
@@ -1287,6 +1286,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               // Create a contract link
+              // IMPORTANT: When creating a contract, make sure the date is included
+              // This will ensure the contract is tied to a specific date
+              if (!dateStr) {
+                console.error(`Error: dateStr is missing when creating contract for musician ${musicianId} in event ${eventId}`);
+                return; // Can't create a contract without a date
+              }
+              
               const contractData = {
                 bookingId,
                 eventId,
@@ -1295,7 +1301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 token,
                 expiresAt,
                 status: 'pending',
-                eventDate: dateStr ? new Date(dateStr) : undefined,
+                eventDate: new Date(dateStr), // Always include a specific date for the contract
                 amount: contractAmount > 0 ? contractAmount : null // Add the contract amount
               };
               
