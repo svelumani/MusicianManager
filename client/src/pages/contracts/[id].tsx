@@ -207,8 +207,9 @@ export default function ContractDetailPage() {
                     {(contract.signature || (contractStatus && contractStatus.status === 'contract-signed')) ? (
                       <>
                         <div className="font-medium italic text-primary">
-                          {/* Use signature from either source */}
+                          {/* Prioritize actual signature value entered by the musician */}
                           {contract.signature || 
+                           (contractStatus?.metadata?.signatureValue) || 
                            (contractStatus?.metadata?.signedBy && `${contractStatus.metadata.signedBy}`) || 
                            musician?.name || 
                            "Musician"}
@@ -306,6 +307,7 @@ export default function ContractDetailPage() {
                           <div className="border-b h-8 mb-2 flex items-end">
                             <span className="font-medium italic text-primary">
                             {contract.signature || 
+                             (contractStatus?.metadata?.signatureValue) || 
                              (contractStatus?.metadata?.signedBy && `${contractStatus.metadata.signedBy}`) || 
                              musician?.name || 
                              "Musician"}

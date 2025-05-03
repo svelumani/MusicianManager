@@ -3909,6 +3909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 {
                   signedAt: new Date().toISOString(),
                   signedBy: musician?.name || 'Musician',
+                  signatureValue: signature, // Store the actual signature text entered by the musician
                   signatureType: 'digital',
                   ipAddress: req.ip || 'unknown',
                   bookingId: contract.bookingId
@@ -4008,6 +4009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 {
                   signedAt: new Date().toISOString(),
                   signedBy: musician?.name || 'Musician',
+                  signatureValue: signature, // Store the actual signature text entered by the musician
                   signatureType: 'digital',
                   ipAddress: req.ip || 'unknown',
                   bookingId: booking.id
@@ -4248,6 +4250,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error setting default contract template" });
+    }
+  });
+
+  // Test endpoint for contract metadata
+  apiRouter.get("/test/contract-metadata/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      
+      // Get contract data from the database
+      const contract = await storage.getContractLink(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Get status data from the status service
+      const { statusService, ENTITY_TYPES } = await import('./services/status');
+      const statusEntries = await statusService.getEntityStatuses(
+        ENTITY_TYPES.CONTRACT,
+        contractId
+      );
+      
+      // Return both data sources for comparison
+      res.json({
+        contract,
+        statusEntries,
+        message: "Use this data to debug signature and IP address display issues"
+      });
+    } catch (error) {
+      console.error("Error testing contract metadata:", error);
+      res.status(500).json({ message: "Error testing contract metadata" });
     }
   });
 
