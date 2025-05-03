@@ -1151,6 +1151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fetch musician assignments for this event
       const musicianAssignments = await storage.getEventMusicianAssignments(eventId);
+      console.log("Fetched musician assignments for event:", eventId, musicianAssignments);
       
       // Fetch musician statuses for this event
       const musicianStatuses = await storage.getEventMusicianStatuses(eventId);
@@ -1162,6 +1163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         musicianStatuses
       };
       
+      console.log("Returning event data with assignments:", JSON.stringify(eventWithData.musicianAssignments));
       res.json(eventWithData);
     } catch (error) {
       console.error(error);
