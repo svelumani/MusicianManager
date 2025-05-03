@@ -2251,24 +2251,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dateStr = new Date(slot.date).toISOString().split('T')[0];
       console.log(`Checking availability for musician ${assignmentData.musicianId} on date ${dateStr} (slot: ${slot.id})`);
       
-      // Direct query to check availability
-      const [availabilityRecord] = await db.select()
-        .from(availability)
-        .where(and(
-          eq(availability.musicianId, assignmentData.musicianId),
-          sql`DATE(${availability.date}) = DATE(${new Date(dateStr)})`
-        ));
-      
-      console.log(`Found availability record:`, availabilityRecord);
-      
-      // If a record exists and isAvailable is false, the musician is not available
-      let isAvailable = true;
-      if (availabilityRecord && availabilityRecord.isAvailable === false) {
-        isAvailable = false;
-      }
-      
+      // Use storage method to check availability
+      const isAvailable = await storage.isMusicianAvailableForDate(assignmentData.musicianId, dateStr);
       console.log(`Availability check result: ${isAvailable}`);
-      
       
       // If not available, return an error
       if (!isAvailable) {
