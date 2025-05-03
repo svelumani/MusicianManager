@@ -15,6 +15,7 @@ import {
 import FileContract from "@/components/icons/FileContract";
 import { format } from "date-fns";
 import type { Event as EventType, Venue, Musician, ContractLink } from "@shared/schema";
+import StatusBadge from "@/components/StatusBadge";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -482,29 +483,26 @@ export default function ViewEventPage() {
   
   console.log("Normalized assignments:", normalizedAssignments);
 
-  // Get status badge styling
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "confirmed":
-        return <Badge className="bg-green-600">Confirmed</Badge>;
-      case "accepted":
-        return <Badge className="bg-green-500">Accepted</Badge>;
-      case "rejected":
-        return <Badge variant="destructive">Rejected</Badge>;
-      case "cancelled":
-        return <Badge variant="destructive">Cancelled</Badge>;
-      case "invited":
-        return <Badge className="bg-blue-500">Invited</Badge>;
-      case "contract-sent":
-        return <Badge className="bg-indigo-500">Contract Sent</Badge>;
-      case "contract-signed":
-        return <Badge className="bg-emerald-600">Contract Signed</Badge>;
-      case "draft":
-        return <Badge variant="secondary">Draft</Badge>;
-      case "pending":
-      default:
-        return <Badge variant="outline">Pending</Badge>;
-    }
+  // Get status badge styling - using the centralized StatusBadge component
+  const getStatusBadge = (status: string, entityType: string = "event", entityId?: number, musicianId?: number, eventDate?: string | Date) => {
+    if (!status) return <Badge variant="outline">Unknown</Badge>;
+
+    // Format the eventDate if it's provided as a Date object
+    const formattedEventDate = eventDate instanceof Date 
+      ? format(eventDate, 'yyyy-MM-dd')
+      : typeof eventDate === 'string' ? eventDate : undefined;
+    
+    return (
+      <StatusBadge 
+        status={status}
+        entityType={entityType}
+        entityId={entityId}
+        eventId={event.id} 
+        musicianId={musicianId}
+        eventDate={formattedEventDate}
+        useCentralizedSystem={true}
+      />
+    );
   };
   
   // Get musician status for a specific date and musician
@@ -746,7 +744,13 @@ export default function ViewEventPage() {
                                       </Badge>
                                     </TableCell>
                                     <TableCell>
-                                      {getStatusBadge(getMusicianStatus(date, musicianId))}
+                                      {getStatusBadge(
+                                        getMusicianStatus(date, musicianId), 
+                                        "musician", 
+                                        undefined, 
+                                        musicianId, 
+                                        date
+                                      )}
                                     </TableCell>
                                     <TableCell>
                                       {(() => {
