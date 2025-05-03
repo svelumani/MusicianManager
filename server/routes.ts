@@ -1312,14 +1312,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         const paymentModel = event.paymentModel || 'daily';
                         
                         if (paymentModel === 'hourly' && matchingRate.hourlyRate) {
-                          // For hourly payment model, use the hourly rate * 8 hours (standard day)
-                          contractAmount = matchingRate.hourlyRate * 8;
-                          console.log(`Using hourly rate: $${matchingRate.hourlyRate} * 8 hours = $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
+                          // For hourly payment model, use the hourly rate * specified hours
+                          // Get hours from event.hoursCount, defaulting to 8 if not specified
+                          const hoursCount = event.hoursCount || 8;
+                          contractAmount = matchingRate.hourlyRate * hoursCount;
+                          console.log(`Using hourly rate: $${matchingRate.hourlyRate} * ${hoursCount} hours = $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
                         }
                         else if (paymentModel === 'daily' && matchingRate.dayRate) {
-                          // For daily payment model, use the day rate directly
-                          contractAmount = matchingRate.dayRate;
-                          console.log(`Using day rate: $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
+                          // For daily payment model, use the day rate * specified days (if applicable)
+                          const daysCount = event.daysCount || 1;
+                          contractAmount = matchingRate.dayRate * daysCount;
+                          console.log(`Using day rate: $${matchingRate.dayRate} * ${daysCount} days = $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
                         }
                         else if (paymentModel === 'event' && matchingRate.eventRate) {
                           // For event payment model, use the event rate
@@ -1332,8 +1335,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                             contractAmount = matchingRate.dayRate;
                             console.log(`Using day rate: $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
                           } else if (matchingRate.hourlyRate) {
-                            contractAmount = matchingRate.hourlyRate * 8;
-                            console.log(`Using hourly rate: $${matchingRate.hourlyRate} * 8 hours = $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
+                            // Get hours from event.hoursCount, defaulting to 8 if not specified
+                            const hoursCount = event.hoursCount || 8;
+                            contractAmount = matchingRate.hourlyRate * hoursCount;
+                            console.log(`Using hourly rate: $${matchingRate.hourlyRate} * ${hoursCount} hours = $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
                           } else if (matchingRate.eventRate) {
                             contractAmount = matchingRate.eventRate;
                             console.log(`Using event rate: $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
