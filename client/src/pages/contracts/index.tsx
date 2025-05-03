@@ -268,7 +268,7 @@ export default function ContractsPage() {
                       </TableCell>
                       <TableCell>
                         {contract.amount ? (
-                          `$${contract.amount}`
+                          `$${contract.amount.toFixed(2)}`
                         ) : (
                           "Not specified"
                         )}

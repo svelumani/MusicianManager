@@ -365,7 +365,7 @@ export default function ContractResponsePage() {
             {contract.eventDate && (
               <p className="mb-1"><strong>Performance Date:</strong> {format(new Date(contract.eventDate), "MMMM d, yyyy")}</p>
             )}
-            <p className="mb-4"><strong>Performance Fee:</strong> ${contract.amount?.toFixed(2) || "TBD"}</p>
+            <p className="mb-4"><strong>Performance Fee:</strong> {contract.amount ? `$${contract.amount.toFixed(2)}` : "TBD"}</p>
             
             <h3 className="font-bold mb-2">Terms & Conditions</h3>
             <ol className="list-decimal pl-5 space-y-2 mb-6">

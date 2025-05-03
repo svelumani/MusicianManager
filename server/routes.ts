@@ -1250,6 +1250,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const expiresAt = new Date();
               expiresAt.setDate(expiresAt.getDate() + 7);
               
+              // Get the musician's pay rate for this event
+              let contractAmount = 0;
+              
+              // First check if we have a booking with payment amount
+              if (bookings && bookings.length > 0 && bookings[0].paymentAmount) {
+                contractAmount = bookings[0].paymentAmount;
+              }
+              
+              // If no amount from booking, try to find the musician's pay rate for this event type
+              if (contractAmount === 0) {
+                try {
+                  const event = await storage.getEvent(eventId);
+                  
+                  if (event) {
+                    // Get musician's pay rates
+                    const payRates = await storage.getMusicianPayRatesByMusician(musicianId);
+                    
+                    if (payRates && payRates.length > 0) {
+                      // Find a matching pay rate for this event type
+                      const matchingRate = payRates.find(rate => 
+                        rate.eventType === event.eventType || 
+                        rate.eventCategoryId === event.categoryIds
+                      );
+                      
+                      if (matchingRate) {
+                        // Use day rate if we have one, or hourly rate * 8 hours as a fallback
+                        contractAmount = matchingRate.dayRate || (matchingRate.hourlyRate * 8);
+                        console.log(`Using musician pay rate: ${contractAmount} for event ${eventId}`);
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error('Error fetching pay rate:', err);
+                }
+              }
+              
               // Create a contract link
               const contractData = {
                 bookingId,
@@ -1259,7 +1295,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 token,
                 expiresAt,
                 status: 'pending',
-                eventDate: dateStr ? new Date(dateStr) : undefined
+                eventDate: dateStr ? new Date(dateStr) : undefined,
+                amount: contractAmount > 0 ? contractAmount : null // Add the contract amount
               };
               
               // Create the contract link

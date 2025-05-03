@@ -190,15 +190,15 @@ export default function ContractViewPage() {
                 </div>
               )}
 
-              {contract.amount && (
-                <div>
+              <div>
                   <dt className="text-sm font-medium text-muted-foreground">Payment Amount</dt>
                   <dd className="mt-1 flex items-center">
                     <DollarSign className="h-4 w-4 mr-2 text-muted-foreground" />
-                    ${contract.amount.toFixed(2)}
+                    {contract.amount 
+                      ? `$${contract.amount.toFixed(2)}` 
+                      : "Not specified"}
                   </dd>
                 </div>
-              )}
 
               <div>
                 <dt className="text-sm font-medium text-muted-foreground">Created</dt>
