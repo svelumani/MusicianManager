@@ -3535,7 +3535,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const reason = req.body.reason || 'User initiated cancellation';
         const eventDate = req.body.eventDate ? new Date(req.body.eventDate) : null;
         
-        // Add the status record using the centralized status service with updated parameters
+        // Get event and musician details for the notifications and status metadata
+        const event = await storage.getEvent(contract.eventId);
+        const musician = await storage.getMusician(contract.musicianId);
+        
+        // Update contract status
         await statusService.updateEntityStatus(
           ENTITY_TYPES.CONTRACT,
           contractId,
@@ -3546,11 +3550,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           {
             cancelledBy: userId,
             cancelledAt: new Date().toISOString(),
-            bookingId: contract.bookingId
+            bookingId: contract.bookingId,
+            eventName: event?.name || 'Event',
+            musicianName: musician?.name || 'Musician'
           },
           'user-cancelled', // Add custom status
           contract.musicianId, // Add musician ID
           eventDate // Add event date if provided
+        );
+        
+        // Also update musician status (synchronization)
+        await statusService.updateEntityStatus(
+          ENTITY_TYPES.MUSICIAN,
+          contract.musicianId,
+          'contract-cancelled',
+          userId,
+          `Contract cancelled for event: ${event?.name}. Reason: ${reason}`,
+          contract.eventId,
+          {
+            contractId: contract.id,
+            eventName: event?.name || 'Event',
+            contractAmount: contract.amount,
+            cancelledBy: userId,
+            cancelledAt: new Date().toISOString()
+          },
+          'unavailable', // Custom status for musician
+          null, // MusicianId is already specified as entityId
+          eventDate // Pass the event date
         );
       } catch (error) {
         console.error("Failed to cancel contract:", error);
@@ -3569,6 +3595,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updatedAt: new Date()
         });
         console.log(`Contract record also updated directly for ID: ${contractId}`);
+        
+        // Also update the musician's status in the event - for backward compatibility
+        if (contract.eventId && contract.musicianId && eventDate) {
+          const eventDateStr = eventDate.toISOString();
+          await storage.updateMusicianEventStatusForDate(
+            contract.eventId,
+            contract.musicianId,
+            "unavailable",
+            eventDateStr
+          );
+          console.log(`Updated musician ${contract.musicianId} status for event ${contract.eventId} date ${eventDateStr} to 'unavailable'`);
+        }
       } catch (updateError) {
         console.error(`Warning: Direct contract update failed, but status service succeeded:`, updateError);
         // We'll continue as the status service handled the main update
