@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Music, Search, Plus, Star, ArrowUpDown } from "lucide-react";
+import { Music, Search, Plus, Star, ArrowUpDown, Edit } from "lucide-react";
 import type { Musician, Category, MusicianType } from "@shared/schema";
 
 type SortField = 'name' | 'type' | 'category' | 'email' | 'rating';
@@ -228,9 +228,9 @@ export default function MusiciansPage() {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => navigate(`/musicians/${musician.id}/performance`)}
+                            onClick={() => navigate(`/musicians/${musician.id}/edit`)}
                           >
-                            <Star className="h-4 w-4 mr-1" /> Rate
+                            <Edit className="h-4 w-4 mr-1" /> Edit
                           </Button>
                         </div>
                       </TableCell>
