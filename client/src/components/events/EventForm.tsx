@@ -711,7 +711,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                   
                   return (
                     <div key={categoryId} className="space-y-3">
-                      <h4 className="text-md font-medium">{category?.name}</h4>
+                      <h4 className="text-md font-medium">{category?.title}</h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {musiciansOfCategory.map((musician) => {
@@ -787,7 +787,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                           const category = musicianCategories?.find(c => c.id === catId);
                                           return (
                                             <Badge key={catId} variant="outline" className="mr-1 text-xs">
-                                              {category?.name || 'Unknown Category'}
+                                              {category?.title || 'Unknown Category'}
                                             </Badge>
                                           );
                                         })}
