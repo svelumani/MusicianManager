@@ -18,7 +18,7 @@ import { CalendarIcon, PlusCircle, X, Check, Star } from "lucide-react";
 import { insertEventSchema } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Venue, MusicianType, Musician } from "@shared/schema";
+import type { Venue, MusicianCategory, Musician } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -29,7 +29,7 @@ const eventFormSchema = z.object({
   venueId: z.coerce.number(),
   eventDates: z.array(z.date()),
   status: z.string().default("pending"),
-  musicianTypeIds: z.array(z.coerce.number()), // Multi-select musician types
+  musicianCategoryIds: z.array(z.coerce.number()), // Multi-select musician categories (replacing types)
   notes: z.string().optional(),
 });
 
@@ -50,8 +50,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
 
 
 
-  const { data: musicianTypes, isLoading: isLoadingMusicianTypes } = useQuery<MusicianType[]>({
-    queryKey: ["/api/musician-types"],
+  const { data: musicianCategories, isLoading: isLoadingMusicianCategories } = useQuery<MusicianCategory[]>({
+    queryKey: ["/api/musician-categories"],
   });
 
   // State to track selected dates for multi-day events
@@ -86,7 +86,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       paxCount: initialData.paxCount,
       venueId: initialData.venueId,
       status: initialData.status || "pending",
-      musicianTypeIds: initialData.musicianTypeIds || [],
+      musicianCategoryIds: initialData.musicianCategoryIds || initialData.musicianTypeIds || [], // Support both legacy and new format
       eventDates: initialData.eventDates ? 
         (Array.isArray(initialData.eventDates) ? 
           initialData.eventDates.map(d => new Date(d)) : 
@@ -98,14 +98,14 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       paxCount: 0,
       venueId: 0,
       status: "pending",
-      musicianTypeIds: [],
+      musicianCategoryIds: [],
       eventDates: [],
       notes: "",
     },
   });
   
-  // Watch the musician type selection to find available musicians
-  const selectedMusicianTypes = form.watch("musicianTypeIds");
+  // Watch the musician category selection to find available musicians
+  const selectedMusicianCategories = form.watch("musicianCategoryIds");
   
   // Create a watch for event dates to filter available musicians
   const eventDates = form.watch("eventDates");
@@ -117,28 +117,28 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   
   // No need to maintain a separate map as we now use dateAvailabilityData from the query
   
-  // Query for musicians of selected types - we're not filtering by availability here anymore
+  // Query for musicians of selected categories - we're not filtering by availability here anymore
   // We'll use dateAvailabilityData to display availability on a day-by-day basis
   const { data: availableMusicians = [], isLoading: isLoadingMusicians } = useQuery<Musician[]>({
-    queryKey: ["/api/musicians", { typeIds: selectedMusicianTypes }],
-    enabled: selectedMusicianTypes.length > 0,
+    queryKey: ["/api/musicians", { categoryIds: selectedMusicianCategories }],
+    enabled: selectedMusicianCategories.length > 0,
     queryFn: async ({ queryKey }) => {
-      // Extract type IDs from the query key
-      const params = queryKey[1] as { typeIds?: number[] };
+      // Extract category IDs from the query key
+      const params = queryKey[1] as { categoryIds?: number[] };
       
-      // If we have type IDs, filter by them
-      if (params.typeIds && params.typeIds.length > 0) {
-        const typeParams = params.typeIds.map(id => `typeIds=${id}`).join('&');
-        const response = await fetch(`/api/musicians?${typeParams}`);
+      // If we have category IDs, filter by them
+      if (params.categoryIds && params.categoryIds.length > 0) {
+        const categoryParams = params.categoryIds.map(id => `categoryIds=${id}`).join('&');
+        const response = await fetch(`/api/musicians?${categoryParams}`);
         
         if (!response.ok) {
-          throw new Error('Failed to fetch musicians by type');
+          throw new Error('Failed to fetch musicians by category');
         }
         
         return response.json();
       }
       
-      // If no types specified, fetch all musicians
+      // If no categories specified, fetch all musicians
       const response = await fetch('/api/musicians');
       if (!response.ok) {
         throw new Error('Failed to fetch musicians');
@@ -293,14 +293,19 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     );
   };
   
-  // Extra effect to fetch musicians when editing an event with existing musician types
+  // Extra effect to fetch musicians when editing an event with existing musician categories or types
   useEffect(() => {
-    console.log("Initial musicianTypeIds:", initialData?.musicianTypeIds);
+    console.log("Initial musician data:", { 
+      categoryIds: initialData?.musicianCategoryIds,
+      typeIds: initialData?.musicianTypeIds 
+    });
     
     // Only run this effect once on initial render if initialData is available
-    if (initialData?.musicianTypeIds?.length > 0 && form) {
-      console.log("Setting form musicianTypeIds", initialData.musicianTypeIds);
-      form.setValue("musicianTypeIds", initialData.musicianTypeIds);
+    // Support both legacy typeIds and new categoryIds
+    if ((initialData?.musicianCategoryIds?.length > 0 || initialData?.musicianTypeIds?.length > 0) && form) {
+      const categoryIds = initialData?.musicianCategoryIds || initialData?.musicianTypeIds || [];
+      console.log("Setting form musicianCategoryIds", categoryIds);
+      form.setValue("musicianCategoryIds", categoryIds);
     }
     
     // Also load existing musician assignments when editing
@@ -388,7 +393,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
 
   function onSubmit(values: EventFormValues) {
     // Validate if there are any musician assignments
-    if (selectedMusicians.length === 0 && selectedDates.length > 0 && selectedMusicianTypes.length > 0) {
+    if (selectedMusicians.length === 0 && selectedDates.length > 0 && selectedMusicianCategories.length > 0) {
       toast({
         title: "No musicians selected",
         description: "Please select at least one musician for your event dates",
@@ -403,7 +408,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       paxCount: values.paxCount,
       venueId: values.venueId,
       status: values.status,
-      musicianTypeIds: values.musicianTypeIds,
+      musicianCategoryIds: values.musicianCategoryIds,
       notes: values.notes,
       eventDates: values.eventDates.map(date => date.toISOString()),
       musicianIds: selectedMusicians.length > 0 ? selectedMusicians : undefined,
@@ -413,7 +418,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     eventMutation.mutate(formattedValues);
   }
 
-  const isLoading = isLoadingVenues || isLoadingMusicianTypes;
+  const isLoading = isLoadingVenues || isLoadingMusicianCategories;
 
   if (isLoading) {
     return (
@@ -547,42 +552,42 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
           )}
         />
 
-        {/* Musician Types - Multiple Selection */}
+        {/* Musician Categories - Multiple Selection */}
         <FormField
           control={form.control}
-          name="musicianTypeIds"
+          name="musicianCategoryIds"
           render={() => (
             <FormItem>
               <div className="mb-4">
-                <FormLabel>Musician Types Needed *</FormLabel>
+                <FormLabel>Musician Categories Needed *</FormLabel>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {musicianTypes?.map((type) => (
+                {musicianCategories?.map((category) => (
                   <FormField
-                    key={type.id}
+                    key={category.id}
                     control={form.control}
-                    name="musicianTypeIds"
+                    name="musicianCategoryIds"
                     render={({ field }) => {
                       return (
                         <FormItem
-                          key={type.id}
+                          key={category.id}
                           className="flex flex-row items-start space-x-3 space-y-0"
                         >
                           <FormControl>
                             <Checkbox
-                              checked={field.value?.includes(type.id)}
+                              checked={field.value?.includes(category.id)}
                               onCheckedChange={(checked) => {
                                 const currentValues = field.value || [];
                                 return checked
-                                  ? field.onChange([...currentValues, type.id])
+                                  ? field.onChange([...currentValues, category.id])
                                   : field.onChange(
-                                      currentValues.filter((value) => value !== type.id)
+                                      currentValues.filter((value) => value !== category.id)
                                     );
                               }}
                             />
                           </FormControl>
                           <FormLabel className="font-normal cursor-pointer">
-                            {type.title}
+                            {category.name}
                           </FormLabel>
                         </FormItem>
                       );
@@ -596,7 +601,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
         />
         
         {/* Available Musicians Section */}
-        {selectedMusicianTypes.length > 0 && selectedDates.length > 0 && (
+        {selectedMusicianCategories.length > 0 && selectedDates.length > 0 && (
           <div className="mt-6">
             <h3 className="text-lg font-medium mb-4">Musician Invitations</h3>
             
@@ -606,7 +611,10 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
               <div className="flex justify-center p-4">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
-            ) : allMusicians && allMusicians.filter(m => selectedMusicianTypes.includes(m.typeId)).length > 0 ? (
+            ) : allMusicians && allMusicians.filter(m => 
+                // Check if the musician has any categories that match the selectedMusicianCategories
+                m.categoryIds && m.categoryIds.some(catId => selectedMusicianCategories.includes(catId))
+              ).length > 0 ? (
               <div className="space-y-6">
                 {/* Date selector for musician assignments */}
                 <div className="mb-6 p-4 border rounded-md">
@@ -694,14 +702,16 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                   )}
                 </div>
 
-                {/* Group musicians by type */}
-                {selectedMusicianTypes.map(typeId => {
-                  const musicianType = musicianTypes?.find(t => t.id === typeId);
-                  const musiciansOfType = allMusicians.filter(m => m.typeId === typeId);
+                {/* Group musicians by category */}
+                {selectedMusicianCategories.map(categoryId => {
+                  const category = musicianCategories?.find(c => c.id === categoryId);
+                  const musiciansOfCategory = allMusicians.filter(m => 
+                    m.categoryIds && m.categoryIds.includes(categoryId)
+                  );
                   
                   return (
-                    <div key={typeId} className="space-y-3">
-                      <h4 className="text-md font-medium">{musicianType?.title}</h4>
+                    <div key={categoryId} className="space-y-3">
+                      <h4 className="text-md font-medium">{category?.name}</h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {musiciansOfType.map((musician) => {
