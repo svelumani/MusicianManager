@@ -856,114 +856,128 @@ export class DatabaseStorage implements IStorage {
   
   async getMusicianEventDatesInMonth(musicianId: number, month: number, year: number): Promise<any[]> {
     try {
+      console.log(`Fetching event dates for musician ${musicianId} in ${month}/${year}`);
+      
       // Calculate first and last day of month
       const startDate = startOfMonth(new Date(year, month - 1));
       const endDate = endOfMonth(startDate);
       
-      // First check if there are any bookings for this musician in this month
-      const bookingsInMonth = await db.select({
-        bookingId: bookings.id,
-        bookingDate: bookings.date,
-        bookingStatus: bookings.status,
-        eventId: bookings.eventId
+      // First approach: Skip trying to directly query contractLinks table
+      // Get all the bookings for this musician in this month
+      const bookingsQuery = db.select({
+        id: bookings.id,
+        date: bookings.date,
+        status: bookings.status,
+        eventId: bookings.eventId,
+        musicianId: bookings.musicianId
       })
       .from(bookings)
       .where(and(
         eq(bookings.musicianId, musicianId),
         gte(bookings.date, startDate),
         lte(bookings.date, endDate)
-      ))
-      .orderBy(bookings.date);
+      ));
       
-      if (bookingsInMonth.length === 0) {
-        console.log(`No bookings found for musician ${musicianId} in ${month}/${year}`);
+      // We'll try-catch each database operation separately
+      let bookingsInMonth: any[] = [];
+      try {
+        bookingsInMonth = await bookingsQuery.orderBy(bookings.date);
+        console.log(`Found ${bookingsInMonth.length} bookings for musician ${musicianId} in ${month}/${year}`);
+      } catch (bookingErr) {
+        console.error("Error fetching bookings:", bookingErr);
         return [];
       }
       
-      // Now enhance the data with additional information
-      const enhancedEvents = await Promise.all(bookingsInMonth.map(async (booking) => {
+      if (bookingsInMonth.length === 0) {
+        return [];
+      }
+      
+      // Now transform the bookings into event data
+      const enhancedEvents = [];
+      
+      for (const booking of bookingsInMonth) {
         try {
-          // Get the event
-          const [event] = await db.select()
+          // Get the event details
+          let eventName = "Unknown Event";
+          let venueId = null;
+          let venueName = "Unknown Venue";
+          
+          try {
+            const [event] = await db.select({
+              id: events.id,
+              name: events.name,
+              venueId: events.venueId
+            })
             .from(events)
             .where(eq(events.id, booking.eventId));
-          
-          if (!event) {
-            return {
-              date: booking.bookingDate,
-              status: booking.bookingStatus,
-              eventTitle: "Unknown Event",
-              eventId: booking.eventId,
-              venueName: "Unknown Venue",
-              contractStatus: "none"
-            };
+            
+            if (event) {
+              eventName = event.name;
+              venueId = event.venueId;
+            }
+          } catch (eventErr) {
+            console.warn(`Error fetching event details for event ${booking.eventId}:`, eventErr);
           }
           
-          // Get venue information
-          let venueName = "Unknown Venue";
-          if (event.venueId) {
+          // Get venue name if we have a venue ID
+          if (venueId) {
             try {
-              const [venue] = await db.select()
-                .from(venues)
-                .where(eq(venues.id, event.venueId));
+              const [venue] = await db.select({
+                id: venues.id,
+                name: venues.name
+              })
+              .from(venues)
+              .where(eq(venues.id, venueId));
               
               if (venue) {
                 venueName = venue.name;
               }
             } catch (venueErr) {
-              console.warn(`Error fetching venue info: ${venueErr}`);
+              console.warn(`Error fetching venue details for venue ${venueId}:`, venueErr);
             }
           }
           
-          // Get contract information for this event/musician/date
+          // Check the centralized status system directly (skip contractLinks)
           let contractStatus = "none";
           try {
-            // Safely query contract links
-            const contractLinksData = await db.select({
-              id: contractLinks.id,
-              status: contractLinks.status,
-              eventDate: contractLinks.eventDate
-            })
-            .from(contractLinks)
-            .where(and(
-              eq(contractLinks.eventId, booking.eventId),
-              eq(contractLinks.musicianId, musicianId)
-            ));
+            // Import the status service
+            const { statusService, ENTITY_TYPES } = await import('./services/status');
             
-            if (contractLinksData && contractLinksData.length > 0) {
-              // Find contract for specific date if possible
-              const dateSpecificContract = contractLinksData.find(c => {
-                if (!c.eventDate) return false;
-                return format(c.eventDate, 'yyyy-MM-dd') === format(booking.bookingDate, 'yyyy-MM-dd');
-              });
-              
-              // Or use any contract for this event/musician
-              const contract = dateSpecificContract || contractLinksData[0];
-              
-              if (contract) {
-                contractStatus = contract.status;
-              }
+            // Get status for this booking/contract
+            const statusData = await statusService.getEntityStatus(
+              ENTITY_TYPES.CONTRACT,
+              0, // We don't have contract ID, pass 0
+              booking.eventId,
+              booking.musicianId,
+              booking.date
+            );
+            
+            if (statusData && statusData.status) {
+              contractStatus = statusData.status;
+              console.log(`Using centralized status "${contractStatus}" for booking on ${format(booking.date, 'yyyy-MM-dd')}`);
             }
-          } catch (contractErr) {
-            console.warn(`Error fetching contract status: ${contractErr}`);
+          } catch (statusErr) {
+            console.warn(`Error fetching centralized status:`, statusErr);
+            
+            // Fallback to booking status
+            contractStatus = booking.status || "none";
           }
           
-          return {
-            date: booking.bookingDate,
-            status: booking.bookingStatus,
-            eventTitle: event.name || 'Unnamed Event',
+          // Add event data to results
+          enhancedEvents.push({
+            date: booking.date,
+            status: booking.status,
+            eventTitle: eventName,
             eventId: booking.eventId,
             venueName: venueName,
             contractStatus: contractStatus
-          };
+          });
         } catch (itemErr) {
-          console.warn(`Error processing booking ${booking.bookingId}: ${itemErr}`);
-          return null;
+          console.warn(`Error processing booking ${booking.id}:`, itemErr);
         }
-      }));
+      }
       
-      // Filter out any null values from failed processing
-      return enhancedEvents.filter(Boolean);
+      return enhancedEvents;
     } catch (error) {
       console.error("Error fetching musician event dates:", error);
       return [];
