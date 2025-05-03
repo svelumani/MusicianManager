@@ -376,6 +376,16 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async getMusicians(): Promise<Musician[]> {
+    const result = await db.select().from(musicians).orderBy(musicians.name);
+    return result;
+  }
+  
+  async getMusician(id: number): Promise<Musician | undefined> {
+    const result = await db.select().from(musicians).where(eq(musicians.id, id)).limit(1);
+    return result[0];
+  }
+  
   async getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]> {
     // If categoryIds are provided, delegate to the specialized method
     if (categoryIds && categoryIds.length > 0) {
