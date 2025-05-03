@@ -6,14 +6,16 @@ import * as z from "zod";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { format } from "date-fns";
+import { format, parseISO, isValid } from "date-fns";
 import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "./services/settings";
 import { sendMusicianAssignmentEmail, initializeSendGrid } from "./services/email";
 import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 import pgSession from 'connect-pg-simple';
-import { pool } from './db';
+import { pool, db } from './db';
 import { isAuthenticated } from './auth';
+import { and, eq, sql } from "drizzle-orm";
+import { availability } from "@shared/schema";
 import statusRouter from './routes/status';
 import { 
   insertUserSchema, 
@@ -2249,16 +2251,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dateStr = new Date(slot.date).toISOString().split('T')[0];
       console.log(`Checking availability for musician ${assignmentData.musicianId} on date ${dateStr} (slot: ${slot.id})`);
       
-      // Debug the availability record
-      const availabilityRecord = await db.select()
+      // Direct query to check availability
+      const [availabilityRecord] = await db.select()
         .from(availability)
         .where(and(
           eq(availability.musicianId, assignmentData.musicianId),
-          eq(availability.date, new Date(dateStr))
+          sql`DATE(${availability.date}) = DATE(${new Date(dateStr)})`
         ));
-      console.log(`Found availability records:`, availabilityRecord);
       
-      const isAvailable = await storage.isMusicianAvailableForDate(assignmentData.musicianId, dateStr);
+      console.log(`Found availability record:`, availabilityRecord);
+      
+      // If a record exists and isAvailable is false, the musician is not available
+      let isAvailable = true;
+      if (availabilityRecord && availabilityRecord.isAvailable === false) {
+        isAvailable = false;
+      }
+      
       console.log(`Availability check result: ${isAvailable}`);
       
       

@@ -1054,19 +1054,34 @@ export class DatabaseStorage implements IStorage {
   
   async isMusicianAvailableForDate(musicianId: number, dateStr: string): Promise<boolean> {
     try {
+      console.log(`Checking database availability for musician ${musicianId} on ${dateStr}`);
+      
       // Convert the string date to a Date object
       const date = new Date(dateStr);
       
-      // Get availability record for this date
-      const availabilityRecord = await this.getMusicianAvailabilityForDate(musicianId, date);
+      // Query directly to ensure we get the most accurate data
+      const [result] = await db.select()
+        .from(availability)
+        .where(and(
+          eq(availability.musicianId, musicianId),
+          sql`DATE(${availability.date}) = DATE(${date})`
+        ));
+      
+      console.log(`Direct availability query result:`, result);
       
       // If no record exists, we assume they are available (default state)
-      // If a record exists, check the isAvailable flag
-      return !availabilityRecord || availabilityRecord.isAvailable;
+      if (!result) {
+        console.log(`No availability record found, assuming available`);
+        return true;
+      }
+      
+      // Otherwise, return the isAvailable flag
+      console.log(`Availability record found, isAvailable=${result.isAvailable}`);
+      return result.isAvailable;
     } catch (error) {
       console.error(`Error checking availability for musician ${musicianId} on ${dateStr}:`, error);
-      // Default to available in case of error to prevent blocking operations
-      return true;
+      // Default to unavailable in case of error to prevent incorrect bookings
+      return false;
     }
   }
   
