@@ -2545,10 +2545,11 @@ export class DatabaseStorage implements IStorage {
       data.token = crypto.randomBytes(32).toString('hex');
     }
     
-    // Convert expiresAt to ISO string if it's a Date object
+    // Handle expiresAt - ensure it's a valid Date object
+    // Don't try to convert it to ISO string - let Drizzle ORM handle it
     const values = {
       ...data,
-      expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : undefined
+      expiresAt: data.expiresAt instanceof Date ? data.expiresAt : new Date(data.expiresAt)
     };
     
     const [shareLink] = await db.insert(availabilityShareLinks)
@@ -2559,8 +2560,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAvailabilityShareLink(id: number, data: Partial<InsertAvailabilityShareLink>): Promise<AvailabilityShareLink | undefined> {
+    // Handle expiresAt if present - ensure it's a valid Date object
+    const values = {...data};
+    
+    if (values.expiresAt) {
+      values.expiresAt = values.expiresAt instanceof Date 
+        ? values.expiresAt 
+        : new Date(values.expiresAt);
+    }
+    
     const [updated] = await db.update(availabilityShareLinks)
-      .set(data)
+      .set(values)
       .where(eq(availabilityShareLinks.id, id))
       .returning();
     

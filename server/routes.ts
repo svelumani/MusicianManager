@@ -883,7 +883,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + expiryDays);
       
-      // Store the token
+      // Store the token - make sure expiresAt is a proper Date object and not a string
       const shareLink = await storage.createAvailabilityShareLink({
         musicianId: parseInt(musicianId),
         token,
