@@ -1315,6 +1315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 return; // Can't create a contract without a date
               }
               
+              const now = new Date();
               const contractData = {
                 bookingId,
                 eventId,
@@ -1324,7 +1325,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 expiresAt,
                 status: status === 'contract-sent' ? 'contract-sent' : 'pending', // Use 'contract-sent' status directly if that's the current status
                 eventDate: new Date(dateStr), // Always include a specific date for the contract
-                amount: contractAmount > 0 ? contractAmount : null // Add the contract amount
+                amount: contractAmount > 0 ? contractAmount : null, // Add the contract amount
+                companySignature: "VAMP Management", // Automatically sign with company name
+                companySignedAt: now // Include timestamp of when contract was created
               };
               
               // Create the contract link
