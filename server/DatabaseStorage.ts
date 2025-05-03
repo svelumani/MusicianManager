@@ -983,7 +983,12 @@ export class DatabaseStorage implements IStorage {
     return event;
   }
   
-  async createEvent(event: InsertEvent): Promise<Event> {
+  async createEvent(event: any): Promise<Event> {
+    // Extract musicianAssignments before inserting the event
+    const musicianAssignments = event.musicianAssignments;
+    delete event.musicianAssignments;
+    
+    // Insert the event
     const [newEvent] = await db.insert(events)
       .values(event)
       .returning();
@@ -997,10 +1002,53 @@ export class DatabaseStorage implements IStorage {
       details: `Created new event: ${newEvent.name}`
     });
     
+    // Create booking records for musician assignments if present
+    if (musicianAssignments && Object.keys(musicianAssignments).length > 0) {
+      console.log(`Processing musician assignments for event ${newEvent.id}:`, musicianAssignments);
+      
+      for (const dateStr of Object.keys(musicianAssignments)) {
+        const date = new Date(dateStr);
+        const musicianIds = musicianAssignments[dateStr];
+        
+        for (const musicianId of musicianIds) {
+          try {
+            // Create invitation record first
+            const [invitation] = await db.insert(invitations)
+              .values({
+                eventId: newEvent.id,
+                musicianId: musicianId,
+                status: 'confirmed',
+                invitedAt: new Date(),
+                respondedAt: new Date()
+              })
+              .returning();
+            
+            // Create booking record
+            await db.insert(bookings)
+              .values({
+                eventId: newEvent.id,
+                musicianId: musicianId,
+                invitationId: invitation.id,
+                date: date,
+                paymentStatus: 'pending'
+              });
+            
+            console.log(`Created booking for event ${newEvent.id}, musician ${musicianId}, date ${dateStr}`);
+          } catch (error) {
+            console.error(`Failed to create booking for event ${newEvent.id}, musician ${musicianId}:`, error);
+          }
+        }
+      }
+    }
+    
     return newEvent;
   }
   
-  async updateEvent(id: number, data: Partial<InsertEvent>): Promise<Event | undefined> {
+  async updateEvent(id: number, data: any): Promise<Event | undefined> {
+    // Extract musicianAssignments before updating the event
+    const musicianAssignments = data.musicianAssignments;
+    delete data.musicianAssignments;
+    
     const [updated] = await db.update(events)
       .set(data)
       .where(eq(events.id, id))
@@ -1015,6 +1063,49 @@ export class DatabaseStorage implements IStorage {
         userId: 1, // Default admin user
         details: `Updated event: ${updated.name}`
       });
+      
+      // Process musician assignments if provided
+      if (musicianAssignments && Object.keys(musicianAssignments).length > 0) {
+        console.log(`Processing musician assignments update for event ${id}:`, musicianAssignments);
+        
+        // Remove existing bookings for this event to avoid duplicates
+        await db.delete(bookings).where(eq(bookings.eventId, id));
+        
+        // Add new bookings
+        for (const dateStr of Object.keys(musicianAssignments)) {
+          const date = new Date(dateStr);
+          const musicianIds = musicianAssignments[dateStr];
+          
+          for (const musicianId of musicianIds) {
+            try {
+              // Create invitation record first
+              const [invitation] = await db.insert(invitations)
+                .values({
+                  eventId: id,
+                  musicianId: musicianId,
+                  status: 'confirmed',
+                  invitedAt: new Date(),
+                  respondedAt: new Date()
+                })
+                .returning();
+              
+              // Create booking record
+              await db.insert(bookings)
+                .values({
+                  eventId: id,
+                  musicianId: musicianId,
+                  invitationId: invitation.id,
+                  date: date,
+                  paymentStatus: 'pending'
+                });
+              
+              console.log(`Created booking for updated event ${id}, musician ${musicianId}, date ${dateStr}`);
+            } catch (error) {
+              console.error(`Failed to create booking for updated event ${id}, musician ${musicianId}:`, error);
+            }
+          }
+        }
+      }
     }
     
     return updated;
