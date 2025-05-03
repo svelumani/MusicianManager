@@ -319,8 +319,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   // Function to check if a musician is available on a specific date
   const isMusicianAvailableForDate = (musicianId: number, date: Date): boolean => {
     try {
-      // Convert to date string for comparison
-      const dateStr = date.toISOString();
+      // Use a consistent date format for comparison
+      const normalizedDateStr = format(date, 'yyyy-MM-dd');
       
       // Check if this musician exists
       const musician = allMusicians.find(m => m.id === musicianId);
@@ -329,8 +329,20 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       }
       
       // First check if we have date-specific availability data
-      if (dateAvailabilityData && dateAvailabilityData[dateStr]) {
-        return dateAvailabilityData[dateStr].includes(musicianId);
+      if (dateAvailabilityData) {
+        // Try to find the date in our availability data using the normalized format
+        const matchingKey = Object.keys(dateAvailabilityData).find(key => {
+          try {
+            const keyDate = new Date(key);
+            return format(keyDate, 'yyyy-MM-dd') === normalizedDateStr;
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        if (matchingKey && dateAvailabilityData[matchingKey]) {
+          return dateAvailabilityData[matchingKey].includes(musicianId);
+        }
       }
       
       // If we don't have date-specific data yet but the query is still loading,
@@ -340,7 +352,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       // If musician is in the overall availability list, they're available for all selected dates
       return isInAvailableList;
     } catch (error) {
-      console.error("Error checking musician availability:", error);
+      console.error("Error checking musician availability for date " + format(date, 'yyyy-MM-dd') + ":", error);
       // Default to not available in case of error to prevent incorrect bookings
       return false;
     }
@@ -348,11 +360,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
 
   // Handle musician selection/deselection for a specific date
   const toggleMusicianSelection = (musicianId: number, date: Date = activeDate!) => {
-    if (!date) return; // Make sure we have a date
-    if (!musicianId) {
-      console.error("No musicianId provided to toggleMusicianSelection");
-      return;
-    }
+    if (!date || !musicianId) return; // Make sure we have valid inputs
     
     // Check if musician is available for this specific date
     const isAvailable = isMusicianAvailableForDate(musicianId, date);
@@ -367,53 +375,40 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       return;
     }
     
-    // Normalize the date to avoid timezone issues - this will be our canonical key format
-    const normalizedDateStr = format(date, 'yyyy-MM-dd');
+    // Use a consistent date string format
+    const dateKey = format(date, 'yyyy-MM-dd');
     
-    // Log the operation for debugging
-    console.log(`Toggle musician ${musicianId} for date ${normalizedDateStr}`);
+    // Create a new copy of the musician assignments
+    const newAssignments = {...musicianAssignments};
     
-    setMusicianAssignments(prev => {
-      // Start with a clean slate
-      const newAssignments: Record<string, number[]> = {};
-      
-      // First, copy all existing assignments with normalized keys
-      for (const [key, musicians] of Object.entries(prev)) {
-        try {
-          const keyDate = new Date(key);
-          if (!isNaN(keyDate.getTime())) {
-            const normalizedKey = format(keyDate, 'yyyy-MM-dd');
-            newAssignments[normalizedKey] = [...(musicians || [])];
-          }
-        } catch (e) {
-          // Keep non-date keys as is
-          newAssignments[key] = [...(prev[key] || [])];
-        }
-      }
-      
-      // Now handle the toggle action
-      if (!newAssignments[normalizedDateStr]) {
-        // Create a new array if none exists
-        newAssignments[normalizedDateStr] = [musicianId];
-      } else {
-        const index = newAssignments[normalizedDateStr].indexOf(musicianId);
-        if (index >= 0) {
-          // Remove if found
-          newAssignments[normalizedDateStr].splice(index, 1);
-          if (newAssignments[normalizedDateStr].length === 0) {
-            delete newAssignments[normalizedDateStr];
-          }
+    // Check if we already have assignments for this date
+    if (!newAssignments[dateKey]) {
+      // No existing assignments for this date, create a new array with this musician
+      newAssignments[dateKey] = [musicianId];
+    } else {
+      // Check if this musician is already assigned
+      const index = newAssignments[dateKey].indexOf(musicianId);
+      if (index >= 0) {
+        // Musician is already assigned, remove them
+        const updatedMusicians = [...newAssignments[dateKey]];
+        updatedMusicians.splice(index, 1);
+        
+        // If there are no musicians left, remove the date entry
+        if (updatedMusicians.length === 0) {
+          delete newAssignments[dateKey];
         } else {
-          // Add if not found
-          newAssignments[normalizedDateStr].push(musicianId);
+          newAssignments[dateKey] = updatedMusicians;
         }
+      } else {
+        // Musician is not assigned, add them
+        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
       }
-      
-      // Debug output
-      console.log("Updated musician assignments:", newAssignments);
-      
-      return newAssignments;
-    });
+    }
+    
+    console.log(`Toggle musician ${musicianId} for date ${dateKey}`, newAssignments);
+    
+    // Update state with the new assignments
+    setMusicianAssignments(newAssignments);
   };
 
   function onSubmit(values: EventFormValues) {
@@ -784,18 +779,10 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                           const isSelectedAnywhere = selectedMusicians.includes(musician.id);
                           
                           // Check if this musician is selected for the currently active date
-                          // Using a simpler approach to avoid infinite loops
-                          const isSelectedForActiveDate = activeDate && (() => {
-                            // Try ISO string format first
-                            const isoKey = activeDate.toISOString();
-                            if (musicianAssignments[isoKey]?.includes(musician.id)) {
-                              return true;
-                            }
-                            
-                            // Try normalized date format
-                            const normalizedDateStr = format(activeDate, 'yyyy-MM-dd');
-                            return !!musicianAssignments[normalizedDateStr]?.includes(musician.id);
-                          })();
+                          // Use a simple and direct approach
+                          const isSelectedForActiveDate = activeDate 
+                            ? musicianAssignments[format(activeDate, 'yyyy-MM-dd')]?.includes(musician.id) || false
+                            : false;
                           
                           return (
                             <Card 
@@ -890,13 +877,10 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                   <p className="text-xs text-muted-foreground mb-1">Date assignments:</p>
                                   <div className="flex flex-wrap gap-1">
                                     {selectedDates.map((date, idx) => {
-                                      // Check if musician is assigned to this date - need to check multiple formats 
-                                      // Using a simpler approach to avoid infinite loops
+                                      // Only check the normalized date format to avoid inconsistencies
                                       const normalizedDateStr = format(date, 'yyyy-MM-dd');
-                                      // Check all possible date representations
-                                      const isAssignedToDate = 
-                                        (musicianAssignments[date.toISOString()]?.includes(musician.id)) || 
-                                        (musicianAssignments[normalizedDateStr]?.includes(musician.id));
+                                      // Simple, direct check using only the normalized date format
+                                      const isAssignedToDate = musicianAssignments[normalizedDateStr]?.includes(musician.id) || false;
                                       
                                       // Check if musician is available for this specific date
                                       const isAvailableForDate = isMusicianAvailableForDate(musician.id, date);
