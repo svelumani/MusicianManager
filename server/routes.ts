@@ -41,6 +41,9 @@ import {
   insertAvailabilityShareLinkSchema,
   insertContractLinkSchema,
   insertInvitationSchema,
+  insertMonthlyContractSchema,
+  insertMonthlyContractMusicianSchema,
+  insertMonthlyContractDateSchema,
   type Musician
 } from "@shared/schema";
 
@@ -4865,6 +4868,404 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error testing multi-category filtering:", error);
       res.status(500).json({ message: "Error testing multi-category filtering" });
+    }
+  });
+  
+  // Monthly Contract routes
+  apiRouter.get("/monthly-contracts", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
+      
+      let contracts;
+      if (plannerId) {
+        contracts = await storage.getMonthlyContractsByPlanner(plannerId);
+      } else {
+        contracts = await storage.getMonthlyContracts();
+      }
+      
+      res.json(contracts);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching monthly contracts" });
+    }
+  });
+  
+  apiRouter.get("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contract = await storage.getMonthlyContract(parseInt(req.params.id));
+      if (!contract) {
+        return res.status(404).json({ message: "Monthly contract not found" });
+      }
+      
+      // Get the musicians associated with this contract
+      const contractMusicians = await storage.getMonthlyContractMusicians(contract.id);
+      
+      // For each musician, get their dates
+      const enrichedMusicians = await Promise.all(
+        contractMusicians.map(async (cm) => {
+          const musician = await storage.getMusician(cm.musicianId);
+          const dates = await storage.getMonthlyContractDates(cm.id);
+          
+          return {
+            ...cm,
+            musician,
+            dates
+          };
+        })
+      );
+      
+      // Return the full contract with musicians and dates
+      res.json({
+        ...contract,
+        musicians: enrichedMusicians
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching monthly contract" });
+    }
+  });
+  
+  apiRouter.post("/monthly-contracts", isAuthenticated, async (req, res) => {
+    try {
+      const contractData = insertMonthlyContractSchema.parse(req.body);
+      const contract = await storage.createMonthlyContract(contractData);
+      
+      res.status(201).json(contract);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error creating monthly contract" });
+    }
+  });
+  
+  apiRouter.put("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const contractData = insertMonthlyContractSchema.partial().parse(req.body);
+      const contract = await storage.updateMonthlyContract(parseInt(req.params.id), contractData);
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Monthly contract not found" });
+      }
+      
+      res.json(contract);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating monthly contract" });
+    }
+  });
+  
+  apiRouter.delete("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMonthlyContract(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Monthly contract not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error deleting monthly contract" });
+    }
+  });
+  
+  // Monthly Contract Musicians routes
+  apiRouter.get("/monthly-contracts/:contractId/musicians", isAuthenticated, async (req, res) => {
+    try {
+      const contractMusicians = await storage.getMonthlyContractMusicians(parseInt(req.params.contractId));
+      
+      // Enrich with musician details
+      const enrichedMusicians = await Promise.all(
+        contractMusicians.map(async (cm) => {
+          const musician = await storage.getMusician(cm.musicianId);
+          return {
+            ...cm,
+            musician
+          };
+        })
+      );
+      
+      res.json(enrichedMusicians);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching monthly contract musicians" });
+    }
+  });
+  
+  apiRouter.post("/monthly-contracts/:contractId/musicians", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.contractId);
+      
+      // Validate contract exists
+      const contract = await storage.getMonthlyContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Monthly contract not found" });
+      }
+      
+      const musicianData = insertMonthlyContractMusicianSchema.parse({
+        ...req.body,
+        contractId
+      });
+      
+      const contractMusician = await storage.createMonthlyContractMusician(musicianData);
+      
+      // Also get the musician details
+      const musician = await storage.getMusician(contractMusician.musicianId);
+      
+      res.status(201).json({
+        ...contractMusician,
+        musician
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician contract data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error adding musician to monthly contract" });
+    }
+  });
+  
+  apiRouter.put("/monthly-contract-musicians/:id", isAuthenticated, async (req, res) => {
+    try {
+      const musicianData = insertMonthlyContractMusicianSchema.partial().parse(req.body);
+      const contractMusician = await storage.updateMonthlyContractMusician(parseInt(req.params.id), musicianData);
+      
+      if (!contractMusician) {
+        return res.status(404).json({ message: "Contract musician not found" });
+      }
+      
+      // Also get the musician details
+      const musician = await storage.getMusician(contractMusician.musicianId);
+      
+      res.json({
+        ...contractMusician,
+        musician
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid musician contract data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating musician in monthly contract" });
+    }
+  });
+  
+  apiRouter.delete("/monthly-contract-musicians/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMonthlyContractMusician(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Contract musician not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error removing musician from monthly contract" });
+    }
+  });
+  
+  // Monthly Contract Dates routes
+  apiRouter.get("/monthly-contract-musicians/:musicianContractId/dates", isAuthenticated, async (req, res) => {
+    try {
+      const dates = await storage.getMonthlyContractDates(parseInt(req.params.musicianContractId));
+      res.json(dates);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching monthly contract dates" });
+    }
+  });
+  
+  apiRouter.post("/monthly-contract-musicians/:musicianContractId/dates", isAuthenticated, async (req, res) => {
+    try {
+      const musicianContractId = parseInt(req.params.musicianContractId);
+      
+      // Validate musician contract exists
+      const musicianContract = await storage.getMonthlyContractMusician(musicianContractId);
+      if (!musicianContract) {
+        return res.status(404).json({ message: "Monthly contract musician not found" });
+      }
+      
+      const dateData = insertMonthlyContractDateSchema.parse({
+        ...req.body,
+        musicianContractId
+      });
+      
+      const contractDate = await storage.createMonthlyContractDate(dateData);
+      res.status(201).json(contractDate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract date data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error adding date to monthly contract" });
+    }
+  });
+  
+  apiRouter.put("/monthly-contract-dates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const dateData = insertMonthlyContractDateSchema.partial().parse(req.body);
+      const contractDate = await storage.updateMonthlyContractDate(parseInt(req.params.id), dateData);
+      
+      if (!contractDate) {
+        return res.status(404).json({ message: "Contract date not found" });
+      }
+      
+      res.json(contractDate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid contract date data", errors: error.errors });
+      }
+      console.error(error);
+      res.status(500).json({ message: "Error updating date in monthly contract" });
+    }
+  });
+  
+  apiRouter.delete("/monthly-contract-dates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const result = await storage.deleteMonthlyContractDate(parseInt(req.params.id));
+      if (!result) {
+        return res.status(404).json({ message: "Contract date not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error removing date from monthly contract" });
+    }
+  });
+  
+  // Generate Monthly Contract
+  apiRouter.post("/monthly-contracts/generate", isAuthenticated, async (req, res) => {
+    try {
+      const { plannerId, month, year, templateId } = req.body;
+      
+      if (!plannerId || !month || !year) {
+        return res.status(400).json({ message: "Missing required fields: plannerId, month, year" });
+      }
+      
+      // 1. Validate planner exists
+      const planner = await storage.getMonthlyPlanner(plannerId);
+      if (!planner) {
+        return res.status(404).json({ message: "Monthly planner not found" });
+      }
+      
+      // 2. Get contract template
+      let template;
+      if (templateId) {
+        template = await storage.getContractTemplate(templateId);
+        if (!template) {
+          return res.status(404).json({ message: "Contract template not found" });
+        }
+      } else {
+        // Get default template
+        template = await storage.getDefaultContractTemplate();
+        if (!template) {
+          return res.status(400).json({ message: "No default contract template found" });
+        }
+      }
+      
+      // 3. Create monthly contract
+      const contract = await storage.createMonthlyContract({
+        plannerId,
+        month,
+        year,
+        templateId: template.id,
+        status: 'draft',
+        name: `${planner.name} - ${month}/${year} Contracts`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // 4. Get all planner assignments for the month
+      const slots = await storage.getPlannerSlots(plannerId);
+      const assignments = [];
+      
+      for (const slot of slots) {
+        const slotAssignments = await storage.getPlannerAssignments(slot.id);
+        assignments.push(...slotAssignments);
+      }
+      
+      // 5. Group assignments by musician
+      const musicianAssignments = {};
+      assignments.forEach(assignment => {
+        if (!musicianAssignments[assignment.musicianId]) {
+          musicianAssignments[assignment.musicianId] = [];
+        }
+        musicianAssignments[assignment.musicianId].push(assignment);
+      });
+      
+      // 6. Create contract musician and dates for each musician
+      for (const [musicianId, assignments] of Object.entries(musicianAssignments)) {
+        const contractMusician = await storage.createMonthlyContractMusician({
+          contractId: contract.id,
+          musicianId: parseInt(musicianId),
+          status: 'pending',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+        // Add dates for each assignment
+        for (const assignment of assignments) {
+          const slot = await storage.getPlannerSlot(assignment.slotId);
+          if (slot) {
+            await storage.createMonthlyContractDate({
+              musicianContractId: contractMusician.id,
+              date: slot.date,
+              status: 'pending',
+              fee: assignment.fee || 0,
+              notes: `${slot.description || ''} ${slot.time || ''}`,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+          }
+        }
+      }
+      
+      // 7. Return the complete contract
+      const completeContract = await storage.getMonthlyContract(contract.id);
+      res.status(201).json(completeContract);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error generating monthly contract" });
+    }
+  });
+  
+  // Send Monthly Contract
+  apiRouter.post("/monthly-contracts/:id/send", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      
+      // 1. Get the contract
+      const contract = await storage.getMonthlyContract(contractId);
+      if (!contract) {
+        return res.status(404).json({ message: "Monthly contract not found" });
+      }
+      
+      // 2. Update contract status
+      const updatedContract = await storage.updateMonthlyContract(contractId, {
+        status: 'sent',
+        sentAt: new Date()
+      });
+      
+      // 3. Update all musician statuses
+      const contractMusicians = await storage.getMonthlyContractMusicians(contractId);
+      for (const cm of contractMusicians) {
+        await storage.updateMonthlyContractMusician(cm.id, {
+          status: 'sent',
+          sentAt: new Date()
+        });
+      }
+      
+      // 4. In a real app, we would send emails to musicians here
+      
+      res.json(updatedContract);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error sending monthly contract" });
     }
   });
 
