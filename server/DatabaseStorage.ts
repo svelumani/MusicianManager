@@ -1647,8 +1647,41 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Contract management
-  async getContractLinks(): Promise<ContractLink[]> {
-    return await db.select().from(contractLinks).orderBy(desc(contractLinks.createdAt));
+  async getContractLinks(filters?: {
+    eventId?: number,
+    musicianId?: number,
+    status?: string | string[],
+    eventDate?: Date
+  }): Promise<ContractLink[]> {
+    let query = db.select().from(contractLinks);
+    
+    if (filters) {
+      // Apply eventId filter
+      if (filters.eventId !== undefined) {
+        query = query.where(eq(contractLinks.eventId, filters.eventId));
+      }
+      
+      // Apply musicianId filter
+      if (filters.musicianId !== undefined) {
+        query = query.where(eq(contractLinks.musicianId, filters.musicianId));
+      }
+      
+      // Apply status filter
+      if (filters.status !== undefined) {
+        if (Array.isArray(filters.status)) {
+          query = query.where(inArray(contractLinks.status, filters.status));
+        } else {
+          query = query.where(eq(contractLinks.status, filters.status));
+        }
+      }
+      
+      // Apply eventDate filter
+      if (filters.eventDate) {
+        query = query.where(eq(contractLinks.eventDate, filters.eventDate));
+      }
+    }
+    
+    return await query.orderBy(desc(contractLinks.createdAt));
   }
   
   async getContractLink(id: number): Promise<ContractLink | undefined> {
