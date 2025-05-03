@@ -386,6 +386,26 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
+  async getCategories(): Promise<Category[]> {
+    const result = await db.select().from(musicianCategories).orderBy(musicianCategories.title);
+    return result;
+  }
+  
+  async getMusicianCategories(): Promise<MusicianCategory[]> {
+    const result = await db.select().from(musicianCategories).orderBy(musicianCategories.title);
+    return result;
+  }
+  
+  async getVenues(): Promise<Venue[]> {
+    const result = await db.select().from(venues).orderBy(venues.name);
+    return result;
+  }
+  
+  async getVenue(id: number): Promise<Venue | undefined> {
+    const result = await db.select().from(venues).where(eq(venues.id, id)).limit(1);
+    return result[0];
+  }
+  
   async getAvailableMusiciansForDate(date: Date, categoryIds?: number[]): Promise<Musician[]> {
     // If categoryIds are provided, delegate to the specialized method
     if (categoryIds && categoryIds.length > 0) {
