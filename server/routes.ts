@@ -835,6 +835,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get available musicians for a specific date and category
+  apiRouter.get("/available-musicians", isAuthenticated, async (req, res) => {
+    try {
+      const { date, categoryIds } = req.query;
+      
+      if (!date) {
+        return res.status(400).json({ message: "Date parameter is required" });
+      }
+      
+      // Convert date string to Date object
+      const dateObj = new Date(date as string);
+      
+      if (!isValid(dateObj)) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+      
+      // Parse category IDs if provided
+      let categoryIdsArray: number[] | undefined;
+      if (categoryIds) {
+        if (Array.isArray(categoryIds)) {
+          categoryIdsArray = categoryIds.map(id => parseInt(id as string)).filter(id => !isNaN(id));
+        } else {
+          const parsedId = parseInt(categoryIds as string);
+          categoryIdsArray = !isNaN(parsedId) ? [parsedId] : [];
+        }
+      }
+      
+      // Get available musicians with optional category filtering
+      const availableMusicians = await storage.getAvailableMusiciansForDateAndCategories(
+        dateObj,
+        categoryIdsArray
+      );
+      
+      res.json(availableMusicians);
+    } catch (error) {
+      console.error("Error fetching available musicians:", error);
+      res.status(500).json({ message: "Failed to fetch available musicians" });
+    }
+  });
+  
   // Get musician availability calendar by month and year
   apiRouter.get("/musicians/:musicianId/availability-calendar/:month/:year", isAuthenticated, async (req, res) => {
     try {
