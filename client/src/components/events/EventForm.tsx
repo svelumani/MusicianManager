@@ -653,7 +653,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                       <Button
                         key={`date-tab-${index}`}
                         type="button" // Explicitly set type to button to prevent form submission
-                        variant={activeDate && date.toISOString() === activeDate.toISOString() ? "default" : "outline"}
+                        variant={activeDate && format(date, 'yyyy-MM-dd') === format(activeDate, 'yyyy-MM-dd') ? "default" : "outline"}
                         onClick={(e) => {
                           e.preventDefault(); // Prevent any form submission
                           setActiveDate(date);
@@ -672,13 +672,13 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                         Musicians for {format(activeDate, "MMMM d, yyyy")}
                       </h5>
                       <div className="flex flex-wrap gap-2">
-                        {musicianAssignments[activeDate.toISOString()]?.map(musicianId => {
+                        {activeDate && musicianAssignments[format(activeDate, 'yyyy-MM-dd')]?.map(musicianId => {
                           const musician = allMusicians?.find(m => m.id === musicianId);
                           if (!musician) return null;
                           
                           return (
                             <Badge 
-                              key={`selected-${musicianId}-${activeDate.toISOString()}`}
+                              key={`selected-${musicianId}-${format(activeDate, 'yyyy-MM-dd')}`}
                               variant="default"
                               className="flex items-center gap-1 px-3 py-1.5"
                             >
@@ -687,7 +687,22 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                 className="h-3 w-3 cursor-pointer ml-1" 
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleMusicianSelection(musicianId, activeDate);
+                                  e.preventDefault(); // Prevent form submission
+                                  
+                                  // Use direct state update instead of function call
+                                  const normDate = format(activeDate, 'yyyy-MM-dd');
+                                  const newAssignments = {...musicianAssignments};
+                                  
+                                  // We know the musician is already assigned since we're in this map function
+                                  newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musicianId);
+                                  
+                                  // Remove empty dates
+                                  if (newAssignments[normDate].length === 0) {
+                                    delete newAssignments[normDate];
+                                  }
+                                  
+                                  // Update state
+                                  setMusicianAssignments(newAssignments);
                                 }}
                               />
                             </Badge>
@@ -874,8 +889,44 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                     className="cursor-pointer"
                                     onClick={(e) => {
                                       e.stopPropagation();
+                                      e.preventDefault(); // Prevent form submission
+                                      
                                       if (activeDate) {
-                                        toggleMusicianSelection(musician.id, activeDate);
+                                        // Convert to string to avoid reference issues
+                                        const normDate = format(activeDate, 'yyyy-MM-dd');
+                                        const activeSelection = !!musicianAssignments[normDate]?.includes(musician.id);
+                                        
+                                        // Don't call if user tries to select an unavailable musician
+                                        const isAvailable = isMusicianAvailableForDate(musician.id, activeDate);
+                                        
+                                        if (!isAvailable && !activeSelection) {
+                                          toast({
+                                            title: "Musician unavailable",
+                                            description: "This musician is not available on this date. Please choose another musician or date.",
+                                            variant: "destructive",
+                                          });
+                                          return;
+                                        }
+                                        
+                                        // Create a deep copy of the current state
+                                        const newAssignments = {...musicianAssignments};
+                                        
+                                        // Toggle the selection
+                                        if (!newAssignments[normDate]) {
+                                          newAssignments[normDate] = [musician.id];
+                                        } else if (activeSelection) {
+                                          // Remove musician if already selected
+                                          newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musician.id);
+                                          if (newAssignments[normDate].length === 0) {
+                                            delete newAssignments[normDate];
+                                          }
+                                        } else {
+                                          // Add musician if not selected
+                                          newAssignments[normDate] = [...newAssignments[normDate], musician.id];
+                                        }
+                                        
+                                        // Update state directly
+                                        setMusicianAssignments(newAssignments);
                                       }
                                     }}
                                   >
