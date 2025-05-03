@@ -3181,18 +3181,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contract Link routes
   apiRouter.get("/contracts", isAuthenticated, async (req, res) => {
     try {
-      // Check if eventId is provided as a query parameter
+      // Get filter parameters
       const eventId = req.query.eventId ? parseInt(req.query.eventId as string) : undefined;
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      const status = req.query.status ? req.query.status as string : undefined;
       
-      // If eventId is provided, get contracts for that event
-      if (eventId && !isNaN(eventId)) {
-        const contracts = await storage.getContractLinksByEvent(eventId);
-        return res.json(contracts);
-      }
+      // Build filters object for more flexible filtering
+      const filters: { eventId?: number; musicianId?: number; status?: string } = {};
+      if (eventId && !isNaN(eventId)) filters.eventId = eventId;
+      if (musicianId && !isNaN(musicianId)) filters.musicianId = musicianId;
+      if (status) filters.status = status;
       
-      // Otherwise, get all contracts
-      const contracts = await storage.getContractLinks();
-      res.json(contracts);
+      // Get contracts with filters (even if empty)
+      const contracts = await storage.getContractLinks(Object.keys(filters).length > 0 ? filters : undefined);
+      
+      // For each contract, check if there's a more recent status in the event musician statuses
+      const updatedContracts = await Promise.all(contracts.map(async (contract) => {
+        // If we have both event and musician IDs
+        if (contract.eventId && contract.musicianId) {
+          // Get the event to check its musician statuses
+          const event = await storage.getEvent(contract.eventId);
+          if (event && event.musicianStatuses) {
+            // Check if this musician has a status in the event
+            const allStatuses = event.musicianStatuses.all || {};
+            const musicianStatus = allStatuses[contract.musicianId];
+            
+            // If the event has a status for this musician that's different from the contract's status
+            if (musicianStatus && musicianStatus !== contract.status) {
+              console.log(`Updating contract ${contract.id} status from ${contract.status} to ${musicianStatus}`);
+              
+              // Update the contract status
+              const updatedContract = await storage.updateContractLink(contract.id, {
+                status: musicianStatus
+              });
+              
+              return updatedContract || contract;
+            }
+          }
+        }
+        return contract;
+      }));
+      
+      res.json(updatedContracts);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching contracts" });
