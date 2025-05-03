@@ -79,7 +79,7 @@ function ContractsTable({ eventId }: ContractsTableProps) {
         title: "Contract Resent",
         description: "The contract was successfully resent to the musician."
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
     },
     onError: (error: Error) => {
       toast({
@@ -105,7 +105,7 @@ function ContractsTable({ eventId }: ContractsTableProps) {
         title: "Contract Cancelled",
         description: "The contract was successfully cancelled."
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
     },
     onError: (error: Error) => {
       toast({
@@ -784,7 +784,7 @@ export default function ViewEventPage() {
                                                         description: `${musician?.name} has been accepted and a contract has been sent automatically.`
                                                       });
                                                       // Also refresh contracts
-                                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+                                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
                                                     }
                                                   }
                                                 );
@@ -812,7 +812,7 @@ export default function ViewEventPage() {
                                                           variant: "destructive"
                                                         });
                                                         // Refresh contracts when a contract is cancelled
-                                                        queryClient.invalidateQueries({ queryKey: ["/api/contracts", { eventId }] });
+                                                        queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
                                                       } else {
                                                         toast({
                                                           title: "Status Updated",
