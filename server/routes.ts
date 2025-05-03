@@ -1254,6 +1254,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Create the contract link
             const contract = await storage.createContractLink(contractData);
             console.log(`Created contract with ID ${contract.id} for musician ${musicianId}`);
+            
+            // After creating the contract, update the status to "contract-sent" instead of keeping it as "accepted"
+            if (status === 'accepted') {
+              await storage.updateMusicianEventStatusForDate(eventId, musicianId, 'contract-sent', dateStr || '');
+            }
           }
         } catch (contractError) {
           console.error("Error creating contract:", contractError);
