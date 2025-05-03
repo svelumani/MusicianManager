@@ -32,6 +32,8 @@ const eventFormSchema = z.object({
   status: z.string().default("pending"),
   musicianCategoryIds: z.array(z.coerce.number()), // Multi-select musician categories (replacing types)
   paymentModel: z.string().default("daily"), // hourly, daily, or event
+  hoursCount: z.coerce.number().optional(), // Only used when paymentModel is "hourly"
+  daysCount: z.coerce.number().optional(), // Only used when paymentModel is "daily"
   notes: z.string().optional(),
 });
 
@@ -94,6 +96,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       status: initialData.status || "pending",
       musicianCategoryIds: initialData.musicianCategoryIds || initialData.musicianTypeIds || [], // Support both legacy and new format
       paymentModel: initialData.paymentModel || "daily", // default to daily for existing events
+      hoursCount: initialData.hoursCount || 0, // Only relevant if paymentModel is "hourly"
+      daysCount: initialData.daysCount || 0, // Only relevant if paymentModel is "daily"
       eventDates: initialData.eventDates ? 
         (Array.isArray(initialData.eventDates) ? 
           initialData.eventDates.map(d => new Date(d)) : 
@@ -108,6 +112,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       status: "pending",
       musicianCategoryIds: [],
       paymentModel: "daily", // default to daily for new events
+      hoursCount: 0,
+      daysCount: 0,
       eventDates: [],
       notes: "",
     },
@@ -204,6 +210,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     status: string;
     musicianTypeIds: number[];
     paymentModel: string; // hourly, daily, or event
+    hoursCount?: number; // Only used when paymentModel is "hourly"
+    daysCount?: number; // Only used when paymentModel is "daily"
     notes?: string;
     eventDates: string[];
     musicianIds?: number[]; // All selected musicians
@@ -508,6 +516,13 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       musicianAssignments: Object.keys(musicianAssignments).length > 0 ? musicianAssignments : undefined,
     };
     
+    // Add conditional fields based on payment model
+    if (values.paymentModel === "hourly" && values.hoursCount !== undefined) {
+      formattedValues.hoursCount = values.hoursCount;
+    } else if (values.paymentModel === "daily" && values.daysCount !== undefined) {
+      formattedValues.daysCount = values.daysCount;
+    }
+    
     console.log("Submitting form data:", formattedValues);
     eventMutation.mutate(formattedValues);
   }
@@ -641,6 +656,59 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
               </FormItem>
             )}
           />
+        </div>
+
+        {/* Conditional fields based on paymentModel */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {form.watch("paymentModel") === "hourly" && (
+            <FormField
+              control={form.control}
+              name="hoursCount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Number of Hours *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter number of hours"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseInt(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Enter the total number of hours for this event
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {form.watch("paymentModel") === "daily" && (
+            <FormField
+              control={form.control}
+              name="daysCount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Number of Days *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter number of days"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseInt(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Enter the total number of days for this event
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
 
