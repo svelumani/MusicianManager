@@ -17,9 +17,11 @@ import FileContract from "@/components/icons/FileContract";
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
 import type { ContractLink, Event, Musician } from "@shared/schema";
@@ -345,74 +347,7 @@ export default function ContractViewPage() {
           <CardTitle className="text-lg font-medium">Contract Preview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="p-6 border rounded-md bg-white">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold mb-2">Performance Contract</h2>
-              <p className="text-sm text-muted-foreground">Reference: #{contract.id}</p>
-            </div>
-            
-            <p className="mb-6">
-              This agreement is made and entered into on {format(new Date(contract.createdAt), "MMMM d, yyyy")} between:
-            </p>
-            
-            <div className="grid grid-cols-2 gap-8 mb-6">
-              <div>
-                <h3 className="font-bold mb-2">Client</h3>
-                <p>VAMP Musician Management</p>
-                <p>123 Music Street</p>
-                <p>Musicville, NY 10001</p>
-                <p>contact@vamp.com</p>
-              </div>
-              <div>
-                <h3 className="font-bold mb-2">Musician</h3>
-                <p>{musician?.name || "Loading..."}</p>
-                <p>{musician?.email || "Loading..."}</p>
-                <p>{musician?.phone || "Loading..."}</p>
-              </div>
-            </div>
-            
-            <h3 className="font-bold mb-2">Event Details</h3>
-            <p className="mb-1"><strong>Event Name:</strong> {event?.name || "Loading..."}</p>
-            <p className="mb-1"><strong>Location:</strong> {event ? `Venue #${event.venueId}` : "Loading..."}</p>
-            {contract.eventDate && (
-              <p className="mb-1"><strong>Performance Date:</strong> {format(new Date(contract.eventDate), "MMMM d, yyyy")}</p>
-            )}
-            <p className="mb-4"><strong>Performance Fee:</strong> ${contract.amount?.toFixed(2) || "TBD"}</p>
-            
-            <h3 className="font-bold mb-2">Terms & Conditions</h3>
-            <ol className="list-decimal pl-5 space-y-2 mb-6">
-              <li>The Musician agrees to perform at the Event as specified in this contract.</li>
-              <li>The Musician will arrive at least 1 hour before the scheduled performance time for setup.</li>
-              <li>The Client agrees to pay the Performance Fee as listed in this contract.</li>
-              <li>Cancellation by either party must be communicated at least 7 days before the event date.</li>
-              <li>This contract constitutes the entire agreement between the parties.</li>
-            </ol>
-
-            <div className="flex justify-between mt-8">
-              <div>
-                <h3 className="font-bold mb-2">Client Signature</h3>
-                {(contract.status === 'accepted' || contract.status === 'contract-signed') && contract.companySignature ? (
-                  <div className="h-12 border-b border-gray-300 w-48 mb-1 flex items-center justify-center">
-                    <p className="italic text-primary font-medium">{contract.companySignature}</p>
-                  </div>
-                ) : (
-                  <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
-                )}
-                <p>VAMP Management</p>
-              </div>
-              <div>
-                <h3 className="font-bold mb-2">Musician Signature</h3>
-                {(contract.status === 'accepted' || contract.status === 'contract-signed') && contract.musicianSignature ? (
-                  <div className="h-12 border-b border-gray-300 w-48 mb-1 flex items-center justify-center">
-                    <p className="italic text-primary font-medium">{contract.musicianSignature}</p>
-                  </div>
-                ) : (
-                  <div className="h-12 border-b border-dashed border-gray-300 w-48 mb-1"></div>
-                )}
-                <p>{musician?.name || "Musician"}</p>
-              </div>
-            </div>
-          </div>
+          <ContractContentPreview contractId={contractId} />
         </CardContent>
         <CardFooter className="justify-end">
           <Button 
@@ -427,14 +362,34 @@ export default function ContractViewPage() {
   );
 }
 
-// Missing Input component
-function Input({ value, readOnly, className }: { value: string, readOnly: boolean, className?: string }) {
+// Contract Content Preview Component
+function ContractContentPreview({ contractId }: { contractId: number }) {
+  const { data: contractContent, isLoading } = useQuery({
+    queryKey: [`/api/contracts/${contractId}/content`],
+  });
+  
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+  
+  if (!contractContent?.content) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <p className="text-muted-foreground">Contract template not found. Please create a template first.</p>
+      </div>
+    );
+  }
+  
   return (
-    <input
-      type="text"
-      value={value}
-      readOnly={readOnly}
-      className={`w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ${className}`}
-    />
+    <ScrollArea className="border rounded-md h-[500px] p-4">
+      <div 
+        className="p-6 bg-white"
+        dangerouslySetInnerHTML={{ __html: contractContent.content.replace(/\n/g, '<br/>') }}
+      />
+    </ScrollArea>
   );
 }
