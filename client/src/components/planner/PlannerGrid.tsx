@@ -357,105 +357,116 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       </div>
 
       <div className="border rounded-lg overflow-hidden shadow-sm">
-        <ScrollArea className="h-[calc(100vh-220px)] w-full">
-          <div className="min-w-[1200px]">
-            {/* Header Row */}
-            <div className="grid grid-cols-[120px_repeat(auto-fill,minmax(220px,1fr))] bg-gray-100 border-b sticky top-0 z-10">
-              <div className="p-3 font-bold text-sm border-r sticky left-0 bg-gray-100">Date</div>
-              {venues.map((venue) => (
-                <div key={venue.id} className="p-3 font-bold text-sm border-r text-center">
-                  {venue.name}
-                </div>
-              ))}
+        <div className="overflow-auto">
+          <div className="min-w-max">
+            {/* Header Row with horizontal scrolling */}
+            <div className="flex bg-gray-100 border-b sticky top-0 z-10">
+              <div className="p-3 font-bold text-sm border-r sticky left-0 bg-gray-100 w-[120px] shrink-0">
+                Date
+              </div>
+              <div className="flex">
+                {venues.map((venue) => (
+                  <div 
+                    key={venue.id} 
+                    className="p-3 font-bold text-sm border-r text-center w-[220px] shrink-0 whitespace-nowrap"
+                  >
+                    {venue.name}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Day Rows */}
-            {days.map((day) => (
-              <div 
-                key={day.toISOString()} 
-                className={`grid grid-cols-[120px_repeat(auto-fill,minmax(220px,1fr))] border-b hover:bg-gray-50 ${
-                  isWeekend(day) ? 'bg-gray-50' : ''
-                }`}
-              >
-                <div className={`p-3 border-r font-medium text-sm sticky left-0 bg-white z-10 ${
-                  isWeekend(day) ? 'bg-gray-50' : ''
-                }`}>
-                  {format(day, "EEE, MMM d")}
-                </div>
-                
-                {venues.map((venue) => {
-                  const cellId = `${day.toISOString()}-${venue.id}`;
-                  const slot = getSlotByDateAndVenue(day, venue.id);
-                  const assignments = slot ? getAssignmentsForSlot(slot.id) : [];
-                  const totalAmount = slot ? calculateSlotTotal(slot.id) : 0;
-                  const availabilityClass = availabilityView ? getCellAvailabilityClass(day, assignments) : "";
+            <div className="h-[calc(100vh-220px)] overflow-y-auto">
+              {days.map((day) => (
+                <div 
+                  key={day.toISOString()} 
+                  className={`flex border-b hover:bg-gray-50 ${
+                    isWeekend(day) ? 'bg-gray-50' : ''
+                  }`}
+                >
+                  <div className={`p-3 border-r font-medium text-sm sticky left-0 z-10 w-[120px] shrink-0 ${
+                    isWeekend(day) ? 'bg-gray-50' : 'bg-white'
+                  }`}>
+                    {format(day, "EEE, MMM d")}
+                  </div>
                   
-                  return (
-                    <Popover key={cellId} open={activePopover === cellId} onOpenChange={(open) => {
-                      if (!open) setActivePopover(null);
-                    }}>
-                      <PopoverTrigger asChild>
-                        <div 
-                          onClick={() => handleCellClick(day, venue.id)}
-                          className={`p-2 border-r cursor-pointer ${getSlotStatusClass(slot)} ${availabilityClass}`}
-                        >
-                          {assignments.length > 0 ? (
-                            <div className="space-y-1">
-                              {assignments.map((assignment: any) => {
-                                const musician = getMusician(assignment.musicianId);
-                                const isAvailable = availabilityView ? isMusicianAvailable(assignment.musicianId, day) : true;
-                                
-                                return (
-                                  <div key={assignment.id} className="flex justify-between text-sm">
-                                    <span className={`font-medium ${!isAvailable ? 'text-red-500' : ''}`}>
-                                      {getMusicianName(assignment.musicianId)}
-                                      {!isAvailable && availabilityView && (
-                                        <span className="text-xs text-red-500 ml-1">
-                                          (unavailable)
+                  <div className="flex">
+                    {venues.map((venue) => {
+                      const cellId = `${day.toISOString()}-${venue.id}`;
+                      const slot = getSlotByDateAndVenue(day, venue.id);
+                      const assignments = slot ? getAssignmentsForSlot(slot.id) : [];
+                      const totalAmount = slot ? calculateSlotTotal(slot.id) : 0;
+                      const availabilityClass = availabilityView ? getCellAvailabilityClass(day, assignments) : "";
+                      
+                      return (
+                        <Popover key={cellId} open={activePopover === cellId} onOpenChange={(open) => {
+                          if (!open) setActivePopover(null);
+                        }}>
+                          <PopoverTrigger asChild>
+                            <div 
+                              onClick={() => handleCellClick(day, venue.id)}
+                              className={`p-2 border-r cursor-pointer w-[220px] shrink-0 ${getSlotStatusClass(slot)} ${availabilityClass}`}
+                            >
+                              {assignments.length > 0 ? (
+                                <div className="space-y-1">
+                                  {assignments.map((assignment: any) => {
+                                    const musician = getMusician(assignment.musicianId);
+                                    const isAvailable = availabilityView ? isMusicianAvailable(assignment.musicianId, day) : true;
+                                    
+                                    return (
+                                      <div key={assignment.id} className="flex justify-between text-sm">
+                                        <span className={`font-medium ${!isAvailable ? 'text-red-500' : ''}`}>
+                                          {getMusicianName(assignment.musicianId)}
+                                          {!isAvailable && availabilityView && (
+                                            <span className="text-xs text-red-500 ml-1">
+                                              (unavailable)
+                                            </span>
+                                          )}
                                         </span>
-                                      )}
-                                    </span>
-                                    <span className="text-gray-600">
-                                      {formatCurrency(assignment.actualFee || (musician ? musician.payRate : 0))}
-                                    </span>
+                                        <span className="text-gray-600">
+                                          {formatCurrency(assignment.actualFee || (musician ? musician.payRate : 0))}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="flex justify-between border-t pt-1 text-sm">
+                                    <span className="font-bold">Total</span>
+                                    <span className="font-bold">{formatCurrency(totalAmount)}</span>
                                   </div>
-                                );
-                              })}
-                              <div className="flex justify-between border-t pt-1 text-sm">
-                                <span className="font-bold">Total</span>
-                                <span className="font-bold">{formatCurrency(totalAmount)}</span>
-                              </div>
+                                </div>
+                              ) : (
+                                <div className="h-10 flex items-center justify-center text-gray-400 text-sm">
+                                  Click to assign
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="h-10 flex items-center justify-center text-gray-400 text-sm">
-                              Click to assign
-                            </div>
-                          )}
-                        </div>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 p-0 shadow-lg">
-                        {selectedCell && activePopover === cellId && (
-                          <InlineMusicianSelect
-                            plannerId={planner.id}
-                            date={day}
-                            venueId={venue.id}
-                            venueName={venue.name}
-                            slot={slot}
-                            musicians={musicians || []}
-                            categories={categories || []}
-                            onClose={() => setActivePopover(null)}
-                            onCreated={handleSlotCreated}
-                            onMusicianAssigned={handleMusicianAssigned}
-                          />
-                        )}
-                      </PopoverContent>
-                    </Popover>
-                  );
-                })}
-              </div>
-            ))}
+                          </PopoverTrigger>
+                          <PopoverContent className="w-72 p-0 shadow-lg">
+                            {selectedCell && activePopover === cellId && (
+                              <InlineMusicianSelect
+                                plannerId={planner.id}
+                                date={day}
+                                venueId={venue.id}
+                                venueName={venue.name}
+                                slot={slot}
+                                musicians={musicians || []}
+                                categories={categories || []}
+                                onClose={() => setActivePopover(null)}
+                                onCreated={handleSlotCreated}
+                                onMusicianAssigned={handleMusicianAssigned}
+                              />
+                            )}
+                          </PopoverContent>
+                        </Popover>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       <div className="flex items-center justify-between text-sm text-gray-500 mt-2">
