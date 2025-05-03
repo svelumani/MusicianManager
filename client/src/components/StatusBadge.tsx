@@ -1,109 +1,234 @@
-import React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { format } from 'date-fns';
+import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNow } from "date-fns";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
+import { InfoIcon } from "lucide-react";
 
-// Define status color mapping
-const statusColors: Record<string, { bg: string; text: string; border: string }> = {
-  // Contract statuses
-  'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
-  'sent': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
-  'signed': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  'cancelled': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
-  'expired': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' },
-  'contract-sent': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
-  'contract-signed': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  
-  // Event statuses
-  'draft': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' },
-  'published': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  'completed': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
-  'archived': { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-200' },
-  
-  // Musician statuses
-  'available': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  'pending-contract': { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
-  'booked': { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-blue-200' },
-  'confirmed': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  'declined': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
-  
-  // Payment statuses
-  'unpaid': { bg: 'bg-red-100', text: 'text-red-800', border: 'border-red-200' },
-  'partial': { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-200' },
-  'paid': { bg: 'bg-green-100', text: 'text-green-800', border: 'border-green-200' },
-  
-  // Default
-  'default': { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-200' }
+// Status configuration for different entity types
+const statusConfig: Record<string, Record<string, { color: string; label: string; description: string }>> = {
+  contract: {
+    pending: { 
+      color: "bg-yellow-100 text-yellow-800", 
+      label: "Pending", 
+      description: "Contract is created but not yet sent to musician" 
+    },
+    accepted: { 
+      color: "bg-green-100 text-green-800", 
+      label: "Accepted", 
+      description: "Contract has been accepted by the musician" 
+    },
+    rejected: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Rejected", 
+      description: "Contract has been rejected by the musician" 
+    },
+    expired: { 
+      color: "bg-gray-100 text-gray-800", 
+      label: "Expired", 
+      description: "Contract link has expired" 
+    },
+    cancelled: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Cancelled", 
+      description: "Contract has been cancelled" 
+    },
+    "contract-sent": { 
+      color: "bg-blue-100 text-blue-800", 
+      label: "Contract Sent", 
+      description: "Contract has been sent to musician, awaiting response" 
+    },
+    "contract-signed": { 
+      color: "bg-green-100 text-green-800", 
+      label: "Contract Signed", 
+      description: "Musician has signed the contract" 
+    }
+  },
+  invitation: {
+    pending: { 
+      color: "bg-yellow-100 text-yellow-800", 
+      label: "Pending", 
+      description: "Invitation is created but not yet sent" 
+    },
+    sent: { 
+      color: "bg-blue-100 text-blue-800", 
+      label: "Sent", 
+      description: "Invitation has been sent to musician" 
+    },
+    viewed: { 
+      color: "bg-purple-100 text-purple-800", 
+      label: "Viewed", 
+      description: "Musician has viewed the invitation" 
+    },
+    accepted: { 
+      color: "bg-green-100 text-green-800", 
+      label: "Accepted", 
+      description: "Musician has accepted the invitation" 
+    },
+    rejected: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Rejected", 
+      description: "Musician has rejected the invitation" 
+    },
+    expired: { 
+      color: "bg-gray-100 text-gray-800", 
+      label: "Expired", 
+      description: "Invitation has expired" 
+    },
+    cancelled: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Cancelled", 
+      description: "Invitation has been cancelled" 
+    }
+  },
+  event: {
+    draft: { 
+      color: "bg-gray-100 text-gray-800", 
+      label: "Draft", 
+      description: "Event is in draft mode" 
+    },
+    planning: { 
+      color: "bg-blue-100 text-blue-800", 
+      label: "Planning", 
+      description: "Event is in the planning phase" 
+    },
+    confirmed: { 
+      color: "bg-green-100 text-green-800", 
+      label: "Confirmed", 
+      description: "Event is confirmed" 
+    },
+    cancelled: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Cancelled", 
+      description: "Event has been cancelled" 
+    },
+    completed: { 
+      color: "bg-purple-100 text-purple-800", 
+      label: "Completed", 
+      description: "Event has been completed" 
+    }
+  },
+  musician: {
+    available: { 
+      color: "bg-green-100 text-green-800", 
+      label: "Available", 
+      description: "Musician is available" 
+    },
+    unavailable: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Unavailable", 
+      description: "Musician is not available" 
+    },
+    tentative: { 
+      color: "bg-yellow-100 text-yellow-800", 
+      label: "Tentative", 
+      description: "Musician's availability is tentative" 
+    },
+    booked: { 
+      color: "bg-blue-100 text-blue-800", 
+      label: "Booked", 
+      description: "Musician is booked" 
+    }
+  },
+  payment: {
+    pending: { 
+      color: "bg-yellow-100 text-yellow-800", 
+      label: "Pending", 
+      description: "Payment is pending" 
+    },
+    processing: { 
+      color: "bg-blue-100 text-blue-800", 
+      label: "Processing", 
+      description: "Payment is being processed" 
+    },
+    completed: { 
+      color: "bg-green-100 text-green-800", 
+      label: "Completed", 
+      description: "Payment is completed" 
+    },
+    failed: { 
+      color: "bg-red-100 text-red-800", 
+      label: "Failed", 
+      description: "Payment has failed" 
+    },
+    refunded: { 
+      color: "bg-purple-100 text-purple-800", 
+      label: "Refunded", 
+      description: "Payment has been refunded" 
+    }
+  }
 };
 
-type StatusBadgeProps = {
+// Default status styling
+const defaultStatus = { 
+  color: "bg-gray-100 text-gray-800", 
+  label: "Unknown", 
+  description: "Status information not available" 
+};
+
+interface StatusBadgeProps {
   status: string;
-  entityType?: string;
-  metadata?: any;
-  timestamp?: string | Date;
-  className?: string;
+  entityType: string;
+  timestamp?: string;
   showTooltip?: boolean;
-};
+  size?: "sm" | "md" | "lg";
+  className?: string;
+}
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({
+export default function StatusBadge({
   status,
   entityType,
-  metadata,
   timestamp,
-  className = '',
-  showTooltip = true
-}) => {
-  // Normalize status for display
-  const normalizedStatus = status.toLowerCase().replace(/_/g, '-');
-  
-  // Get colors from mapping or default
-  const colors = statusColors[normalizedStatus] || statusColors.default;
-  
-  // Format display status
-  const displayStatus = normalizedStatus
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-  
-  // Format timestamp if exists
-  const formattedTimestamp = timestamp
-    ? format(new Date(timestamp), 'MMM d, yyyy h:mm a')
-    : '';
-  
-  // Prepare tooltip content
-  const tooltipContent = (
-    <div className="text-sm">
-      <p className="font-bold">{displayStatus}</p>
-      {entityType && <p>Type: {entityType}</p>}
-      {formattedTimestamp && <p>Updated: {formattedTimestamp}</p>}
-      {metadata && metadata.reason && <p>Reason: {metadata.reason}</p>}
-    </div>
-  );
+  showTooltip = true,
+  size = "md",
+  className = ""
+}: StatusBadgeProps) {
+  // Get status config based on entity type and status
+  const statusInfo = statusConfig[entityType]?.[status] || defaultStatus;
+  const { color, label, description } = statusInfo;
+
+  // Size classes
+  const sizeClasses = {
+    sm: "text-xs px-2 py-0.5",
+    md: "text-sm px-2.5 py-0.5",
+    lg: "px-3 py-1"
+  };
   
   const badge = (
     <Badge 
-      className={`${colors.bg} ${colors.text} ${colors.border} border py-1 px-2 font-medium ${className}`}
+      className={`${color} capitalize ${sizeClasses[size]} ${className}`}
     >
-      {displayStatus}
+      {label}
     </Badge>
   );
-  
-  if (showTooltip) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {badge}
-          </TooltipTrigger>
-          <TooltipContent>
-            {tooltipContent}
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-  
-  return badge;
-};
 
-export default StatusBadge;
+  if (!showTooltip) {
+    return badge;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1">
+            {badge}
+            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-[250px]">
+          <div className="text-xs">
+            <p className="font-medium">{description}</p>
+            {timestamp && (
+              <p className="text-muted-foreground mt-1">
+                Updated {formatDistanceToNow(new Date(timestamp), { addSuffix: true })}
+              </p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
