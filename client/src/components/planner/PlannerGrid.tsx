@@ -111,6 +111,24 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     queryFn: () => apiRequest(`/api/availability?year=${year}&month=${month}`),
     enabled: availabilityView && !!musicians && musicians.length > 0,
   });
+  
+  // Query to get musician pay rates for proper pricing calculations
+  const {
+    data: payRates,
+    isLoading: isPayRatesLoading,
+  } = useQuery({
+    queryKey: ['/api/musician-pay-rates'],
+    queryFn: () => apiRequest('/api/musician-pay-rates'),
+  });
+  
+  // Query to get event categories for proper pricing calculations
+  const {
+    data: eventCategories,
+    isLoading: isEventCategoriesLoading,
+  } = useQuery({
+    queryKey: ['/api/event-categories'],
+    queryFn: () => apiRequest('/api/event-categories'),
+  });
 
   // Update planner status mutation
   const updatePlannerMutation = useMutation({
@@ -198,11 +216,46 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     });
   };
 
+  // Define some types to help with TypeScript
+  interface Slot {
+    id: number;
+    venueId: number;
+    date: string; // ISO string
+    status?: string;
+    duration?: number;
+    eventCategoryId?: number;
+    [key: string]: any;
+  }
+  
+  interface Assignment {
+    id: number;
+    slotId: number;
+    musicianId: number;
+    actualFee?: number;
+    [key: string]: any;
+  }
+  
+  interface Musician {
+    id: number;
+    name: string;
+    categoryId?: number;
+    payRate?: number;
+    [key: string]: any;
+  }
+  
+  interface PayRate {
+    musicianId: number;
+    categoryId: number;
+    hourlyRate: number;
+    dayRate?: number;
+    [key: string]: any;
+  }
+  
   // Get slot by date and venue
-  const getSlotByDateAndVenue = (date: Date, venueId: number) => {
+  const getSlotByDateAndVenue = (date: Date, venueId: number): Slot | null => {
     if (!plannerSlots) return null;
     
-    return plannerSlots.find((slot: any) => {
+    return plannerSlots.find((slot: Slot) => {
       const slotDate = new Date(slot.date);
       return (
         slotDate.getDate() === date.getDate() &&
@@ -210,7 +263,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         slotDate.getFullYear() === date.getFullYear() &&
         slot.venueId === venueId
       );
-    });
+    }) || null;
   };
 
   // Handle cell click to show the inline musician select
@@ -229,9 +282,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   };
 
   // Get assignments for a slot
-  const getAssignmentsForSlot = (slotId: number) => {
+  const getAssignmentsForSlot = (slotId: number): Assignment[] => {
     if (!plannerAssignments || plannerAssignments.length === 0) return [];
-    return plannerAssignments.filter((assignment: any) => assignment.slotId === slotId);
+    return plannerAssignments.filter((assignment: Assignment) => assignment.slotId === slotId);
   };
 
   // Get musician name by ID
@@ -267,24 +320,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     if (!assignments || assignments.length === 0) return 0;
     
     return assignments.reduce((total: number, assignment: any) => {
-      const musician = getMusician(assignment.musicianId);
-      
-      // Use the assignment's actualFee if available, otherwise use musician's rate or default by category
-      let fee = assignment.actualFee;
-      if (!fee || fee <= 0) {
-        // Try to get musician's pay rate
-        if (musician && musician.payRate > 0) {
-          fee = musician.payRate;
-        } else if (musician && musician.categoryId) {
-          // Fall back to category default rate
-          const categoryId = musician.categoryId;
-          fee = getCategoryDefaultRate(categoryId);
-        } else {
-          // Ultimate fallback
-          fee = 150;
-        }
-      }
-      
+      // Use the same fee calculation logic for consistency
+      const fee = calculateFeeForAssignment(assignment);
       return total + fee;
     }, 0);
   };
@@ -308,20 +345,49 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const calculateFeeForAssignment = (assignment: any): number => {
     if (!assignment) return 0;
     
-    // Use the assignment's actualFee if available
+    // Use the assignment's actualFee if available (already calculated with proper formula)
     if (assignment.actualFee && assignment.actualFee > 0) {
       return assignment.actualFee;
     }
     
-    // Try to get musician's pay rate
+    // Get the musician
     const musician = getMusician(assignment.musicianId);
-    if (musician && musician.payRate && musician.payRate > 0) {
-      return musician.payRate;
+    if (!musician) return 150; // Default fallback
+    
+    // Get the slot to determine event details
+    const slot = plannerSlots?.find((s: any) => s.id === assignment.slotId);
+    if (!slot) return 150; // Default fallback
+    
+    // Determine the event category (for this demo, we'll use a default corporate events category)
+    const eventCategoryId = slot.eventCategoryId || 1; // Default to corporate events if not specified
+    
+    // Find the musician's pay rate for this specific event category
+    if (payRates && Array.isArray(payRates)) {
+      const matchingPayRate = payRates.find((rate: any) => 
+        rate.musicianId === musician.id && 
+        rate.categoryId === eventCategoryId
+      );
+      
+      if (matchingPayRate) {
+        // Calculate fee based on hourly rate * hours
+        const hourlyRate = matchingPayRate.hourlyRate || 0;
+        const hours = slot.duration || 2; // Default to 2 hours if not specified
+        return hourlyRate * hours;
+      }
+    }
+    
+    // If no specific category rate found, try the musician's default rate
+    if (musician.payRate && musician.payRate > 0) {
+      // Use the default hours
+      const hours = slot.duration || 2; // Default to 2 hours if not specified
+      return musician.payRate * hours;
     }
     
     // Fall back to category default rate
-    if (musician && musician.categoryId) {
-      return getCategoryDefaultRate(musician.categoryId);
+    if (musician.categoryId) {
+      const hourlyRate = getCategoryDefaultRate(musician.categoryId);
+      const hours = slot.duration || 2; // Default to 2 hours if not specified
+      return hourlyRate * hours;
     }
     
     // Ultimate fallback
@@ -376,7 +442,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     return hasUnavailableMusician ? "bg-red-50" : "bg-green-50";
   };
 
-  if (isSlotsLoading || isAssignmentsLoading || isMusiciansLoading) {
+  if (isSlotsLoading || isAssignmentsLoading || isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading) {
     return <Skeleton className="h-96 w-full" />;
   }
 
