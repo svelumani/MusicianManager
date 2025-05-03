@@ -545,9 +545,39 @@ export default function ViewEventPage() {
                 <div className="space-y-6">
                   {event.eventDates?.map((dateStr, index) => {
                     const date = new Date(dateStr);
-                    // Use the exact same format as in the response
-                    const assignedMusicians = event.musicianAssignments?.[dateStr] || [];
-                    console.log(`Looking for assignments on date ${dateStr}:`, assignedMusicians);
+                    
+                    // Normalize the date format to the format used in assignments
+                    const normalizedDateStr = format(date, 'yyyy-MM-dd');
+                    
+                    // First check with the normalized format, then try ISO string format, then empty array
+                    let assignedMusicians = [];
+                    
+                    // Try all possible date formats that might be in the assignments object
+                    if (event.musicianAssignments?.[normalizedDateStr]) {
+                      // If we have assignments with the normalized format (yyyy-MM-dd)
+                      assignedMusicians = event.musicianAssignments[normalizedDateStr];
+                    } else if (event.musicianAssignments?.[dateStr]) {
+                      // If we have assignments with the ISO format from API
+                      assignedMusicians = event.musicianAssignments[dateStr];
+                    } else {
+                      // Try to find any date key that matches the current date
+                      const dateKeys = Object.keys(event.musicianAssignments || {});
+                      for (const key of dateKeys) {
+                        try {
+                          // Parse the key as a date and compare
+                          const keyDate = new Date(key);
+                          if (format(keyDate, 'yyyy-MM-dd') === normalizedDateStr) {
+                            assignedMusicians = event.musicianAssignments[key];
+                            break;
+                          }
+                        } catch (e) {
+                          // Skip invalid date strings
+                          continue;
+                        }
+                      }
+                    }
+                    
+                    console.log(`Looking for assignments on date ${dateStr}, normalized as ${normalizedDateStr}:`, assignedMusicians);
                     
                     return (
                       <div key={index} className="space-y-3">
@@ -556,7 +586,7 @@ export default function ViewEventPage() {
                           {format(date, 'EEEE, MMMM d, yyyy')}
                         </h3>
                         
-                        {assignedMusicians.length > 0 ? (
+                        {assignedMusicians && assignedMusicians.length > 0 ? (
                           <Table>
                             <TableHeader>
                               <TableRow>

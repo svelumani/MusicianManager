@@ -831,15 +831,20 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                       </div>
                                     </div>
                                   </div>
-                                  <div onClick={(e) => e.stopPropagation()}>
+                                  <div 
+                                    className="cursor-pointer"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (activeDate) {
+                                        toggleMusicianSelection(musician.id, activeDate);
+                                      }
+                                    }}
+                                  >
                                     <Checkbox
                                       id={musicianKey}
                                       checked={isSelectedForActiveDate || false}
-                                      onCheckedChange={(checked) => {
-                                        if (activeDate) {
-                                          toggleMusicianSelection(musician.id, activeDate);
-                                        }
-                                      }}
+                                      // Don't use onCheckedChange as it conflicts with the parent div's onClick
+                                      // This ensures the checkbox appearance updates with state changes
                                     />
                                   </div>
                                 </div>
