@@ -4253,6 +4253,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Helper function to render contract content from template
+  async function renderContractContent(contractId: number): Promise<string> {
+    try {
+      // Get the contract data
+      const contract = await storage.getContractLink(contractId);
+      if (!contract) {
+        throw new Error("Contract not found");
+      }
+      
+      // Get event and musician data
+      const event = await storage.getEvent(contract.eventId);
+      const musician = await storage.getMusician(contract.musicianId);
+      
+      if (!event || !musician) {
+        throw new Error("Event or musician data not found");
+      }
+      
+      // Get the default template or fallback to a basic template
+      let template = await storage.getDefaultContractTemplate();
+      
+      if (!template) {
+        throw new Error("No default contract template found");
+      }
+      
+      // Replace template variables with actual data
+      let content = template.content;
+      
+      // Basic variables
+      const replacements: Record<string, string> = {
+        '{{contract_id}}': contract.id.toString(),
+        '{{contract_date}}': new Date(contract.createdAt).toLocaleDateString(),
+        '{{musician_name}}': musician.name,
+        '{{event_name}}': event.name,
+        '{{event_date}}': contract.eventDate ? new Date(contract.eventDate).toLocaleDateString() : 'TBD',
+        '{{venue_name}}': event.venueId ? 'Venue #' + event.venueId : 'TBD',
+        '{{start_time}}': event.startTime || 'TBD',
+        '{{end_time}}': event.endTime || 'TBD',
+        '{{amount}}': contract.amount ? contract.amount.toString() : 'TBD',
+        '{{company_signature}}': contract.companySignature || 'VAMP Management',
+        '{{company_signed_date}}': contract.companySignedAt ? new Date(contract.companySignedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+        '{{musician_signature}}': contract.musicianSignature || '',
+        '{{signed_date}}': contract.signedAt ? new Date(contract.signedAt).toLocaleDateString() : ''
+      };
+      
+      // Replace all variables in the template
+      Object.entries(replacements).forEach(([key, value]) => {
+        content = content.replace(new RegExp(key, 'g'), value);
+      });
+      
+      return content;
+    } catch (error) {
+      console.error("Error rendering contract:", error);
+      return "Error rendering contract content. Please contact support.";
+    }
+  }
+  
+  // Endpoint to get rendered contract content
+  apiRouter.get("/contracts/:id/content", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.id);
+      const content = await renderContractContent(contractId);
+      res.json({ content });
+    } catch (error) {
+      console.error("Error getting contract content:", error);
+      res.status(500).json({ message: "Error rendering contract content" });
+    }
+  });
+  
+  // Public endpoint to get rendered contract content by token
+  apiRouter.get("/contracts/token/:token/content", async (req, res) => {
+    try {
+      const contract = await storage.getContractLinkByToken(req.params.token);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found or expired" });
+      }
+      
+      const content = await renderContractContent(contract.id);
+      res.json({ content });
+    } catch (error) {
+      console.error("Error getting contract content by token:", error);
+      res.status(500).json({ message: "Error rendering contract content" });
+    }
+  });
+  
   // Test endpoint for contract metadata
   apiRouter.get("/test/contract-metadata/:id", isAuthenticated, async (req, res) => {
     try {
@@ -4271,10 +4355,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contractId
       );
       
+      // Get rendered content
+      const renderedContent = await renderContractContent(contractId);
+      
       // Return both data sources for comparison
       res.json({
         contract,
         statusEntries,
+        renderedContent,
         message: "Use this data to debug signature and IP address display issues"
       });
     } catch (error) {
