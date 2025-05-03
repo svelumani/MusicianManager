@@ -1323,6 +1323,16 @@ export class DatabaseStorage implements IStorage {
       .orderBy(bookings.date);
   }
   
+  async getBookingsByEventAndMusician(eventId: number, musicianId: number): Promise<Booking[]> {
+    return await db.select()
+      .from(bookings)
+      .where(and(
+        eq(bookings.eventId, eventId),
+        eq(bookings.musicianId, musicianId)
+      ))
+      .orderBy(desc(bookings.createdAt));
+  }
+  
   async createBooking(booking: InsertBooking): Promise<Booking> {
     const [newBooking] = await db.insert(bookings)
       .values(booking)

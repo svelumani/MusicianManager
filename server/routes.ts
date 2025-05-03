@@ -1187,16 +1187,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // If a specific date was provided, only update that date's status
+      let updateResult;
       if (dateStr) {
-        const result = await storage.updateMusicianEventStatusForDate(eventId, musicianId, status, dateStr);
-        if (!result) {
+        updateResult = await storage.updateMusicianEventStatusForDate(eventId, musicianId, status, dateStr);
+        if (!updateResult) {
           return res.status(404).json({ message: "Musician not found in this event on the specified date" });
         }
       } else {
         // Otherwise, update status for all dates this musician is assigned to
-        const result = await storage.updateMusicianEventStatus(eventId, musicianId, status);
-        if (!result) {
+        updateResult = await storage.updateMusicianEventStatus(eventId, musicianId, status);
+        if (!updateResult) {
           return res.status(404).json({ message: "Musician not found in this event" });
+        }
+      }
+      
+      // If the status is 'accepted' or 'contract-sent', create a contract
+      if (status === 'accepted' || status === 'contract-sent') {
+        try {
+          // Get the musician data
+          const musician = await storage.getMusician(musicianId);
+          if (!musician) {
+            console.error(`Error: Musician with ID ${musicianId} not found`);
+          } else {
+            // Find latest booking for this musician and event
+            const bookings = await storage.getBookingsByEventAndMusician(eventId, musicianId);
+            let bookingId = 0;
+            
+            if (bookings && bookings.length > 0) {
+              bookingId = bookings[0].id;
+            }
+            
+            // Generate a unique token for the contract
+            const token = crypto.randomBytes(32).toString('hex');
+            
+            // Calculate expiry date (7 days from now)
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
+            
+            // Create a contract link
+            const contractData = {
+              bookingId,
+              eventId,
+              musicianId,
+              token,
+              expiresAt,
+              status: 'pending',
+              eventDate: dateStr ? new Date(dateStr) : undefined
+            };
+            
+            // Create the contract link
+            const contract = await storage.createContractLink(contractData);
+            console.log(`Created contract with ID ${contract.id} for musician ${musicianId}`);
+          }
+        } catch (contractError) {
+          console.error("Error creating contract:", contractError);
+          // Don't fail the request if contract creation fails
         }
       }
       
