@@ -2237,6 +2237,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/planner-assignments", isAuthenticated, async (req, res) => {
     try {
       const assignmentData = insertPlannerAssignmentSchema.parse(req.body);
+      
+      // Get the planner slot to check the date
+      const slot = await storage.getPlannerSlot(assignmentData.slotId);
+      if (!slot) {
+        return res.status(404).json({ message: "Planner slot not found" });
+      }
+      
+      // Check if the musician is available on this date
+      // Convert to ISO date string format for consistent handling
+      const dateStr = new Date(slot.date).toISOString().split('T')[0];
+      const isAvailable = await storage.isMusicianAvailableForDate(assignmentData.musicianId, dateStr);
+      
+      // If not available, return an error
+      if (!isAvailable) {
+        return res.status(400).json({ 
+          message: "Cannot assign musician to this slot",
+          error: "MUSICIAN_UNAVAILABLE",
+          details: "This musician is marked as unavailable on this date. Please select another musician or update their availability."
+        });
+      }
+      
+      // Musician is available, proceed with assignment creation
       const assignment = await storage.createPlannerAssignment(assignmentData);
       res.status(201).json(assignment);
     } catch (error) {

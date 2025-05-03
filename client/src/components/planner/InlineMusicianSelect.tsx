@@ -117,13 +117,23 @@ const InlineMusicianSelect = ({
       // Refresh assignments
       queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', slot?.id] });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to assign musician",
-        variant: "destructive",
-      });
-      console.error(error);
+    onError: (error: any) => {
+      console.error("Assignment error:", error);
+      
+      // Check if it's an availability error
+      if (error?.error === "MUSICIAN_UNAVAILABLE") {
+        toast({
+          title: "Musician Unavailable",
+          description: "This musician is marked as unavailable on this date. Please select another musician or update their availability calendar.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to assign musician",
+          variant: "destructive",
+        });
+      }
     }
   });
   
