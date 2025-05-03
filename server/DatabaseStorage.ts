@@ -855,27 +855,97 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getMusicianEventDatesInMonth(musicianId: number, month: number, year: number): Promise<any[]> {
-    // Calculate first and last day of month
-    const startDate = startOfMonth(new Date(year, month - 1));
-    const endDate = endOfMonth(startDate);
-    
-    // Get all bookings for this musician in the month
-    const bookingsInMonth = await db.select({
-      date: bookings.date,
-      status: bookings.status,
-      eventTitle: events.title,
-      eventId: events.id
-    })
-    .from(bookings)
-    .innerJoin(events, eq(bookings.eventId, events.id))
-    .where(and(
-      eq(bookings.musicianId, musicianId),
-      gte(bookings.date, startDate),
-      lte(bookings.date, endDate)
-    ))
-    .orderBy(bookings.date);
-    
-    return bookingsInMonth;
+    try {
+      // Calculate first and last day of month
+      const startDate = startOfMonth(new Date(year, month - 1));
+      const endDate = endOfMonth(startDate);
+      
+      // Get all bookings for this musician in the month using a simpler query first
+      const bookingsInMonth = await db.select({
+        bookingId: bookings.id,
+        bookingDate: bookings.date,
+        bookingStatus: bookings.status,
+        eventId: bookings.eventId
+      })
+      .from(bookings)
+      .where(and(
+        eq(bookings.musicianId, musicianId),
+        gte(bookings.date, startDate),
+        lte(bookings.date, endDate)
+      ))
+      .orderBy(bookings.date);
+      
+      // Now enhance the data with additional information
+      const enhancedEvents = await Promise.all(bookingsInMonth.map(async (booking) => {
+        // Get the event
+        const [event] = await db.select()
+          .from(events)
+          .where(eq(events.id, booking.eventId));
+        
+        if (!event) {
+          return {
+            date: booking.bookingDate,
+            status: booking.bookingStatus,
+            eventTitle: "Unknown Event",
+            eventId: booking.eventId,
+            venueName: "Unknown Venue",
+            contractStatus: "none"
+          };
+        }
+        
+        // Get venue information
+        let venueName = "Unknown Venue";
+        if (event.venueId) {
+          const [venue] = await db.select()
+            .from(venues)
+            .where(eq(venues.id, event.venueId));
+          
+          if (venue) {
+            venueName = venue.name;
+          }
+        }
+        
+        // Get contract information for this event/musician/date
+        let contractStatus = "none";
+        try {
+          const contractLinks = await db.select()
+            .from(contractLinks)
+            .where(and(
+              eq(contractLinks.eventId, booking.eventId),
+              eq(contractLinks.musicianId, musicianId)
+            ));
+            
+          // Find contract for specific date if possible
+          const dateSpecificContract = contractLinks.find(c => {
+            if (!c.eventDate) return false;
+            return format(c.eventDate, 'yyyy-MM-dd') === format(booking.bookingDate, 'yyyy-MM-dd');
+          });
+          
+          // Or use any contract for this event/musician
+          const contract = dateSpecificContract || contractLinks[0];
+          
+          if (contract) {
+            contractStatus = contract.status;
+          }
+        } catch (err) {
+          console.warn(`Error fetching contract status: ${err}`);
+        }
+        
+        return {
+          date: booking.bookingDate,
+          status: booking.bookingStatus,
+          eventTitle: event.name,
+          eventId: booking.eventId,
+          venueName: venueName,
+          contractStatus: contractStatus
+        };
+      }));
+      
+      return enhancedEvents;
+    } catch (error) {
+      console.error("Error fetching musician event dates:", error);
+      return [];
+    }
   }
   
   // Musician Pay Rates management
@@ -1827,23 +1897,90 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateContractLinkStatus(token: string, status: string, response?: string, signature?: string): Promise<ContractLink | undefined> {
+    // First get the existing contract link to have access to its data
+    const existingContract = await this.getContractLinkByToken(token);
+    if (!existingContract) {
+      return undefined;
+    }
+    
+    // Create signature data if provided
+    let musicianSignature = existingContract.musicianSignature;
+    if (signature) {
+      const signatureData = {
+        signedAt: new Date(),
+        signedBy: "musician",
+        signatureValue: signature,
+        signatureType: "typed",
+        ipAddress: "127.0.0.1" // Placeholder
+      };
+      musicianSignature = JSON.stringify(signatureData);
+    }
+    
+    // Update contract status
     const data: Record<string, any> = {
       status,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      musicianSignature
     };
     
     if (response) {
       data.response = response;
     }
     
-    if (signature) {
-      data.signature = signature;
-    }
-    
     const [updated] = await db.update(contractLinks)
       .set(data)
       .where(eq(contractLinks.token, token))
       .returning();
+    
+    if (updated) {
+      try {
+        // Update related booking status
+        if (updated.bookingId) {
+          let bookingStatus = 'pending';
+          let contractSigned = false;
+          
+          // Map contract status to booking status
+          if (status === 'signed') {
+            bookingStatus = 'confirmed';
+            contractSigned = true;
+          } else if (status === 'rejected') {
+            bookingStatus = 'cancelled';
+          }
+          
+          await db.update(bookings)
+            .set({ 
+              status: bookingStatus,
+              contractSigned
+            })
+            .where(eq(bookings.id, updated.bookingId));
+            
+          console.log(`Updated booking #${updated.bookingId} status to ${bookingStatus}`);
+        }
+        
+        // Sync with musician availability calendar
+        if (updated.musicianId && updated.eventDate) {
+          const dateStr = format(updated.eventDate, 'yyyy-MM-dd');
+          const month = format(updated.eventDate, 'MMMM');
+          const year = getYear(updated.eventDate);
+          
+          // If contract is signed, mark musician as unavailable (isAvailable=false)
+          // If contract is rejected, ensure musician is available (isAvailable=true)
+          const isAvailable = status === 'rejected';
+          
+          await this.updateAvailabilityForDate(
+            updated.musicianId,
+            dateStr,
+            isAvailable,
+            month,
+            year
+          );
+          
+          console.log(`Updated availability for musician ${updated.musicianId} on ${dateStr} to ${isAvailable ? 'available' : 'unavailable'}`);
+        }
+      } catch (error) {
+        console.error("Error updating related records for contract:", error);
+      }
+    }
     
     return updated;
   }
