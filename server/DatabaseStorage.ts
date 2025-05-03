@@ -572,6 +572,7 @@ export class DatabaseStorage implements IStorage {
       );
     
     // If category filters are provided, add WHERE clause with IN operator
+    // This allows selecting musicians that match ANY of the specified categories
     if (categoryIds.length > 0) {
       query = query.where(inArray(musicians.categoryId, categoryIds));
     }
@@ -580,7 +581,15 @@ export class DatabaseStorage implements IStorage {
     const availableMusicians = await query.orderBy(musicians.name);
     
     // Return just the musician objects
-    return availableMusicians.map(({ musicians }) => musicians);
+    // Using a Map to deduplicate musicians (in case they appear multiple times due to multiple availability records)
+    const distinctMusicians = new Map<number, Musician>();
+    availableMusicians.forEach(({ musicians: musician }) => {
+      if (!distinctMusicians.has(musician.id)) {
+        distinctMusicians.set(musician.id, musician);
+      }
+    });
+    
+    return Array.from(distinctMusicians.values());
   }
 
   // The remaining methods from IStorage would be implemented here, but I'm 

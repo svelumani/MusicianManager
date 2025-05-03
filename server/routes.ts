@@ -703,12 +703,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const dateObj = new Date(date as string);
       
-      // Parse category IDs
-      const parsedCategoryIds = Array.isArray(categoryIds)
-        ? (categoryIds as string[]).map(id => parseInt(id))
-        : categoryIds
-        ? [parseInt(categoryIds as string)]
-        : [];
+      // Enhanced handling of category IDs to support multiple formats
+      // 1. As a comma-separated string: categoryIds=1,2,3
+      // 2. As an array of strings: categoryIds[]=1&categoryIds[]=2&categoryIds[]=3
+      // 3. As a single value: categoryIds=1
+      let parsedCategoryIds: number[] = [];
+      
+      if (categoryIds) {
+        if (Array.isArray(categoryIds)) {
+          // Handle array format: categoryIds[]=1&categoryIds[]=2
+          parsedCategoryIds = categoryIds.map(id => parseInt(id as string));
+        } else if (typeof categoryIds === 'string' && categoryIds.includes(',')) {
+          // Handle comma-separated string: categoryIds=1,2,3
+          parsedCategoryIds = categoryIds.split(',').map(id => parseInt(id.trim()));
+        } else {
+          // Handle single value: categoryIds=1
+          parsedCategoryIds = [parseInt(categoryIds as string)];
+        }
+      }
       
       console.log(`Finding musicians available on ${dateObj.toISOString()} for categories:`, parsedCategoryIds);
       
@@ -1089,12 +1101,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const parsedDate = new Date(date as string);
-      const parsedCategoryIds = categoryIds ? (categoryIds as string).split(',').map(id => parseInt(id)) : undefined;
+      
+      // Enhanced handling of category IDs to support multiple formats
+      // 1. As a comma-separated string: categoryIds=1,2,3
+      // 2. As an array of strings: categoryIds[]=1&categoryIds[]=2&categoryIds[]=3
+      // 3. As a single value: categoryIds=1
+      let parsedCategoryIds: number[] | undefined;
+      
+      if (categoryIds) {
+        if (Array.isArray(categoryIds)) {
+          // Handle array format: categoryIds[]=1&categoryIds[]=2
+          parsedCategoryIds = categoryIds.map(id => parseInt(id as string));
+        } else if (typeof categoryIds === 'string' && categoryIds.includes(',')) {
+          // Handle comma-separated string: categoryIds=1,2,3
+          parsedCategoryIds = categoryIds.split(',').map(id => parseInt(id.trim()));
+        } else {
+          // Handle single value: categoryIds=1
+          parsedCategoryIds = [parseInt(categoryIds as string)];
+        }
+      }
+      
+      console.log(`Finding musicians available on ${parsedDate.toISOString()} with categories:`, parsedCategoryIds);
       
       const musicians = await storage.getAvailableMusiciansForDate(parsedDate, parsedCategoryIds);
       res.json(musicians);
     } catch (error) {
-      console.error(error);
+      console.error("Error fetching available musicians:", error);
       res.status(500).json({ message: "Error fetching available musicians" });
     }
   });
@@ -3464,6 +3496,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error setting default contract template" });
+    }
+  });
+
+  // Test endpoint for multi-category filtering
+  apiRouter.get("/test/multi-category-musician-filter", isAuthenticated, async (req, res) => {
+    try {
+      const currentDate = new Date("2025-05-10");
+      
+      // Test cases with different category combinations
+      const tests = [
+        { name: "No categories", categoryIds: [] },
+        { name: "Single category - Pianist (9)", categoryIds: [9] },
+        { name: "Single category - Vocalist (10)", categoryIds: [10] },
+        { name: "Multiple categories - Pianist and Vocalist (9, 10)", categoryIds: [9, 10] },
+        { name: "Multiple categories - Guitarist, Drummer, and Bassist (12, 13, 11)", categoryIds: [12, 13, 11] }
+      ];
+      
+      // Run all tests
+      const results = {};
+      for (const test of tests) {
+        const musicians = await storage.getAvailableMusiciansForDateAndCategories(currentDate, test.categoryIds);
+        results[test.name] = {
+          categoryIds: test.categoryIds,
+          count: musicians.length,
+          musicians: musicians.map(m => ({ id: m.id, name: m.name, categoryId: m.categoryId }))
+        };
+      }
+      
+      res.json({
+        testDate: currentDate.toISOString(),
+        testResults: results
+      });
+    } catch (error) {
+      console.error("Error testing multi-category filtering:", error);
+      res.status(500).json({ message: "Error testing multi-category filtering" });
     }
   });
 
