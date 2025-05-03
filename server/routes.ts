@@ -3430,34 +3430,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // First get the event to check musician assignments
       const event = await storage.getEvent(eventId);
-      if (!event || !event.musicianAssignments) {
-        return res.status(404).json({ message: "Event not found or has no musician assignments" });
+      console.log(`Loading contracts for event ${eventId}, event data:`, event ? 'found' : 'not found');
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Get all contracts for this event first
+      const allContracts = await storage.getContractLinksByEvent(eventId);
+      console.log(`Found ${allContracts.length} contracts for event ${eventId}`);
+      
+      // Even if event has no assignments, we'll return any contracts that exist
+      if (!event.musicianAssignments || Object.keys(event.musicianAssignments).length === 0) {
+        console.log(`Event ${eventId} has no musician assignments, returning all contracts`);
+        return res.json(allContracts);
       }
       
       // Extract all musician IDs assigned to this event across all dates
       const assignedMusicianIds = new Set<number>();
-      Object.values(event.musicianAssignments).forEach(musicianIds => {
+      Object.entries(event.musicianAssignments).forEach(([dateStr, musicianIds]) => {
         if (Array.isArray(musicianIds)) {
+          console.log(`Date ${dateStr} has musicians:`, musicianIds);
           musicianIds.forEach(id => assignedMusicianIds.add(id));
         }
       });
       
-      // Get all contracts for this event
-      const allContracts = await storage.getContractLinksByEvent(eventId);
+      // If we couldn't find any assigned musicians but have contracts, return all contracts
+      if (assignedMusicianIds.size === 0 && allContracts.length > 0) {
+        console.log(`Event ${eventId} has no assigned musicians but has contracts, returning all contracts`);
+        return res.json(allContracts);
+      }
       
-      // Filter contracts to only include assigned musicians
-      const filteredContracts = allContracts.filter(contract => 
-        assignedMusicianIds.has(contract.musicianId)
-      );
+      // Filter contracts to only include assigned musicians if we have assignments
+      const filteredContracts = assignedMusicianIds.size > 0 
+        ? allContracts.filter(contract => assignedMusicianIds.has(contract.musicianId))
+        : allContracts;
       
       // For logging/debugging
-      console.log(`Event ${eventId} has ${assignedMusicianIds.size} assigned musicians:`);
-      console.log([...assignedMusicianIds]);
+      console.log(`Event ${eventId} has ${assignedMusicianIds.size} assigned musicians:`, [...assignedMusicianIds]);
       console.log(`Found ${allContracts.length} contracts, filtered to ${filteredContracts.length}`);
       
       res.json(filteredContracts);
     } catch (error) {
-      console.error(error);
+      console.error(`Error fetching contracts for event ${req.params.eventId}:`, error);
       res.status(500).json({ message: "Error fetching contracts for event" });
     }
   });
