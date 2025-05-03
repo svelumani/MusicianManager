@@ -163,7 +163,7 @@ const PlannerInvoicePage = () => {
     <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-2">
-          <Link href="/planner">
+          <Link href="/events/planner">
             <Button variant="ghost" size="icon">
               <ChevronLeft className="h-5 w-5" />
             </Button>
