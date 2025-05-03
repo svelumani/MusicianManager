@@ -3,6 +3,18 @@ import { db } from '../db';
 import { activities, entityStatus } from '@shared/schema';
 import { Json } from 'drizzle-orm/pg-core';
 
+// Define entity types as constants for consistent use throughout the application
+export const ENTITY_TYPES = {
+  MUSICIAN: 'musician',
+  EVENT: 'event',
+  CONTRACT: 'contract',
+  BOOKING: 'booking',
+  INVITATION: 'invitation',
+  VENUE: 'venue',
+  PAYMENT: 'payment',
+  COLLECTION: 'collection'
+};
+
 /**
  * Service for managing entity statuses
  */

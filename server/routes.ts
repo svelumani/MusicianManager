@@ -3529,28 +3529,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Using status service to cancel contract ${contractId}`);
       
-      // Use centralized status service to manage the cancellation
-      const statusResult = await statusService.updateStatus({
-        entityType: ENTITY_TYPES.CONTRACT,
-        entityId: contractId,
-        newStatus: 'cancelled',
-        eventId: contract.eventId,
-        musicianId: contract.musicianId,
-        eventDate: contract.eventDate,
-        metadata: {
-          reason: req.body.reason || 'User initiated cancellation',
-          cancelledBy: (req.user as any)?.id || null,
-          cancelledAt: new Date(),
-          bookingId: contract.bookingId
-        }
-      });
-      
-      // Check the result of the operation
-      if (!statusResult.success) {
-        console.error("Failed to cancel contract:", statusResult.error);
+      try {
+        // Use centralized status service to manage the cancellation
+        const userId = (req.user as any)?.id || 0;
+        const reason = req.body.reason || 'User initiated cancellation';
+        
+        // Add the status record using the centralized status service
+        await statusService.updateEntityStatus(
+          ENTITY_TYPES.CONTRACT,
+          contractId,
+          'cancelled',
+          userId,
+          reason,
+          contract.eventId,
+          {
+            cancelledBy: userId,
+            cancelledAt: new Date().toISOString(),
+            bookingId: contract.bookingId
+          }
+        );
+      } catch (error) {
+        console.error("Failed to cancel contract:", error);
         return res.status(400).json({
           message: "Failed to cancel contract",
-          error: statusResult.error
+          error: error instanceof Error ? error.message : String(error)
         });
       }
       
@@ -3571,8 +3573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Contract cancellation completed successfully for ID: ${contractId}`);
       res.json({ 
         message: "Contract cancelled successfully", 
-        contract: updatedContract || contract,
-        statusResult: statusResult.data
+        contract: updatedContract || contract
       });
     } catch (error) {
       console.error("Contract cancellation error:", error);
