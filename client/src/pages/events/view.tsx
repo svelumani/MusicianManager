@@ -853,43 +853,6 @@ export default function ViewEventPage() {
                                               <span>Accept & Send Contract</span>
                                             </DropdownMenuItem>
                                             
-                                            <DropdownMenuItem 
-                                              onClick={() => {
-                                                // Check if musician already has a contract
-                                                const currentStatus = getMusicianStatus(date, musicianId);
-                                                const isCancellingContract = currentStatus === "contract-signed" || currentStatus === "contract-sent";
-                                                
-                                                updateMusicianStatusMutation.mutate(
-                                                  { musicianId, status: "rejected", dateStr },
-                                                  {
-                                                    onSuccess: () => {
-                                                      if (isCancellingContract) {
-                                                        toast({
-                                                          title: "Contract Cancelled",
-                                                          description: `${musician?.name}'s contract has been cancelled and status updated to Rejected`,
-                                                          variant: "destructive"
-                                                        });
-                                                        // Refresh contracts when a contract is cancelled
-                                                        queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
-                                                      } else {
-                                                        toast({
-                                                          title: "Status Updated",
-                                                          description: `${musician?.name}'s status updated to Rejected`,
-                                                          variant: "destructive"
-                                                        });
-                                                      }
-                                                    }
-                                                  }
-                                                );
-                                              }}
-                                              disabled={updateMusicianStatusMutation.isPending}
-                                            >
-                                              <X className="mr-2 h-4 w-4" />
-                                              <span>{getMusicianStatus(date, musicianId) === "contract-signed" || getMusicianStatus(date, musicianId) === "contract-sent" 
-                                                ? "Cancel Contract & Reject" 
-                                                : "Mark as Rejected"}</span>
-                                            </DropdownMenuItem>
-                                            
                                             <DropdownMenuSeparator />
                                           </DropdownMenuContent>
                                         </DropdownMenu>
