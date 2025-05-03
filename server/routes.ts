@@ -3258,13 +3258,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const status = req.query.status ? req.query.status as string : undefined;
       
       // Build filters object for more flexible filtering
-      const filters: { eventId?: number; musicianId?: number; status?: string } = {};
+      const filters: { eventId?: number; musicianId?: number; status?: string | string[] } = {};
       if (eventId && !isNaN(eventId)) filters.eventId = eventId;
       if (musicianId && !isNaN(musicianId)) filters.musicianId = musicianId;
       if (status) filters.status = status;
       
-      // Get contracts with filters (even if empty)
-      const contracts = await storage.getContractLinks(Object.keys(filters).length > 0 ? filters : undefined);
+      // If no status filter is provided, only show contracts that have been sent or processed
+      // (not pending ones that haven't been actually released to musicians)
+      if (!status) {
+        // Show only contracts that have been sent or have received a response
+        filters.status = ['contract-sent', 'contract-signed', 'accepted', 'rejected', 'cancelled'];
+      }
+      
+      // Get contracts with filters
+      const contracts = await storage.getContractLinks(filters);
       
       // For each contract, check if there's a more recent status in the event musician statuses
       const updatedContracts = await Promise.all(contracts.map(async (contract) => {
