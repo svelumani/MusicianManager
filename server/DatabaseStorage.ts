@@ -1685,9 +1685,45 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getContractLink(id: number): Promise<ContractLink | undefined> {
+    // Get the contract data from contractLinks table
     const [link] = await db.select()
       .from(contractLinks)
       .where(eq(contractLinks.id, id));
+    
+    if (!link) return undefined;
+    
+    try {
+      // Get the status from entityStatus table
+      const { statusService, ENTITY_TYPES } = await import('./services/status');
+      const statusData = await statusService.getEntityStatus(
+        ENTITY_TYPES.CONTRACT,
+        id,
+        link.eventId,
+        link.musicianId, 
+        link.eventDate
+      );
+      
+      // If we found status data in the central system, override the status field from the contract
+      if (statusData) {
+        console.log(`Using centralized status "${statusData.status}" for contract ${id} (original status: ${link.status})`);
+        
+        // Return a merged object with central status taking precedence
+        return {
+          ...link,
+          status: statusData.status, // Use primaryStatus from centralized system
+          // Include any other status-related fields from central system
+          centralizedStatus: {
+            primaryStatus: statusData.status,
+            customStatus: statusData.customStatus,
+            statusDate: statusData.statusDate,
+            metadata: statusData.metadata
+          }
+        };
+      }
+    } catch (error) {
+      // Log error but don't fail, fall back to original contract data
+      console.error(`Error getting centralized status for contract ${id}:`, error);
+    }
     
     return link;
   }
@@ -1696,6 +1732,41 @@ export class DatabaseStorage implements IStorage {
     const [link] = await db.select()
       .from(contractLinks)
       .where(eq(contractLinks.token, token));
+    
+    if (!link) return undefined;
+    
+    try {
+      // Get the status from entityStatus table
+      const { statusService, ENTITY_TYPES } = await import('./services/status');
+      const statusData = await statusService.getEntityStatus(
+        ENTITY_TYPES.CONTRACT,
+        link.id,
+        link.eventId,
+        link.musicianId,
+        link.eventDate
+      );
+      
+      // If we found status data in the central system, override the status field from the contract
+      if (statusData) {
+        console.log(`Using centralized status "${statusData.status}" for contract token ${token} (original status: ${link.status})`);
+        
+        // Return a merged object with central status taking precedence
+        return {
+          ...link,
+          status: statusData.status, // Use primaryStatus from centralized system
+          // Include any other status-related fields from central system
+          centralizedStatus: {
+            primaryStatus: statusData.status,
+            customStatus: statusData.customStatus,
+            statusDate: statusData.statusDate,
+            metadata: statusData.metadata
+          }
+        };
+      }
+    } catch (error) {
+      // Log error but don't fail, fall back to original contract data
+      console.error(`Error getting centralized status for contract token ${token}:`, error);
+    }
     
     return link;
   }
