@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { X, Plus, User, Trash, Calendar, Save, Check, DollarSign, Edit, AlertCircle } from "lucide-react";
+import { X, Plus, User, Trash, Calendar, Save, Check, DollarSign, Edit, AlertCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -190,10 +190,25 @@ const InlineMusicianSelect = ({
     }
   });
 
-  // Filter musicians by category
-  const filteredMusicians = musicians.filter(
-    (musician) => musician.categoryId === parseInt(categoryId)
-  );
+  // Query available musicians for this date and category
+  const {
+    data: availableMusicians = [],
+    isLoading: isLoadingAvailableMusicians,
+  } = useQuery({
+    queryKey: ['/api/available-musicians', date.toISOString().split('T')[0], categoryId],
+    queryFn: () => {
+      const dateStr = date.toISOString().split('T')[0];
+      return apiRequest(`/api/available-musicians?date=${dateStr}&categoryIds=${categoryId}`);
+    },
+    enabled: !!date && !!categoryId,
+  });
+  
+  // Merge additional data with available musicians
+  const filteredMusicians = availableMusicians.map((availMusician: any) => {
+    // Find the complete musician data from the passed musicians prop
+    const fullMusicianData = musicians.find((m: any) => m.id === availMusician.id) || availMusician;
+    return { ...fullMusicianData };
+  });
 
   // Handle musician selection
   const handleMusicianSelect = (musicianId: string) => {
@@ -462,19 +477,25 @@ const InlineMusicianSelect = ({
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">Musician</label>
                 <Select value={selectedMusicianId} onValueChange={handleMusicianSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select musician" />
+                  <SelectTrigger disabled={isLoadingAvailableMusicians}>
+                    <SelectValue placeholder={isLoadingAvailableMusicians ? "Loading musicians..." : "Select musician"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredMusicians.length > 0 ? (
-                      filteredMusicians.map((musician) => (
+                    {isLoadingAvailableMusicians ? (
+                      <div className="flex items-center justify-center p-2 text-sm text-gray-500">
+                        <Clock className="h-3 w-3 mr-2 animate-spin" />
+                        Loading available musicians...
+                      </div>
+                    ) : filteredMusicians.length > 0 ? (
+                      filteredMusicians.map((musician: any) => (
                         <SelectItem key={musician.id} value={musician.id.toString()}>
                           {musician.name} (${musician.payRate})
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="p-2 text-sm text-gray-500">
-                        No musicians found in this category
+                      <div className="p-2 text-sm text-gray-500 space-y-1">
+                        <p>No available musicians found</p>
+                        <p className="text-xs italic">Musicians already booked or marked as unavailable for this date will not appear here</p>
                       </div>
                     )}
                   </SelectContent>
