@@ -97,7 +97,15 @@ function ContractsTable({ eventId }: ContractsTableProps) {
         `/api/contracts/${contractId}/cancel`,
         'POST'
       );
-      if (!res.ok) throw new Error("Failed to cancel contract");
+      if (!res.ok) {
+        // Try to get more detailed error information from the response
+        try {
+          const errorData = await res.json();
+          throw new Error(errorData.details || errorData.message || "Failed to cancel contract");
+        } catch (e) {
+          throw new Error("Failed to cancel contract");
+        }
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -108,6 +116,7 @@ function ContractsTable({ eventId }: ContractsTableProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
     },
     onError: (error: Error) => {
+      console.error("Contract cancellation error:", error);
       toast({
         title: "Failed to Cancel Contract",
         description: error.message,

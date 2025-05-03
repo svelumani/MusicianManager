@@ -121,18 +121,29 @@ export default function ContractsPage() {
   // Mutation for canceling a contract
   const cancelContractMutation = useMutation({
     mutationFn: async (contractId: number) => {
-      return apiRequest(`/api/contracts/${contractId}/cancel`, "POST");
+      const res = await apiRequest(`/api/contracts/${contractId}/cancel`, "POST");
+      if (!res.ok) {
+        // Try to get more detailed error information from the response
+        try {
+          const errorData = await res.json();
+          throw new Error(errorData.details || errorData.message || "Failed to cancel contract");
+        } catch (e) {
+          throw new Error("Failed to cancel contract");
+        }
+      }
+      return res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Contract canceled",
-        description: "The contract has been canceled successfully.",
+        title: "Contract Cancelled",
+        description: "The contract has been cancelled successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Contract cancellation error:", error);
       toast({
-        title: "Error canceling contract",
+        title: "Failed to Cancel Contract",
         description: error.message,
         variant: "destructive",
       });

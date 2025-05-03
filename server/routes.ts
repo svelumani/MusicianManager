@@ -3539,15 +3539,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update musician status in event
       if (contract.eventId && contract.musicianId && contract.eventDate) {
-        // Convert eventDate to YYYY-MM-DD string format for the status map
-        const dateStr = new Date(contract.eventDate).toISOString().split('T')[0];
+        // Convert eventDate to ISO string format for the date-specific status update
+        const dateStr = new Date(contract.eventDate).toISOString();
         
-        // Update the musician's status for this event and date
-        await storage.updateMusicianEventStatus(
+        // Update the musician's status for this event and date using the proper date-specific method
+        await storage.updateMusicianEventStatusForDate(
           contract.eventId,
           contract.musicianId,
-          dateStr,
-          'cancelled'
+          'cancelled',
+          dateStr
         );
       }
       
