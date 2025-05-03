@@ -563,6 +563,7 @@ export default function ViewEventPage() {
                                 <TableHead>Musician</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead>Rate</TableHead>
                                 <TableHead>Actions</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -598,6 +599,16 @@ export default function ViewEventPage() {
                                     </TableCell>
                                     <TableCell>
                                       {getStatusBadge(getMusicianStatus(dateStr, musicianId))}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => navigate(`/events/rate-musician/${eventId}/${musicianId}?date=${dateStr}`)}
+                                      >
+                                        <DollarSign className="h-4 w-4 mr-1" />
+                                        Edit Rate
+                                      </Button>
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex gap-2 justify-end">
