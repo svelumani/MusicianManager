@@ -233,6 +233,8 @@ export const invitations = pgTable("invitations", {
   messageBody: text("message_body").notNull(),
   reminders: integer("reminders").default(0), // Number of reminders sent
   lastReminderAt: timestamp("last_reminder_at"),
+  date: timestamp("date"), // Specific date for multi-date events
+  updatedAt: timestamp("updated_at"), // When the invitation was last updated
 });
 
 export const insertInvitationSchema = createInsertSchema(invitations).pick({
@@ -247,6 +249,8 @@ export const insertInvitationSchema = createInsertSchema(invitations).pick({
   messageBody: true,
   reminders: true,
   lastReminderAt: true,
+  date: true,
+  updatedAt: true,
 });
 
 // Booking model (confirmed musicians for events after contract signing)
