@@ -1330,7 +1330,7 @@ export class DatabaseStorage implements IStorage {
         eq(bookings.eventId, eventId),
         eq(bookings.musicianId, musicianId)
       ))
-      .orderBy(desc(bookings.createdAt));
+      .orderBy(bookings.createdAt);
   }
   
   async createBooking(booking: InsertBooking): Promise<Booking> {
