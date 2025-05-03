@@ -363,30 +363,56 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       return;
     }
     
-    const dateKey = date.toISOString();
+    // Normalize the date to avoid timezone issues
+    const normalizedDateStr = format(date, 'yyyy-MM-dd');
+    // Create the full ISO date key that matches what's coming from the server
+    const dateKey = new Date(`${normalizedDateStr}T18:30:00.000Z`).toISOString();
+    
+    // Also create a simple date string key for compatibility with existing assignments
+    const simpleDateKey = normalizedDateStr;
+    
     setMusicianAssignments(prev => {
+      // Clone the assignments object
       const newAssignments = { ...prev };
       
-      // Initialize the array for this date if it doesn't exist
-      if (!newAssignments[dateKey]) {
-        newAssignments[dateKey] = [];
-      }
+      // Check if we have entries with this date in different formats
+      // and consolidate them to avoid duplicates
+      const keys = Object.keys(newAssignments);
+      const matchingKeys = keys.filter(key => {
+        const keyDate = new Date(key);
+        return format(keyDate, 'yyyy-MM-dd') === normalizedDateStr;
+      });
       
-      // Check if musician is already assigned to this date
-      const isAssigned = newAssignments[dateKey].includes(musicianId);
+      // Consolidate all musician IDs from matching date keys
+      let consolidatedMusicianIds: number[] = [];
+      matchingKeys.forEach(key => {
+        if (newAssignments[key] && Array.isArray(newAssignments[key])) {
+          consolidatedMusicianIds = [...consolidatedMusicianIds, ...newAssignments[key]];
+          // Remove the old key as we'll be consolidating
+          delete newAssignments[key];
+        }
+      });
+      
+      // Remove any duplicates
+      consolidatedMusicianIds = Array.from(new Set(consolidatedMusicianIds));
+      
+      // Check if musician is already assigned after consolidation
+      const isAssigned = consolidatedMusicianIds.includes(musicianId);
       
       if (isAssigned) {
-        // Remove the musician from this date
-        newAssignments[dateKey] = newAssignments[dateKey].filter(id => id !== musicianId);
-        // If the array is empty, we can remove the key
-        if (newAssignments[dateKey].length === 0) {
-          delete newAssignments[dateKey];
-        }
+        // Remove the musician from the consolidated list
+        consolidatedMusicianIds = consolidatedMusicianIds.filter(id => id !== musicianId);
       } else {
-        // Add the musician to this date
-        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
+        // Add the musician to the consolidated list
+        consolidatedMusicianIds.push(musicianId);
       }
       
+      // If there are any musicians assigned, add the consolidated list back with the normalized key
+      if (consolidatedMusicianIds.length > 0) {
+        newAssignments[simpleDateKey] = consolidatedMusicianIds;
+      }
+      
+      console.log(`Updated assignments for date ${normalizedDateStr}:`, newAssignments);
       return newAssignments;
     });
   };
@@ -682,10 +708,21 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                           if (!musician) return null;
                           
                           // Count how many dates this musician is assigned to
-                          const assignedDatesCount = Object.values(musicianAssignments).reduce(
-                            (count, musicians) => musicians.includes(id) ? count + 1 : count, 
-                            0
-                          );
+                          // Use a Set to ensure we're not counting duplicate date entries
+                          const assignedDatesCount = Object.entries(musicianAssignments).reduce(
+                            (count, [dateStr, musicians]) => {
+                              // Parse the date to normalize it
+                              const normalizedDate = format(new Date(dateStr), 'yyyy-MM-dd');
+                              
+                              // Only increment count if this musician is assigned and we haven't counted this date yet
+                              if (musicians.includes(id) && !count.dates.has(normalizedDate)) {
+                                count.dates.add(normalizedDate);
+                                count.total += 1;
+                              }
+                              return count;
+                            }, 
+                            { total: 0, dates: new Set<string>() }
+                          ).total;
                           
                           return (
                             <Badge 
