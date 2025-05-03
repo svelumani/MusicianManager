@@ -1,258 +1,333 @@
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db';
-import { eq, and, desc, SQL, sql } from 'drizzle-orm';
-import { entityStatus } from '@shared/schema';
+import { activities, entityStatus } from '@shared/schema';
+import { Json } from 'drizzle-orm/pg-core';
 
-// Entity types for consistent typing
-export const ENTITY_TYPES = {
-  CONTRACT: 'contract',
-  MUSICIAN_EVENT: 'musician_event',
-  BOOKING: 'booking',
-  EVENT: 'event',
-  INVITATION: 'invitation',
-  VENUE: 'venue'
-};
-
-// Status update parameters interface
-interface StatusUpdateParams {
-  entityType: string;
-  entityId: number;
-  newStatus: string;
-  eventId: number;
-  musicianId?: number;
-  eventDate?: Date;
-  metadata?: any;
-}
-
-// Service result interface
-interface ServiceResult {
-  success: boolean;
-  data?: any;
-  error?: string;
-}
-
-// The status service manages status operations centrally
-class StatusService {
+/**
+ * Service for managing entity statuses
+ */
+export class StatusService {
   /**
    * Get the current status for an entity
    */
-  async getStatus(entityType: string, entityId: number, eventDate?: Date): Promise<any> {
+  async getEntityStatus(entityType: string, entityId: number, eventId?: number) {
     try {
-      // Query conditions
-      const conditions = [
-        eq(entityStatus.entityType, entityType),
-        eq(entityStatus.entityId, entityId)
-      ];
+      const query = eventId 
+        ? and(
+            eq(entityStatus.entityType, entityType),
+            eq(entityStatus.entityId, entityId),
+            eq(entityStatus.eventId, eventId)
+          )
+        : and(
+            eq(entityStatus.entityType, entityType),
+            eq(entityStatus.entityId, entityId),
+            sql`${entityStatus.eventId} IS NULL`
+          );
       
-      // Add event date condition if specified
-      if (eventDate) {
-        conditions.push(eq(entityStatus.eventDate, eventDate));
-      }
-      
-      // Get the most recently updated status for this entity
-      const statuses = await db
+      const [status] = await db
         .select()
         .from(entityStatus)
-        .where(and(...conditions))
-        .orderBy(desc(entityStatus.statusDate))
+        .where(query)
+        .orderBy(desc(entityStatus.updatedAt))
         .limit(1);
       
-      return statuses.length > 0 ? statuses[0] : null;
+      return status;
     } catch (error) {
-      console.error('Error getting status:', error);
-      return null;
+      console.error('Error getting entity status:', error);
+      throw new Error(`Failed to get status for ${entityType} #${entityId}: ${error.message}`);
     }
   }
-  
+
   /**
-   * Get all statuses for an event
+   * Get status history for an entity
    */
-  async getEventStatuses(eventId: number): Promise<any[]> {
+  async getEntityStatusHistory(entityType: string, entityId: number, eventId?: number, limit: number = 50) {
     try {
-      const statuses = await db
-        .select()
+      const query = eventId 
+        ? and(
+            eq(entityStatus.entityType, entityType),
+            eq(entityStatus.entityId, entityId),
+            eq(entityStatus.eventId, eventId)
+          )
+        : and(
+            eq(entityStatus.entityType, entityType),
+            eq(entityStatus.entityId, entityId)
+          );
+      
+      const statusHistory = await db
+        .select({
+          id: entityStatus.id,
+          status: entityStatus.status,
+          timestamp: entityStatus.createdAt,
+          details: entityStatus.details,
+          userName: entityStatus.createdBy,
+          eventId: entityStatus.eventId
+        })
         .from(entityStatus)
-        .where(eq(entityStatus.eventId, eventId))
-        .orderBy(desc(entityStatus.statusDate));
+        .where(query)
+        .orderBy(desc(entityStatus.createdAt))
+        .limit(limit);
       
-      return statuses;
+      return statusHistory;
     } catch (error) {
-      console.error('Error getting event statuses:', error);
-      return [];
+      console.error('Error getting entity status history:', error);
+      throw new Error(`Failed to get status history for ${entityType} #${entityId}: ${error.message}`);
     }
   }
-  
+
   /**
-   * Get all statuses for a specific musician in an event
+   * Update an entity's status
    */
-  async getMusicianEventStatuses(
-    eventId: number, 
-    musicianId: number, 
-    entityType?: string
-  ): Promise<any[]> {
+  async updateEntityStatus(
+    entityType: string, 
+    entityId: number, 
+    status: string, 
+    userId: number,
+    details?: string,
+    eventId?: number,
+    metadata?: Json
+  ) {
     try {
-      const conditions = [
-        eq(entityStatus.eventId, eventId),
-        eq(entityStatus.musicianId, musicianId)
-      ];
+      // Create new status entry
+      const [statusEntry] = await db
+        .insert(entityStatus)
+        .values({
+          entityType,
+          entityId,
+          status,
+          eventId: eventId || null,
+          details: details || null,
+          createdBy: String(userId),
+          metadata: metadata || null
+        })
+        .returning();
       
-      if (entityType) {
-        conditions.push(eq(entityStatus.entityType, entityType));
-      }
+      // Log activity
+      await db.insert(activities).values({
+        userId,
+        action: 'update_status',
+        entityType,
+        entityId,
+        details: `Updated ${entityType} status to ${status}${details ? ': ' + details : ''}`
+      });
       
-      const statuses = await db
-        .select()
-        .from(entityStatus)
-        .where(and(...conditions))
-        .orderBy(desc(entityStatus.statusDate));
-      
-      return statuses;
+      return statusEntry;
     } catch (error) {
-      console.error('Error getting musician event statuses:', error);
-      return [];
+      console.error('Error updating entity status:', error);
+      throw new Error(`Failed to update status for ${entityType} #${entityId}: ${error.message}`);
     }
   }
-  
+
   /**
-   * Update a status with transaction support
+   * Get status configuration for an entity type
    */
-  async updateStatus(params: StatusUpdateParams): Promise<ServiceResult> {
-    try {
-      // Insert a new status record
-      const [newStatus] = await db.insert(entityStatus).values({
-        entityType: params.entityType,
-        entityId: params.entityId,
-        primaryStatus: params.newStatus,
-        statusDate: new Date(),
-        eventId: params.eventId,
-        musicianId: params.musicianId,
-        eventDate: params.eventDate,
-        metadata: params.metadata,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-      
-      // Now execute any related status updates
-      await this.handleRelatedStatusUpdates(params);
-      
-      return {
-        success: true,
-        data: newStatus
-      };
-    } catch (error) {
-      console.error('Error updating status:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
-    }
-  }
-  
-  /**
-   * Handle updating related entities' statuses when a status changes
-   */
-  private async handleRelatedStatusUpdates(params: StatusUpdateParams): Promise<void> {
-    // Status update logic depends on the entity and the new status
-    const { entityType, newStatus, eventId, musicianId, eventDate } = params;
+  getStatusConfig(entityType: string) {
+    // Default configuration
+    const defaultConfig = {
+      entityType: 'default',
+      statuses: [
+        {
+          value: 'pending',
+          label: 'Pending',
+          description: 'Waiting for action',
+          colorType: 'warning',
+          colorClass: 'border-amber-500 text-amber-700'
+        },
+        {
+          value: 'confirmed',
+          label: 'Confirmed',
+          description: 'Item has been confirmed',
+          colorType: 'success',
+          colorClass: 'border-green-500 text-green-700'
+        },
+        {
+          value: 'cancelled',
+          label: 'Cancelled',
+          description: 'Item has been cancelled',
+          colorType: 'error',
+          colorClass: 'border-red-500 text-red-700'
+        }
+      ]
+    };
     
-    switch (entityType) {
-      case ENTITY_TYPES.CONTRACT:
-        if (newStatus === 'cancelled') {
-          // When a contract is cancelled, update related booking and musician status
-          if (musicianId) {
-            // Update booking payment status to 'cancelled'
-            await this.updateStatus({
-              entityType: ENTITY_TYPES.BOOKING,
-              entityId: params.entityId, // We're using the contract ID as the booking ID
-              newStatus: 'cancelled',
-              eventId,
-              musicianId,
-              eventDate,
-              metadata: {
-                reason: params.metadata?.reason || 'Contract cancelled',
-                cancelledBy: params.metadata?.cancelledBy || null,
-                cancelledAt: params.metadata?.cancelledAt || new Date()
-              }
-            });
-            
-            // Update musician status to 'available' for the specific date
-            await this.updateStatus({
-              entityType: ENTITY_TYPES.MUSICIAN_EVENT,
-              entityId: musicianId,
-              newStatus: 'available',
-              eventId,
-              musicianId,
-              eventDate,
-              metadata: {
-                reason: 'Contract cancelled',
-                previousStatus: 'booked',
-                prevContract: params.entityId
-              }
-            });
+    // Entity-specific configurations
+    const configs: Record<string, any> = {
+      'default': defaultConfig,
+      
+      'contract': {
+        entityType: 'contract',
+        statuses: [
+          {
+            value: 'draft',
+            label: 'Draft',
+            description: 'Contract is in draft state',
+            colorType: 'secondary',
+            colorClass: 'border-gray-500 text-gray-700'
+          },
+          {
+            value: 'pending',
+            label: 'Pending',
+            description: 'Contract is waiting for confirmation',
+            colorType: 'warning',
+            colorClass: 'border-amber-500 text-amber-700'
+          },
+          {
+            value: 'contract-sent',
+            label: 'Contract Sent',
+            description: 'Contract has been sent to the musician',
+            colorType: 'info',
+            colorClass: 'border-blue-500 text-blue-700'
+          },
+          {
+            value: 'contract-signed',
+            label: 'Contract Signed',
+            description: 'Contract has been signed by the musician',
+            colorType: 'success',
+            colorClass: 'border-emerald-500 text-emerald-700'
+          },
+          {
+            value: 'confirmed',
+            label: 'Confirmed',
+            description: 'Contract has been confirmed',
+            colorType: 'success',
+            colorClass: 'border-green-600 text-green-800'
+          },
+          {
+            value: 'rejected',
+            label: 'Rejected',
+            description: 'Contract has been rejected by the musician',
+            colorType: 'error',
+            colorClass: 'border-red-500 text-red-700'
+          },
+          {
+            value: 'cancelled',
+            label: 'Cancelled',
+            description: 'Contract has been cancelled',
+            colorType: 'error',
+            colorClass: 'border-red-600 text-red-800'
           }
-        } else if (newStatus === 'signed') {
-          // When a contract is signed, mark musician as booked
-          if (musicianId) {
-            await this.updateStatus({
-              entityType: ENTITY_TYPES.MUSICIAN_EVENT,
-              entityId: musicianId,
-              newStatus: 'booked',
-              eventId,
-              musicianId,
-              eventDate,
-              metadata: {
-                contractId: params.entityId,
-                signedAt: new Date()
-              }
-            });
+        ]
+      },
+      
+      'musician': {
+        entityType: 'musician',
+        statuses: [
+          {
+            value: 'invited',
+            label: 'Invited',
+            description: 'Musician has been invited',
+            colorType: 'secondary',
+            colorClass: 'border-gray-500 text-gray-700'
+          },
+          {
+            value: 'pending',
+            label: 'Pending',
+            description: 'Waiting for musician response',
+            colorType: 'warning',
+            colorClass: 'border-amber-500 text-amber-700'
+          },
+          {
+            value: 'accepted',
+            label: 'Accepted',
+            description: 'Musician has accepted the invitation',
+            colorType: 'info',
+            colorClass: 'border-blue-500 text-blue-700'
+          },
+          {
+            value: 'contract-sent',
+            label: 'Contract Sent',
+            description: 'Contract has been sent to the musician',
+            colorType: 'info',
+            colorClass: 'border-indigo-500 text-indigo-700'
+          },
+          {
+            value: 'contract-signed',
+            label: 'Contract Signed',
+            description: 'Contract has been signed by the musician',
+            colorType: 'success',
+            colorClass: 'border-emerald-500 text-emerald-700'
+          },
+          {
+            value: 'confirmed',
+            label: 'Confirmed',
+            description: 'Musician has been confirmed for the event',
+            colorType: 'success',
+            colorClass: 'border-green-600 text-green-800'
+          },
+          {
+            value: 'rejected',
+            label: 'Rejected',
+            description: 'Musician has rejected the invitation',
+            colorType: 'error',
+            colorClass: 'border-red-500 text-red-700'
+          },
+          {
+            value: 'cancelled',
+            label: 'Cancelled',
+            description: 'Musician booking has been cancelled',
+            colorType: 'error',
+            colorClass: 'border-red-600 text-red-800'
+          },
+          {
+            value: 'not-available',
+            label: 'Not Available',
+            description: 'Musician is not available',
+            colorType: 'error',
+            colorClass: 'border-red-400 text-red-600'
           }
-        }
-        break;
-        
-      case ENTITY_TYPES.BOOKING:
-        // Booking status impacts payment tracking, etc.
-        if (newStatus === 'confirmed') {
-          // Logic for confirmed bookings
-        } else if (newStatus === 'cancelled') {
-          // Logic for cancelled bookings
-          // Already handled in the contract case
-        }
-        break;
-        
-      case ENTITY_TYPES.INVITATION:
-        // Invitations affect musician availability
-        if (newStatus === 'accepted') {
-          await this.updateStatus({
-            entityType: ENTITY_TYPES.MUSICIAN_EVENT,
-            entityId: musicianId!,
-            newStatus: 'pending-contract',
-            eventId,
-            musicianId,
-            eventDate,
-            metadata: {
-              invitationId: params.entityId,
-              acceptedAt: new Date()
-            }
-          });
-        } else if (newStatus === 'declined') {
-          await this.updateStatus({
-            entityType: ENTITY_TYPES.MUSICIAN_EVENT,
-            entityId: musicianId!,
-            newStatus: 'declined',
-            eventId,
-            musicianId,
-            eventDate,
-            metadata: {
-              invitationId: params.entityId,
-              declinedAt: new Date()
-            }
-          });
-        }
-        break;
-        
-      default:
-        // No related status updates for this entity type
-        break;
-    }
+        ]
+      },
+      
+      'event': {
+        entityType: 'event',
+        statuses: [
+          {
+            value: 'draft',
+            label: 'Draft',
+            description: 'Event is in draft state',
+            colorType: 'secondary',
+            colorClass: 'border-gray-500 text-gray-700'
+          },
+          {
+            value: 'pending',
+            label: 'Pending',
+            description: 'Event is pending confirmation',
+            colorType: 'warning',
+            colorClass: 'border-amber-500 text-amber-700'
+          },
+          {
+            value: 'confirmed',
+            label: 'Confirmed',
+            description: 'Event has been confirmed',
+            colorType: 'success',
+            colorClass: 'border-green-600 text-green-800'
+          },
+          {
+            value: 'in-progress',
+            label: 'In Progress',
+            description: 'Event is currently in progress',
+            colorType: 'info',
+            colorClass: 'border-purple-500 text-purple-700'
+          },
+          {
+            value: 'completed',
+            label: 'Completed',
+            description: 'Event has been completed',
+            colorType: 'success',
+            colorClass: 'border-green-500 text-green-700'
+          },
+          {
+            value: 'cancelled',
+            label: 'Cancelled',
+            description: 'Event has been cancelled',
+            colorType: 'error',
+            colorClass: 'border-red-600 text-red-800'
+          }
+        ]
+      }
+    };
+    
+    return configs[entityType] || defaultConfig;
   }
 }
 

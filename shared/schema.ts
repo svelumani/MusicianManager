@@ -759,40 +759,35 @@ export type InsertMusicianSkill = z.infer<typeof insertMusicianSkillSchema>;
 // Entity Status - centralized status management
 export const entityStatus = pgTable("entity_status", {
   id: serial("id").primaryKey(),
-  entityType: text("entity_type").notNull(), // 'contract', 'musician_event', 'booking'
+  entityType: text("entity_type").notNull(), // 'contract', 'musician', 'event', etc.
   entityId: integer("entity_id").notNull(),
-  primaryStatus: text("primary_status").notNull(), // The canonical status
-  customStatus: text("custom_status"), // Optional status for display purposes
-  statusDate: timestamp("status_date").notNull().defaultNow(),
-  eventId: integer("event_id").notNull(),
-  musicianId: integer("musician_id"),
-  eventDate: timestamp("event_date"), // For date-specific statuses
-  metadata: jsonb("metadata"), // Additional status context
+  status: text("status").notNull(), // The current status value
+  eventId: integer("event_id"), // Optional related event
+  details: text("details"), // Optional details or reason for the status
+  metadata: jsonb("metadata"), // Additional status context (JSON)
+  createdBy: text("created_by"), // User who created this status
   createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at")
+  updatedAt: timestamp("updated_at").notNull().defaultNow()
 }, (table) => [
   // Create composite index for quick lookups
   // index("idx_entity_status_lookup").on(
   //   table.entityType, 
   //   table.entityId
   // ),
-  // // Create index for event-based lookups
+  // Create index for event-based lookups
   // index("idx_entity_status_event").on(
   //   table.eventId
-  // ),
-  // Unique constraint for entity type/id combination
-  // unique().on(table.entityType, table.entityId, table.eventDate)
+  // )
 ]);
 
 export const insertEntityStatusSchema = createInsertSchema(entityStatus).pick({
   entityType: true,
   entityId: true,
-  primaryStatus: true,
-  customStatus: true,
+  status: true,
   eventId: true,
-  musicianId: true,
-  eventDate: true,
+  details: true,
   metadata: true,
+  createdBy: true,
 });
 
 export type EntityStatus = typeof entityStatus.$inferSelect;
