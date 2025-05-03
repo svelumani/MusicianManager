@@ -69,8 +69,16 @@ export class DatabaseStorage implements IStorage {
     .from(bookings)
     .where(eq(bookings.eventId, eventId));
     
+    console.log(`Found ${eventBookings.length} bookings for event ${eventId}`);
+    
     // Group bookings by date
     for (const booking of eventBookings) {
+      if (!booking.date) {
+        console.warn(`Booking ${booking.id} has no date, skipping`);
+        continue;
+      }
+      
+      // Normalize date to YYYY-MM-DD format
       const dateStr = format(booking.date, 'yyyy-MM-dd');
       
       if (!assignedMusicians[dateStr]) {
@@ -83,6 +91,7 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
+    console.log(`Musician assignments for event: ${eventId}`, assignedMusicians);
     return assignedMusicians;
   }
   
