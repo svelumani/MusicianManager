@@ -48,9 +48,15 @@ export function useEntityStatusConfig(entityType: string) {
 /**
  * Hook to get current status for an entity
  */
-export function useEntityStatus(entityType: string, entityId: number, eventId?: number) {
+export function useEntityStatus(
+  entityType: string, 
+  entityId: number, 
+  eventId?: number,
+  musicianId?: number,
+  eventDate?: string
+) {
   return useQuery({
-    queryKey: ["/api/status", entityType, entityId, eventId],
+    queryKey: ["/api/status", entityType, entityId, eventId, musicianId, eventDate],
     queryFn: async () => {
       const params = new URLSearchParams();
       params.append('entityType', entityType);
@@ -58,6 +64,14 @@ export function useEntityStatus(entityType: string, entityId: number, eventId?: 
       
       if (eventId) {
         params.append('eventId', eventId.toString());
+      }
+      
+      if (musicianId) {
+        params.append('musicianId', musicianId.toString());
+      }
+      
+      if (eventDate) {
+        params.append('eventDate', eventDate);
       }
       
       const response = await fetch(`/api/status?${params.toString()}`);
@@ -84,13 +98,21 @@ export function useUpdateEntityStatus() {
       entityId, 
       status, 
       eventId,
-      details 
+      details,
+      customStatus,
+      musicianId,
+      eventDate,
+      metadata
     }: { 
       entityType: string; 
       entityId: number; 
       status: string; 
       eventId?: number;
       details?: string;
+      customStatus?: string;
+      musicianId?: number;
+      eventDate?: string;
+      metadata?: any;
     }) => {
       const response = await fetch('/api/status', {
         method: 'POST',
@@ -102,7 +124,11 @@ export function useUpdateEntityStatus() {
           entityId,
           status,
           eventId,
-          details
+          details,
+          customStatus,
+          musicianId,
+          eventDate,
+          metadata
         })
       });
       
@@ -119,13 +145,35 @@ export function useUpdateEntityStatus() {
         description: `Status has been updated successfully.`,
       });
       
-      // Invalidate related queries
+      // Invalidate all possible query combinations
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/status", variables.entityType, variables.entityId, variables.eventId] 
+        queryKey: ["/api/status", variables.entityType, variables.entityId] 
       });
+      
+      // Invalidate with eventId combinations
+      if (variables.eventId) {
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/status", variables.entityType, variables.entityId, variables.eventId] 
+        });
+      }
+      
+      // Invalidate with musician combinations
+      if (variables.musicianId) {
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/status", variables.entityType, variables.entityId, variables.eventId, variables.musicianId] 
+        });
+      }
+      
+      // Invalidate history queries
       queryClient.invalidateQueries({ 
-        queryKey: ["/api/status/history", variables.entityType, variables.entityId, variables.eventId] 
+        queryKey: ["/api/status/history", variables.entityType, variables.entityId] 
       });
+      
+      if (variables.eventId) {
+        queryClient.invalidateQueries({ 
+          queryKey: ["/api/status/history", variables.entityType, variables.entityId, variables.eventId] 
+        });
+      }
       
       // Invalidate related entity queries (e.g., if we update a contract status, refresh contracts list)
       switch (variables.entityType) {
@@ -140,6 +188,10 @@ export function useUpdateEntityStatus() {
         case 'event':
           queryClient.invalidateQueries({ queryKey: ["/api/events"] });
           queryClient.invalidateQueries({ queryKey: ["/api/events", variables.entityId] });
+          break;
+        case 'booking':
+          queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/bookings", variables.entityId] });
           break;
       }
     },
@@ -190,13 +242,22 @@ export function useSignContract() {
         throw new Error(error.message || "Failed to sign contract");
       }
       
-      // Then update the status
+      // Then update the status with all the proper parameters
       return updateStatus.mutateAsync({
         entityType: 'contract',
         entityId: contractId,
         status: 'contract-signed',
         eventId,
-        details: `Contract signed with signature: ${signature}`
+        musicianId,
+        eventDate,
+        customStatus: 'musician-signed',
+        details: `Contract signed with signature: ${signature}`,
+        metadata: {
+          signedAt: new Date().toISOString(),
+          signedBy: 'Musician',
+          signatureType: 'digital',
+          signatureValue: signature
+        }
       });
     }
   });
@@ -239,13 +300,22 @@ export function useCancelContract() {
         throw new Error(error.message || "Failed to cancel contract");
       }
       
-      // Then update the status
+      // Then update the status with all parameters
       return updateStatus.mutateAsync({
         entityType: 'contract',
         entityId: contractId,
         status: 'cancelled',
         eventId,
-        details: reason ? `Contract cancelled. Reason: ${reason}` : 'Contract cancelled'
+        musicianId,
+        eventDate,
+        customStatus: 'user-cancelled',
+        details: reason ? `Contract cancelled. Reason: ${reason}` : 'Contract cancelled',
+        metadata: {
+          cancelledAt: new Date().toISOString(),
+          reason: reason || 'No reason provided',
+          cancelledBy: 'User',
+          eventDate: eventDate
+        }
       });
     }
   });

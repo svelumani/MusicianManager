@@ -10,11 +10,11 @@ router.use(isAuthenticated);
 
 /**
  * Get status for an entity
- * GET /api/status?entityType=X&entityId=Y&eventId=Z
+ * GET /api/status?entityType=X&entityId=Y&eventId=Z&musicianId=M&eventDate=D
  */
 router.get('/', async (req, res) => {
   try {
-    const { entityType, entityId, eventId } = req.query;
+    const { entityType, entityId, eventId, musicianId, eventDate } = req.query;
     
     if (!entityType || !entityId) {
       return res.status(400).json({ 
@@ -25,7 +25,9 @@ router.get('/', async (req, res) => {
     const status = await statusService.getEntityStatus(
       String(entityType),
       Number(entityId),
-      eventId ? Number(eventId) : undefined
+      eventId ? Number(eventId) : undefined,
+      musicianId ? Number(musicianId) : undefined,
+      eventDate ? new Date(String(eventDate)) : undefined
     );
     
     if (!status) {
@@ -106,14 +108,17 @@ router.get('/config', (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    // Define validation schema
+    // Define validation schema with all possible status parameters
     const updateStatusSchema = z.object({
       entityType: z.string(),
       entityId: z.number(),
       status: z.string(),
       eventId: z.number().optional(),
       details: z.string().optional(),
-      metadata: z.any().optional()
+      metadata: z.any().optional(),
+      customStatus: z.string().optional(),
+      musicianId: z.number().optional(),
+      eventDate: z.string().optional() // Accept ISO date string
     });
     
     // Validate request body
@@ -126,7 +131,17 @@ router.post('/', async (req, res) => {
       });
     }
     
-    const { entityType, entityId, status, eventId, details, metadata } = validationResult.data;
+    const { 
+      entityType, 
+      entityId, 
+      status, 
+      eventId, 
+      details, 
+      metadata, 
+      customStatus, 
+      musicianId, 
+      eventDate 
+    } = validationResult.data;
     
     // Get user ID from session
     const userId = req.user?.id;
@@ -134,7 +149,10 @@ router.post('/', async (req, res) => {
       return res.status(401).json({ message: 'Authentication required' });
     }
     
-    // Update status
+    // Convert eventDate string to Date object if provided
+    const parsedEventDate = eventDate ? new Date(eventDate) : undefined;
+    
+    // Update status with all available parameters
     const updatedStatus = await statusService.updateEntityStatus(
       entityType,
       entityId,
@@ -142,7 +160,10 @@ router.post('/', async (req, res) => {
       userId,
       details,
       eventId,
-      metadata
+      metadata,
+      customStatus,
+      musicianId,
+      parsedEventDate
     );
     
     return res.json(updatedStatus);
