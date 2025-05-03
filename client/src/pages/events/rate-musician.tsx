@@ -134,9 +134,21 @@ export default function RateMusicianPage() {
   useEffect(() => {
     if (existingRates && existingRates.length > 0 && event) {
       // Try to find rate matching this event's category if available
-      const categorySpecificRate = existingRates.find(
-        rate => rate.eventCategoryId === event.categoryId
-      );
+      let categorySpecificRate = null;
+      
+      // First check if there's a match with event category IDs
+      if (event.categoryIds && event.categoryIds.length > 0) {
+        categorySpecificRate = existingRates.find(
+          rate => event.categoryIds.includes(rate.eventCategoryId)
+        );
+      }
+      
+      // If no match found, try with musician category IDs
+      if (!categorySpecificRate && event.musicianCategoryIds && event.musicianCategoryIds.length > 0) {
+        categorySpecificRate = existingRates.find(
+          rate => event.musicianCategoryIds.includes(rate.eventCategoryId)
+        );
+      }
       
       // Otherwise use the default rate
       const defaultRate = existingRates.find(

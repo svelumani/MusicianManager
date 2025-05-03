@@ -686,30 +686,33 @@ export default function ViewEventPage() {
                                         // Log for debugging
                                         console.log("All musician rates for musician", musicianId, ":", allMusicianRates);
                                         
-                                        // If the event has category IDs, try to find a matching rate
+                                        // We'll build our list of preferred rates based on event categories
                                         let preferredRates = [];
+                                        
+                                        // First try to match using event's regular categoryIds
                                         if (event.categoryIds && event.categoryIds.length > 0) {
-                                          // Try to match event category
                                           preferredRates = allMusicianRates.filter((rate: any) =>
                                             event.categoryIds.includes(rate.eventCategoryId)
                                           );
-                                        } else if (event.musicianCategoryIds && event.musicianCategoryIds.length > 0) {
-                                          // If no event category, show any rates
-                                          preferredRates = allMusicianRates;
                                         }
                                         
-                                        // Use either preferred rates or all musician rates
+                                        // If no matches found, try using the musician category IDs
+                                        if (preferredRates.length === 0 && event.musicianCategoryIds && event.musicianCategoryIds.length > 0) {
+                                          preferredRates = allMusicianRates.filter((rate: any) =>
+                                            event.musicianCategoryIds.includes(rate.eventCategoryId)
+                                          );
+                                        }
+                                        
+                                        // If still no matches, use all rates
                                         const musicianRates = preferredRates.length > 0 ? preferredRates : allMusicianRates;
                                         
                                         console.log("Using musician rates:", musicianRates);
                                         
                                         if (musicianRates && musicianRates.length > 0) {
-                                          // Try to find the best rate to display
+                                          // Try to find the best rate that matches this event type
                                           
-                                          // First, try to find a rate that matches any event category
-                                          // Since we're comparing event_category_id with musician_category_ids, they're not
-                                          // directly compatible. So we're just going to pick the first available rate
-                                          const categoryMatchRate = null;
+                                          // This is the rate we'll display - start with null, we'll fill it in below
+                                          let categoryMatchRate = null;
                                           
                                           // If no category match, just use the first rate
                                           const rate = categoryMatchRate || musicianRates[0];
