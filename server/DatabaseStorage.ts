@@ -1223,10 +1223,11 @@ export class DatabaseStorage implements IStorage {
     // Create activity log
     if (event && musician) {
       await this.createActivity({
-        type: 'booking',
+        entityType: 'booking',
+        entityId: newBooking.id,
         action: 'create',
         userId: 1, // Default admin user
-        details: `Booked ${musician.name} for event: ${event.title}`
+        details: `Booked ${musician.name} for event: ${event.name}`
       });
     }
     
@@ -1247,10 +1248,11 @@ export class DatabaseStorage implements IStorage {
       // Create activity log
       if (event && musician) {
         await this.createActivity({
-          type: 'booking',
+          entityType: 'booking',
+          entityId: updated.id,
           action: 'update',
           userId: 1, // Default admin user
-          details: `Updated booking for ${musician.name} for event: ${event.title}`
+          details: `Updated booking for ${musician.name} for event: ${event.name}`
         });
       }
     }
@@ -1272,10 +1274,11 @@ export class DatabaseStorage implements IStorage {
       
       if (event && musician) {
         await this.createActivity({
-          type: 'booking',
+          entityType: 'booking',
+          entityId: booking.id,
           action: 'delete',
           userId: 1, // Default admin user
-          details: `Removed booking for ${musician.name} from event: ${event.title}`
+          details: `Removed booking for ${musician.name} from event: ${event.name}`
         });
       }
     }
@@ -1315,7 +1318,8 @@ export class DatabaseStorage implements IStorage {
       
       if (musician) {
         await this.createActivity({
-          type: 'payment',
+          entityType: 'payment',
+          entityId: newPayment.id,
           action: 'create',
           userId: 1, // Default admin user
           details: `Created payment of $${newPayment.amount} to ${musician.name}`
@@ -1371,10 +1375,11 @@ export class DatabaseStorage implements IStorage {
     
     if (event) {
       await this.createActivity({
-        type: 'collection',
+        entityType: 'collection',
+        entityId: newCollection.id,
         action: 'create',
         userId: 1, // Default admin user
-        details: `Recorded collection of $${newCollection.amount} for event: ${event.title}`
+        details: `Recorded collection of $${newCollection.amount} for event: ${event.name}`
       });
     }
     
