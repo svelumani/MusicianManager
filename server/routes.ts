@@ -13,6 +13,8 @@ import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 import pgSession from 'connect-pg-simple';
 import { pool } from './db';
+import { isAuthenticated } from './auth';
+import statusRouter from './routes/status';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -97,14 +99,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       done(err);
     }
   });
-
-  // Auth middleware to check if user is authenticated
-  const isAuthenticated = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    if (req.isAuthenticated()) {
-      return next();
-    }
-    res.status(401).json({ message: "Unauthorized" });
-  };
 
   // Create an API router
   const apiRouter = express.Router();
@@ -3977,6 +3971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mount the status router
+  apiRouter.use("/status", statusRouter);
+  
   // Mount the API router
   app.use("/api", apiRouter);
 

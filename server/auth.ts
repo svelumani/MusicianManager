@@ -7,5 +7,5 @@ export const isAuthenticated = (req: express.Request, res: express.Response, nex
   if (req.isAuthenticated()) {
     return next();
   }
-  res.status(401).json({ message: "Not authenticated" });
+  res.status(401).json({ message: "Unauthorized" });
 };
