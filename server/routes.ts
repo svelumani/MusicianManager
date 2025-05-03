@@ -1256,9 +1256,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Get the musician's pay rate for this event
               let contractAmount = 0;
               
-              // First check if we have a booking with payment amount
-              if (bookings && bookings.length > 0 && bookings[0].paymentAmount) {
+              // Check for existing contracts for this musician/event/date
+              // If there's already a contract with a valid amount, use that amount
+              const existingContractsWithAmount = existingContracts.filter(c => c.amount && c.amount > 0);
+              if (existingContractsWithAmount.length > 0) {
+                contractAmount = existingContractsWithAmount[0].amount || 0;
+                console.log(`Using existing contract amount: ${contractAmount} from contract ID ${existingContractsWithAmount[0].id}`);
+              }
+              
+              // If no amount from existing contracts, check if we have a booking with payment amount
+              else if (bookings && bookings.length > 0 && bookings[0].paymentAmount) {
                 contractAmount = bookings[0].paymentAmount;
+                console.log(`Using booking payment amount: ${contractAmount} from booking ID ${bookings[0].id}`);
               }
               
               // If no amount from booking, try to find the musician's pay rate for this event type
@@ -1271,22 +1280,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     const payRates = await storage.getMusicianPayRatesByMusician(musicianId);
                     
                     if (payRates && payRates.length > 0) {
-                      // Find a matching pay rate for this event type
-                      const matchingRate = payRates.find(rate => 
-                        rate.eventType === event.eventType || 
-                        rate.eventCategoryId === event.categoryIds
-                      );
+                      // First try to find exact match by category ID
+                      let matchingRate = event.categoryIds ? 
+                        payRates.find(rate => rate.eventCategoryId === event.categoryIds) : undefined;
+                      
+                      // Fall back to event type match if no category match
+                      if (!matchingRate) {
+                        matchingRate = payRates.find(rate => rate.eventType === event.eventType);
+                      }
+                      
+                      // If still no match, just use the first pay rate
+                      if (!matchingRate && payRates.length > 0) {
+                        matchingRate = payRates[0];
+                        console.log(`No exact match for pay rate, using default rate for musician ${musicianId}`);
+                      }
                       
                       if (matchingRate) {
                         // Use day rate if we have one, or hourly rate * 8 hours as a fallback
                         contractAmount = matchingRate.dayRate || (matchingRate.hourlyRate * 8);
-                        console.log(`Using musician pay rate: ${contractAmount} for event ${eventId}`);
+                        console.log(`Using musician pay rate: ${contractAmount} for event ${eventId}, from rate ID ${matchingRate.id}`);
                       }
                     }
                   }
                 } catch (err) {
                   console.error('Error fetching pay rate:', err);
                 }
+              }
+              
+              // Set a default amount if we couldn't find a proper rate
+              if (contractAmount === 0) {
+                contractAmount = 100; // Default fallback amount
+                console.log(`Using default amount of $100 for contract as no rate was found`);
               }
               
               // Create a contract link
