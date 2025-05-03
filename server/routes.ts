@@ -3533,8 +3533,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use centralized status service to manage the cancellation
         const userId = (req.user as any)?.id || 0;
         const reason = req.body.reason || 'User initiated cancellation';
+        const eventDate = req.body.eventDate ? new Date(req.body.eventDate) : null;
         
-        // Add the status record using the centralized status service
+        // Add the status record using the centralized status service with updated parameters
         await statusService.updateEntityStatus(
           ENTITY_TYPES.CONTRACT,
           contractId,
@@ -3546,7 +3547,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             cancelledBy: userId,
             cancelledAt: new Date().toISOString(),
             bookingId: contract.bookingId
-          }
+          },
+          'user-cancelled', // Add custom status
+          contract.musicianId, // Add musician ID
+          eventDate // Add event date if provided
         );
       } catch (error) {
         console.error("Failed to cancel contract:", error);
@@ -3744,12 +3748,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (contract.eventId && contract.musicianId && contract.eventDate) {
             // Use the specific date from the contract
             const eventDateStr = contract.eventDate.toISOString();
+            
+            // Legacy status update for backward compatibility
             await storage.updateMusicianEventStatusForDate(
               contract.eventId, 
               contract.musicianId,
               "contract-signed",
               eventDateStr
             );
+            
+            try {
+              // Import the status service
+              const { statusService, ENTITY_TYPES } = await import('./services/status');
+              
+              // Update contract status with the centralized status service
+              await statusService.updateEntityStatus(
+                ENTITY_TYPES.CONTRACT,
+                contract.id,
+                'contract-signed',
+                0, // No specific user ID for public actions
+                `Contract signed by ${musician?.name}`,
+                contract.eventId,
+                {
+                  signedAt: new Date().toISOString(),
+                  signedBy: musician?.name || 'Musician',
+                  signatureType: 'digital',
+                  ipAddress: req.ip || 'unknown',
+                  bookingId: contract.bookingId
+                },
+                'musician-signed', // Add custom status
+                contract.musicianId,
+                contract.eventDate
+              );
+              
+              // Also update musician status
+              await statusService.updateEntityStatus(
+                ENTITY_TYPES.MUSICIAN,
+                contract.musicianId,
+                'contract-signed',
+                0, // No specific user ID for public actions
+                `Contract signed for event: ${event?.name}`,
+                contract.eventId,
+                {
+                  contractId: contract.id,
+                  eventName: event?.name || 'Event',
+                  contractAmount: contract.amount
+                },
+                null, // No custom status
+                null, // MusicianId is already specified as entityId
+                contract.eventDate
+              );
+              
+            } catch (statusError) {
+              console.error("Warning: Failed to update status via status service", statusError);
+              // Continue with the legacy approach, don't fail the request
+            }
           }
           
           // Log that we would send an email notification in a real system
@@ -3794,12 +3847,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (contract.eventId && contract.musicianId && contract.eventDate) {
             // Use the specific date from the contract
             const eventDateStr = contract.eventDate.toISOString();
+            
+            // Legacy status update for backward compatibility
             await storage.updateMusicianEventStatusForDate(
               contract.eventId, 
               contract.musicianId,
               "contract-signed",
               eventDateStr
             );
+            
+            try {
+              // Import the status service
+              const { statusService, ENTITY_TYPES } = await import('./services/status');
+              
+              // Update contract status with the centralized status service
+              await statusService.updateEntityStatus(
+                ENTITY_TYPES.CONTRACT,
+                contract.id,
+                'contract-signed',
+                0, // No specific user ID for public actions
+                `Contract signed by ${musician?.name}`,
+                contract.eventId,
+                {
+                  signedAt: new Date().toISOString(),
+                  signedBy: musician?.name || 'Musician',
+                  signatureType: 'digital',
+                  ipAddress: req.ip || 'unknown',
+                  bookingId: booking.id
+                },
+                'musician-signed', // Add custom status
+                contract.musicianId,
+                contract.eventDate
+              );
+              
+              // Also update musician status
+              await statusService.updateEntityStatus(
+                ENTITY_TYPES.MUSICIAN,
+                contract.musicianId,
+                'contract-signed',
+                0, // No specific user ID for public actions
+                `Contract signed for event: ${event?.name}`,
+                contract.eventId,
+                {
+                  contractId: contract.id,
+                  eventName: event?.name || 'Event',
+                  contractAmount: contract.amount
+                },
+                null, // No custom status
+                null, // MusicianId is already specified as entityId
+                contract.eventDate
+              );
+              
+            } catch (statusError) {
+              console.error("Warning: Failed to update status via status service", statusError);
+              // Continue with the legacy approach, don't fail the request
+            }
           }
         }
       } else if (status === 'rejected') {
