@@ -763,12 +763,11 @@ export const entityStatus = pgTable("entity_status", {
   entityId: integer("entity_id").notNull(),
   primaryStatus: text("primary_status").notNull(), // The main status value
   customStatus: text("custom_status"), // Optional custom/specific status
-  statusDate: timestamp("status_date"), // Date when the status is applicable
+  statusDate: timestamp("status_date").defaultNow(), // Date when the status is applicable
   eventId: integer("event_id"), // Optional related event
   musicianId: integer("musician_id"), // Optional related musician
   eventDate: timestamp("event_date"), // Optional related event date
   metadata: jsonb("metadata"), // Additional status context (JSON)
-  createdBy: text("created_by"), // User who created this status
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow()
 }, (table) => [
@@ -793,7 +792,6 @@ export const insertEntityStatusSchema = createInsertSchema(entityStatus).pick({
   musicianId: true,
   eventDate: true,
   metadata: true,
-  createdBy: true,
 });
 
 export type EntityStatus = typeof entityStatus.$inferSelect;
