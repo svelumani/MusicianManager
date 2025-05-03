@@ -22,22 +22,51 @@ export class StatusService {
   /**
    * Get the current status for an entity
    */
-  async getEntityStatus(entityType: string, entityId: number, eventId?: number) {
+  async getEntityStatus(entityType: string, entityId: number, eventId?: number, musicianId?: number, eventDate?: Date) {
     try {
-      const query = eventId 
-        ? and(
-            eq(entityStatus.entityType, entityType),
-            eq(entityStatus.entityId, entityId),
-            eq(entityStatus.eventId, eventId)
-          )
-        : and(
-            eq(entityStatus.entityType, entityType),
-            eq(entityStatus.entityId, entityId),
-            sql`${entityStatus.eventId} IS NULL`
-          );
+      // Base query with required conditions
+      let conditions = [
+        eq(entityStatus.entityType, entityType),
+        eq(entityStatus.entityId, entityId)
+      ];
       
+      // Add optional conditions if parameters are provided
+      if (eventId) {
+        conditions.push(eq(entityStatus.eventId, eventId));
+      } else {
+        conditions.push(sql`${entityStatus.eventId} IS NULL`);
+      }
+      
+      // Add musician condition if provided
+      if (musicianId) {
+        conditions.push(eq(entityStatus.musicianId, musicianId));
+      }
+      
+      // Add event date condition if provided
+      if (eventDate) {
+        conditions.push(eq(entityStatus.eventDate, eventDate));
+      }
+      
+      // Build the query with all conditions
+      const query = and(...conditions);
+      
+      // Select specific fields and add appropriate aliases for frontend compatibility
       const [status] = await db
-        .select()
+        .select({
+          id: entityStatus.id,
+          entityType: entityStatus.entityType,
+          entityId: entityStatus.entityId,
+          status: entityStatus.primaryStatus, // Use primaryStatus field but alias as status
+          customStatus: entityStatus.customStatus,
+          eventId: entityStatus.eventId,
+          musicianId: entityStatus.musicianId,
+          eventDate: entityStatus.eventDate,
+          statusDate: entityStatus.statusDate,
+          metadata: entityStatus.metadata,
+          createdBy: entityStatus.createdBy,
+          createdAt: entityStatus.createdAt,
+          updatedAt: entityStatus.updatedAt
+        })
         .from(entityStatus)
         .where(query)
         .orderBy(desc(entityStatus.updatedAt))
@@ -69,11 +98,16 @@ export class StatusService {
       const statusHistory = await db
         .select({
           id: entityStatus.id,
-          status: entityStatus.status,
+          status: entityStatus.primaryStatus, // Updated to use primaryStatus
+          customStatus: entityStatus.customStatus, // Added customStatus
           timestamp: entityStatus.createdAt,
+          statusDate: entityStatus.statusDate, // Added statusDate
           details: entityStatus.details,
           userName: entityStatus.createdBy,
-          eventId: entityStatus.eventId
+          eventId: entityStatus.eventId,
+          musicianId: entityStatus.musicianId, // Added musicianId
+          eventDate: entityStatus.eventDate, // Added eventDate
+          metadata: entityStatus.metadata // Added metadata
         })
         .from(entityStatus)
         .where(query)
@@ -97,18 +131,24 @@ export class StatusService {
     userId: number,
     details?: string,
     eventId?: number,
-    metadata?: Json
+    metadata?: Json,
+    customStatus?: string,
+    musicianId?: number,
+    eventDate?: Date
   ) {
     try {
-      // Create new status entry
+      // Create new status entry with the correct field names based on database schema
       const [statusEntry] = await db
         .insert(entityStatus)
         .values({
           entityType,
           entityId,
-          status,
+          primaryStatus: status, // Use primaryStatus for the main status value
+          customStatus: customStatus || null, // Optional custom status 
           eventId: eventId || null,
-          details: details || null,
+          musicianId: musicianId || null,
+          eventDate: eventDate || null,
+          statusDate: new Date(), // Current date when this status is effective
           createdBy: String(userId),
           metadata: metadata || null
         })
@@ -120,6 +160,7 @@ export class StatusService {
         action: 'update_status',
         entityType,
         entityId,
+        timestamp: new Date(), // Required field
         details: `Updated ${entityType} status to ${status}${details ? ': ' + details : ''}`
       });
       
