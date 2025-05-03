@@ -144,6 +144,18 @@ function Router() {
           </AppLayout>
         )}
       </Route>
+      <Route path="/events/planner">
+        <AppLayout>
+          <PlannerPage />
+        </AppLayout>
+      </Route>
+      <Route path="/events/planner/:id/invoice">
+        {(params) => (
+          <AppLayout>
+            <PlannerInvoicePage />
+          </AppLayout>
+        )}
+      </Route>
       <Route path="/events/:id">
         {(params) => (
           <AppLayout>
@@ -183,19 +195,7 @@ function Router() {
         </AppLayout>
       </Route>
 
-      {/* Planner */}
-      <Route path="/planner">
-        <AppLayout>
-          <PlannerPage />
-        </AppLayout>
-      </Route>
-      <Route path="/planner/:id/invoice">
-        {(params) => (
-          <AppLayout>
-            <PlannerInvoicePage />
-          </AppLayout>
-        )}
-      </Route>
+      {/* Planner routes moved under Events */}
 
       {/* Settings */}
       <Route path="/settings">
