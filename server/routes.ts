@@ -1334,6 +1334,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const contract = await storage.createContractLink(contractData);
               console.log(`Created contract with ID ${contract.id} for musician ${musicianId}`);
               
+              // Generate and store the contract content immediately
+              try {
+                await generateAndStoreContractContent(contract.id);
+                console.log(`Stored rendered contract content for contract ID ${contract.id}`);
+              } catch (e) {
+                console.error(`Failed to store contract content for contract ID ${contract.id}:`, e);
+              }
+              
               // After creating the contract, update the status to "contract-sent" instead of keeping it as "accepted"
               if (status === 'accepted') {
                 // Update musician status
@@ -3459,11 +3467,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/contracts/:id", isAuthenticated, async (req, res) => {
     try {
-      const contract = await storage.getContractLink(parseInt(req.params.id));
+      const contractId = parseInt(req.params.id);
+      const contract = await storage.getContractLink(contractId);
       if (!contract) {
         return res.status(404).json({ message: "Contract not found" });
       }
-      res.json(contract);
+      
+      // Get signature metadata from the status system if available
+      let signatureMetadata = {};
+      try {
+        const { statusService, ENTITY_TYPES } = await import('./services/status');
+        const statusEntries = await statusService.getEntityStatuses(
+          ENTITY_TYPES.CONTRACT,
+          contractId
+        );
+        
+        // Find signature metadata if contract has been signed
+        const signatureEntry = statusEntries.find(entry => 
+          entry.status === 'contract-signed' && 
+          entry.metadata && 
+          entry.metadata.signatureValue
+        );
+        
+        if (signatureEntry && signatureEntry.metadata) {
+          signatureMetadata = {
+            signedAt: signatureEntry.metadata.signedAt,
+            signedBy: signatureEntry.metadata.signedBy,
+            signatureValue: signatureEntry.metadata.signatureValue,
+            signatureType: signatureEntry.metadata.signatureType,
+            ipAddress: signatureEntry.metadata.ipAddress
+          };
+        }
+      } catch (e) {
+        console.error("Error retrieving signature metadata:", e);
+      }
+      
+      // Return contract with enhanced metadata
+      res.json({
+        ...contract,
+        signatureMetadata: Object.keys(signatureMetadata).length > 0 ? signatureMetadata : null
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching contract" });
@@ -3809,6 +3852,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create the contract with date-specific information
       const contract = await storage.createContractLink(contractData);
+      
+      // Generate and store the contract content immediately
+      try {
+        await generateAndStoreContractContent(contract.id);
+        console.log(`Stored rendered contract content for contract ID ${contract.id}`);
+      } catch (e) {
+        console.error(`Failed to store contract content for contract ID ${contract.id}:`, e);
+      }
+      
       res.status(201).json(contract);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -4392,11 +4444,145 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contract not found or expired" });
       }
       
-      const content = await renderContractContent(contract.id);
+      // Try to get stored content first from status system
+      let content = null;
+      try {
+        const { statusService, ENTITY_TYPES } = await import('./services/status');
+        const statusEntries = await statusService.getEntityStatuses(
+          ENTITY_TYPES.CONTRACT,
+          contract.id
+        );
+        
+        // Find the latest status entry with rendered content
+        const contentEntry = statusEntries.find(entry => 
+          entry.metadata && entry.metadata.renderedContent
+        );
+        
+        if (contentEntry && contentEntry.metadata && contentEntry.metadata.renderedContent) {
+          content = contentEntry.metadata.renderedContent;
+          console.log(`Using stored contract content for token ${req.params.token}`);
+        }
+      } catch (e) {
+        console.error("Error retrieving stored contract content:", e);
+      }
+      
+      // If no stored content found, generate it on the fly
+      if (!content) {
+        content = await renderContractContent(contract.id);
+        console.log(`Generated fresh contract content for token ${req.params.token}`);
+        
+        // Since we're generating it now, let's store it for future use
+        try {
+          await generateAndStoreContractContent(contract.id);
+        } catch (e) {
+          console.error("Failed to store generated content:", e);
+        }
+      }
+      
       res.json({ content });
     } catch (error) {
       console.error("Error getting contract content by token:", error);
       res.status(500).json({ message: "Error rendering contract content" });
+    }
+  });
+  
+  // Public endpoint to get rendered contract content by token with signature metadata
+  apiRouter.get("/contracts/token/:token/details", async (req, res) => {
+    try {
+      const contract = await storage.getContractLinkByToken(req.params.token);
+      if (!contract) {
+        return res.status(404).json({ message: "Contract not found or expired" });
+      }
+      
+      // Try to get stored content and signature metadata from status system
+      let content = null;
+      let signatureMetadata = {};
+      
+      try {
+        const { statusService, ENTITY_TYPES } = await import('./services/status');
+        const statusEntries = await statusService.getEntityStatuses(
+          ENTITY_TYPES.CONTRACT,
+          contract.id
+        );
+        
+        // Find the latest status entry with rendered content
+        const contentEntry = statusEntries.find(entry => 
+          entry.metadata && entry.metadata.renderedContent
+        );
+        
+        if (contentEntry && contentEntry.metadata && contentEntry.metadata.renderedContent) {
+          content = contentEntry.metadata.renderedContent;
+        }
+        
+        // Find signature metadata if contract has been signed
+        const signatureEntry = statusEntries.find(entry => 
+          entry.status === 'contract-signed' && 
+          entry.metadata && 
+          entry.metadata.signatureValue
+        );
+        
+        if (signatureEntry && signatureEntry.metadata) {
+          signatureMetadata = {
+            signedAt: signatureEntry.metadata.signedAt,
+            signedBy: signatureEntry.metadata.signedBy,
+            signatureValue: signatureEntry.metadata.signatureValue,
+            signatureType: signatureEntry.metadata.signatureType,
+            ipAddress: signatureEntry.metadata.ipAddress
+          };
+        }
+      } catch (e) {
+        console.error("Error retrieving contract details:", e);
+      }
+      
+      // If no stored content found, generate it on the fly
+      if (!content) {
+        content = await renderContractContent(contract.id);
+        
+        // Since we're generating it now, let's store it for future use
+        try {
+          await generateAndStoreContractContent(contract.id);
+        } catch (e) {
+          console.error("Failed to store generated content:", e);
+        }
+      }
+      
+      // Get event and musician data
+      const event = await storage.getEvent(contract.eventId);
+      const musician = await storage.getMusician(contract.musicianId);
+      
+      res.json({ 
+        content,
+        contract: {
+          id: contract.id,
+          status: contract.status,
+          token: contract.token,
+          eventId: contract.eventId,
+          musicianId: contract.musicianId,
+          eventDate: contract.eventDate,
+          amount: contract.amount,
+          createdAt: contract.createdAt,
+          companySignature: contract.companySignature,
+          companySignedAt: contract.companySignedAt,
+          musicianSignature: contract.musicianSignature,
+          signedAt: contract.signedAt
+        },
+        event: event ? {
+          id: event.id,
+          name: event.name,
+          date: contract.eventDate || event.startDate,
+          venue: event.venueId || null,
+          status: event.status
+        } : null,
+        musician: musician ? {
+          id: musician.id,
+          name: musician.name,
+          email: musician.email
+        } : null,
+        signatureMetadata
+      });
+    } catch (error) {
+      console.error("Error getting contract details by token:", error);
+      res.status(500).json({ message: "Error retrieving contract details" });
     }
   });
   
@@ -4418,14 +4604,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contractId
       );
       
-      // Get rendered content
+      // Try to get stored content first from status system
+      let storedContent = null;
+      let signatureMetadata = {};
+      
+      // Find the latest status entry with rendered content
+      const contentEntry = statusEntries.find(entry => 
+        entry.metadata && entry.metadata.renderedContent
+      );
+      
+      if (contentEntry && contentEntry.metadata && contentEntry.metadata.renderedContent) {
+        storedContent = contentEntry.metadata.renderedContent;
+      }
+      
+      // Find signature metadata if contract has been signed
+      const signatureEntry = statusEntries.find(entry => 
+        entry.status === 'contract-signed' && 
+        entry.metadata && 
+        entry.metadata.signatureValue
+      );
+      
+      if (signatureEntry && signatureEntry.metadata) {
+        signatureMetadata = {
+          signedAt: signatureEntry.metadata.signedAt,
+          signedBy: signatureEntry.metadata.signedBy,
+          signatureValue: signatureEntry.metadata.signatureValue,
+          signatureType: signatureEntry.metadata.signatureType,
+          ipAddress: signatureEntry.metadata.ipAddress
+        };
+      }
+      
+      // Get freshly rendered content
       const renderedContent = await renderContractContent(contractId);
       
       // Return both data sources for comparison
       res.json({
         contract,
         statusEntries,
+        storedContent,
         renderedContent,
+        signatureMetadata,
+        storageStatus: storedContent ? "Content is stored in status system" : "No stored content found",
+        signatureStatus: Object.keys(signatureMetadata).length > 0 ? 
+          "Signature metadata found in status system" : 
+          "No signature metadata found",
+        contentMatch: storedContent === renderedContent ? 
+          "Stored and rendered content match exactly" : 
+          "Stored and rendered content are different",
         message: "Use this data to debug signature and IP address display issues"
       });
     } catch (error) {
