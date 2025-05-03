@@ -4322,12 +4322,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw new Error("Event or musician data not found");
       }
       
-      // Get the default template or fallback to a basic template
-      let template = await storage.getDefaultContractTemplate();
+      // Get the default template from settings
+      const template = await storage.getDefaultContractTemplate();
       
       if (!template) {
         throw new Error("No default contract template found");
       }
+      
+      console.log(`Using template: ${template.name} (ID: ${template.id})`);
+      
+      // If we're here, we have a template to use
       
       // Replace template variables with actual data
       let content = template.content;
@@ -4368,6 +4372,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
    */
   async function generateAndStoreContractContent(contractId: number): Promise<void> {
     try {
+      // Get the contract to retrieve its event ID
+      const contract = await storage.getContractLink(contractId);
+      if (!contract) {
+        throw new Error(`Contract #${contractId} not found`);
+      }
+      
       // Render the content
       const renderedContent = await renderContractContent(contractId);
       
@@ -4381,7 +4391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'contract-sent', // Use the same status, we'll just update metadata
         0, // No specific user ID for automated actions
         `Contract content generated and stored`,
-        0, // No specific event ID needed for this operation
+        contract.eventId, // Pass the eventId from the contract
         {
           renderedContent: renderedContent,
           generatedAt: new Date().toISOString(),
