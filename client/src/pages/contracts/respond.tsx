@@ -13,6 +13,7 @@ import {
   AlertTriangle
 } from "lucide-react";
 import FileContract from "@/components/icons/FileContract";
+import ContractContentPreview from "@/components/ContractContentPreview";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -252,37 +253,7 @@ export default function ContractResponsePage() {
     );
   }
 
-  // Contract Content Component
-  function ContractContent({ token }: { token: string }) {
-    const { data: contractContent, isLoading } = useQuery({
-      queryKey: [`/api/contracts/token/${token}/content`],
-    });
-    
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Skeleton className="h-64 w-full" />
-        </div>
-      );
-    }
-    
-    if (!contractContent?.content) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-muted-foreground">Contract template not found. Please contact the event organizer.</p>
-        </div>
-      );
-    }
-    
-    return (
-      <ScrollArea className="border rounded-md h-[500px] p-4">
-        <div 
-          className="p-6 bg-white"
-          dangerouslySetInnerHTML={{ __html: contractContent.content.replace(/\n/g, '<br/>') }}
-        />
-      </ScrollArea>
-    );
-  }
+  // Using the shared ContractContentPreview component
 
   const { contract, event, musician } = contractData;
   const isExpired = new Date() > new Date(contract.expiresAt);
@@ -367,7 +338,7 @@ export default function ContractResponsePage() {
           <CardTitle className="text-lg font-medium">Contract Preview</CardTitle>
         </CardHeader>
         <CardContent>
-          <ContractContent token={token} />
+          <ContractContentPreview token={token} />
         </CardContent>
       </Card>
 
