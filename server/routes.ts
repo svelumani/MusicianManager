@@ -3533,7 +3533,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Use centralized status service to manage the cancellation
         const userId = (req.user as any)?.id || 0;
         const reason = req.body.reason || 'User initiated cancellation';
+        // Ensure we get the event date - critical for date-specific statuses
         const eventDate = req.body.eventDate ? new Date(req.body.eventDate) : null;
+        
+        // Log detailed information about the request
+        console.log(`Cancel contract request details:`, { 
+          contractId, 
+          userId, 
+          reason, 
+          eventDate,
+          receivedEventDate: req.body.eventDate,
+          eventId: req.body.eventId || contract.eventId,
+          musicianId: req.body.musicianId || contract.musicianId
+        });
         
         // Get event and musician details for the notifications and status metadata
         const event = await storage.getEvent(contract.eventId);
@@ -3597,15 +3609,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Contract record also updated directly for ID: ${contractId}`);
         
         // Also update the musician's status in the event - for backward compatibility
-        if (contract.eventId && contract.musicianId && eventDate) {
-          const eventDateStr = eventDate.toISOString();
-          await storage.updateMusicianEventStatusForDate(
-            contract.eventId,
-            contract.musicianId,
-            "unavailable",
-            eventDateStr
-          );
-          console.log(`Updated musician ${contract.musicianId} status for event ${contract.eventId} date ${eventDateStr} to 'unavailable'`);
+        const localEventDate = eventDate; // Store eventDate in local variable to avoid confusion
+        if (contract.eventId && contract.musicianId) {
+          try {
+            // First try to use the provided event date
+            let effectiveEventDate = localEventDate;
+            
+            // If no event date was provided in the request, try to use the contract's event date
+            if (!effectiveEventDate && contract.eventDate) {
+              console.log(`No eventDate in request, using contract.eventDate: ${contract.eventDate}`);
+              effectiveEventDate = new Date(contract.eventDate);
+            }
+            
+            if (effectiveEventDate) {
+              const eventDateStr = effectiveEventDate.toISOString();
+              await storage.updateMusicianEventStatusForDate(
+                contract.eventId,
+                contract.musicianId,
+                "unavailable",
+                eventDateStr
+              );
+              console.log(`Updated musician ${contract.musicianId} status for event ${contract.eventId} date ${eventDateStr} to 'unavailable'`);
+            } else {
+              // If we still don't have a date, update general status
+              console.log(`No event date available for contract ${contractId}, updating general musician status`);
+              await storage.updateMusicianEventStatus(
+                contract.eventId,
+                contract.musicianId,
+                "unavailable"
+              );
+              console.log(`Updated musician ${contract.musicianId} general status for event ${contract.eventId} to 'unavailable'`);
+            }
+          } catch (dateError) {
+            console.error(`Error updating musician status with date:`, dateError);
+            // Try the non-date specific update as fallback
+            try {
+              await storage.updateMusicianEventStatus(
+                contract.eventId,
+                contract.musicianId,
+                "unavailable"
+              );
+              console.log(`Fallback: Updated musician ${contract.musicianId} general status for event ${contract.eventId} to 'unavailable'`);
+            } catch (fallbackError) {
+              console.error(`Even fallback musician status update failed:`, fallbackError);
+            }
+          }
         }
       } catch (updateError) {
         console.error(`Warning: Direct contract update failed, but status service succeeded:`, updateError);

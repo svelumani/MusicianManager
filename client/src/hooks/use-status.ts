@@ -460,7 +460,9 @@ export function useCancelContract() {
         },
         body: JSON.stringify({
           reason,
-          eventDate
+          eventId,
+          musicianId,
+          eventDate: eventDate // Make sure we explicitly pass the eventDate
         })
       });
       
