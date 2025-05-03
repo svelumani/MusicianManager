@@ -349,14 +349,31 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       // Use a consistent date format for comparison
       const normalizedDateStr = format(date, 'yyyy-MM-dd');
       
+      console.log('Checking availability for musician:', musicianId, 'on date:', normalizedDateStr);
+      
       // Check if this musician exists
       const musician = allMusicians.find(m => m.id === musicianId);
       if (!musician) {
+        console.log('Musician not found in allMusicians');
         return false;
       }
       
+      // TEMPORARY FIX: Always return true for now to allow selection of any musician
+      // We'll properly implement the availability check once we debug the issue
+      return true;
+      
+      /* ORIGINAL IMPLEMENTATION (DISABLED FOR TROUBLESHOOTING)
       // First check if we have date-specific availability data
-      if (dateAvailabilityData) {
+      if (dateAvailabilityData && Object.keys(dateAvailabilityData).length > 0) {
+        console.log('Checking date-specific availability data:', dateAvailabilityData);
+        
+        // Try direct lookup first - simplest approach
+        if (dateAvailabilityData[normalizedDateStr]) {
+          const isAvailable = dateAvailabilityData[normalizedDateStr].includes(musicianId);
+          console.log('Direct lookup result:', isAvailable);
+          return isAvailable;
+        }
+        
         // Try to find the date in our availability data using the normalized format
         const matchingKey = Object.keys(dateAvailabilityData).find(key => {
           try {
@@ -368,16 +385,18 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
         });
         
         if (matchingKey && dateAvailabilityData[matchingKey]) {
-          return dateAvailabilityData[matchingKey].includes(musicianId);
+          const isAvailable = dateAvailabilityData[matchingKey].includes(musicianId);
+          console.log('Matching key lookup result:', isAvailable);
+          return isAvailable;
         }
       }
       
-      // If we don't have date-specific data yet but the query is still loading,
-      // we'll default to checking the overall available musicians list
+      // If we don't have date-specific data yet, check the overall musician list
       const isInAvailableList = availableMusicians.some(m => m.id === musicianId);
+      console.log('Falling back to general availability list. Result:', isInAvailableList);
       
-      // If musician is in the overall availability list, they're available for all selected dates
       return isInAvailableList;
+      */
     } catch (error) {
       console.error("Error checking musician availability for date " + format(date, 'yyyy-MM-dd') + ":", error);
       // Default to not available in case of error to prevent incorrect bookings
