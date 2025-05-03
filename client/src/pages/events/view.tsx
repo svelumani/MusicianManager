@@ -278,6 +278,28 @@ export default function ViewEventPage() {
     queryKey: ["/api/musician-types"],
   });
   
+  // Fetch musician categories
+  const { data: musicianCategories = [] } = useQuery<any[]>({
+    queryKey: ["/api/musician-categories"],
+  });
+  
+  // Function to fetch musician pay rates for each musician
+  const getMusicianRates = (musicianId: number) => {
+    const { data: payRates } = useQuery({
+      queryKey: ["/api/musician-pay-rates", { musicianId }],
+      queryFn: async () => {
+        const response = await fetch(`/api/musician-pay-rates?musicianId=${musicianId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch musician pay rates");
+        }
+        return response.json();
+      },
+      enabled: !!musicianId,
+    });
+    
+    return payRates;
+  };
+  
   // Mutation to update musician status
   const updateMusicianStatusMutation = useMutation({
     mutationFn: async ({ 
@@ -619,7 +641,7 @@ export default function ViewEventPage() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Musician</TableHead>
-                                <TableHead>Type</TableHead>
+                                <TableHead>Musician Category</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Rate</TableHead>
                                 <TableHead>Actions</TableHead>
@@ -650,13 +672,13 @@ export default function ViewEventPage() {
                                     <TableCell>
                                       <Badge variant="outline">
                                         <Music className="h-3 w-3 mr-1" />
-                                        {musician?.typeId && musicianTypes ? 
-                                          musicianTypes.find((type: any) => type.id === musician.typeId)?.title || `Type ${musician.typeId}` 
-                                          : "Unknown"}
+                                        {musician?.categoryIds && musician.categoryIds.length > 0 && musicianCategories ? 
+                                          musicianCategories.find((cat: any) => musician.categoryIds.includes(cat.id))?.title || "No Category"
+                                          : "No Category"}
                                       </Badge>
                                     </TableCell>
                                     <TableCell>
-                                      {getStatusBadge(getMusicianStatus(dateStr, musicianId))}
+                                      {getStatusBadge("pending")} {/* Default to pending status */}
                                     </TableCell>
                                     <TableCell>
                                       <Button
@@ -665,7 +687,7 @@ export default function ViewEventPage() {
                                         onClick={() => navigate(`/events/rate-musician/${eventId}/${musicianId}?date=${dateStr}`)}
                                       >
                                         <DollarSign className="h-4 w-4 mr-1" />
-                                        Edit Rate
+                                        Set Rate
                                       </Button>
                                     </TableCell>
                                     <TableCell>
