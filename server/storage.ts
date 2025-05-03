@@ -3949,7 +3949,8 @@ Musician: ________________________ Date: ______________`,
   async getContractLinks(filters?: {
     eventId?: number,
     musicianId?: number,
-    status?: string | string[]
+    status?: string | string[],
+    eventDate?: Date
   }): Promise<ContractLink[]> {
     let contracts = Array.from(this.contractLinks.values());
     
@@ -3969,6 +3970,20 @@ Musician: ________________________ Date: ______________`,
         } else {
           contracts = contracts.filter(c => c.status === filters.status);
         }
+      }
+      
+      // Filter by event date if provided
+      if (filters.eventDate) {
+        contracts = contracts.filter(c => {
+          if (!c.eventDate) return false;
+          
+          const contractDate = new Date(c.eventDate);
+          const filterDate = new Date(filters.eventDate);
+          
+          return contractDate.getFullYear() === filterDate.getFullYear() &&
+                 contractDate.getMonth() === filterDate.getMonth() &&
+                 contractDate.getDate() === filterDate.getDate();
+        });
       }
     }
     
