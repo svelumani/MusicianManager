@@ -2131,13 +2131,7 @@ export class DatabaseStorage implements IStorage {
     return link;
   }
   
-  async getAvailabilityShareLinkByToken(token: string): Promise<AvailabilityShareLink | undefined> {
-    const [link] = await db.select()
-      .from(availabilityShareLinks)
-      .where(eq(availabilityShareLinks.token, token));
-    
-    return link;
-  }
+  // This method has been replaced by the implementation at line ~2533
   
   // This method has been replaced by the createAvailabilityShareLink method below
   
