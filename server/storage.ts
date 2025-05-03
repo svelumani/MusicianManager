@@ -6,6 +6,7 @@ import {
   settings, emailTemplates, musicianTypes, musicianTypeCategories, invitations,
   performanceRatings, performanceMetrics, skillTags, musicianSkillTags,
   improvementPlans, improvementActions, availabilityShareLinks, contractLinks, contractTemplates,
+  monthlyContracts, monthlyContractMusicians, monthlyContractDates,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type MusicianCategory, type InsertMusicianCategory,
@@ -32,7 +33,10 @@ import {
   type ImprovementAction, type InsertImprovementAction,
   type AvailabilityShareLink, type InsertAvailabilityShareLink,
   type ContractLink, type InsertContractLink,
-  type ContractTemplate, type InsertContractTemplate
+  type ContractTemplate, type InsertContractTemplate,
+  type MonthlyContract, type InsertMonthlyContract,
+  type MonthlyContractMusician, type InsertMonthlyContractMusician,
+  type MonthlyContractDate, type InsertMonthlyContractDate
 } from "@shared/schema";
 
 // Define the storage interface
@@ -196,6 +200,28 @@ export interface IStorage {
   createContractLink(contract: InsertContractLink): Promise<ContractLink>;
   updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined>;
   updateContractLinkStatus(token: string, status: string, response?: string, signature?: string): Promise<ContractLink | undefined>;
+  
+  // Monthly Contract management
+  getMonthlyContracts(): Promise<MonthlyContract[]>;
+  getMonthlyContract(id: number): Promise<MonthlyContract | undefined>;
+  getMonthlyContractsByPlanner(plannerId: number): Promise<MonthlyContract[]>;
+  createMonthlyContract(contract: InsertMonthlyContract): Promise<MonthlyContract>;
+  updateMonthlyContract(id: number, data: Partial<InsertMonthlyContract>): Promise<MonthlyContract | undefined>;
+  deleteMonthlyContract(id: number): Promise<boolean>;
+  
+  // Monthly Contract Musicians management
+  getMonthlyContractMusicians(contractId: number): Promise<MonthlyContractMusician[]>;
+  getMonthlyContractMusician(id: number): Promise<MonthlyContractMusician | undefined>;
+  createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician>;
+  updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined>;
+  deleteMonthlyContractMusician(id: number): Promise<boolean>;
+  
+  // Monthly Contract Dates management
+  getMonthlyContractDates(musicianContractId: number): Promise<MonthlyContractDate[]>;
+  getMonthlyContractDate(id: number): Promise<MonthlyContractDate | undefined>;
+  createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate>;
+  updateMonthlyContractDate(id: number, data: Partial<InsertMonthlyContractDate>): Promise<MonthlyContractDate | undefined>;
+  deleteMonthlyContractDate(id: number): Promise<boolean>;
   
   // Contract Template management
   getContractTemplates(): Promise<ContractTemplate[]>;
@@ -374,6 +400,9 @@ export class MemStorage implements IStorage {
   private settings: Map<number, Settings>;
   private emailTemplates: Map<number, EmailTemplate>;
   private musicianTypes: Map<number, MusicianType>;
+  private monthlyContracts: Map<number, MonthlyContract>;
+  private monthlyContractMusicians: Map<number, MonthlyContractMusician>;
+  private monthlyContractDates: Map<number, MonthlyContractDate>;
   private musicianTypeCategories: Map<number, MusicianTypeCategory>;
   private musicianPayRates: Map<number, MusicianPayRate>;
   private performanceRatings: Map<number, PerformanceRating>;
@@ -420,6 +449,9 @@ export class MemStorage implements IStorage {
   private currentInvitationId: number;
   private currentContractLinkId: number;
   private currentContractTemplateId: number;
+  private currentMonthlyContractId: number;
+  private currentMonthlyContractMusicianId: number;
+  private currentMonthlyContractDateId: number;
 
   constructor() {
     // Initialize maps
@@ -456,6 +488,9 @@ export class MemStorage implements IStorage {
     this.availabilityShareLinks = new Map();
     this.contractLinks = new Map();
     this.contractTemplates = new Map();
+    this.monthlyContracts = new Map();
+    this.monthlyContractMusicians = new Map();
+    this.monthlyContractDates = new Map();
     
     // Storage for musician assignments to events by date
     this.eventMusicianAssignments = new Map();
@@ -497,6 +532,9 @@ export class MemStorage implements IStorage {
     this.currentInvitationId = 1;
     this.currentContractLinkId = 1;
     this.currentContractTemplateId = 1;
+    this.currentMonthlyContractId = 1;
+    this.currentMonthlyContractMusicianId = 1;
+    this.currentMonthlyContractDateId = 1;
     
     // Initialize with default admin user
     this.createUser({
