@@ -761,9 +761,12 @@ export const entityStatus = pgTable("entity_status", {
   id: serial("id").primaryKey(),
   entityType: text("entity_type").notNull(), // 'contract', 'musician', 'event', etc.
   entityId: integer("entity_id").notNull(),
-  status: text("status").notNull(), // The current status value
+  primaryStatus: text("primary_status").notNull(), // The main status value
+  customStatus: text("custom_status"), // Optional custom/specific status
+  statusDate: timestamp("status_date"), // Date when the status is applicable
   eventId: integer("event_id"), // Optional related event
-  details: text("details"), // Optional details or reason for the status
+  musicianId: integer("musician_id"), // Optional related musician
+  eventDate: timestamp("event_date"), // Optional related event date
   metadata: jsonb("metadata"), // Additional status context (JSON)
   createdBy: text("created_by"), // User who created this status
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -783,9 +786,12 @@ export const entityStatus = pgTable("entity_status", {
 export const insertEntityStatusSchema = createInsertSchema(entityStatus).pick({
   entityType: true,
   entityId: true,
-  status: true,
+  primaryStatus: true,
+  customStatus: true,
+  statusDate: true,
   eventId: true,
-  details: true,
+  musicianId: true,
+  eventDate: true,
   metadata: true,
   createdBy: true,
 });
