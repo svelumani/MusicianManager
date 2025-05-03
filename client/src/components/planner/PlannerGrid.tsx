@@ -288,20 +288,20 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   };
 
   // Get musician name by ID
-  const getMusicianName = (musicianId: number) => {
+  const getMusicianName = (musicianId: number): string => {
     if (!musicians || !Array.isArray(musicians)) return "Unknown Musician";
-    const musician = musicians.find((m: any) => m.id === musicianId);
+    const musician = musicians.find((m: Musician) => m.id === musicianId);
     return musician ? musician.name : "Unknown Musician";
   };
 
   // Get musician by ID
-  const getMusician = (musicianId: number) => {
+  const getMusician = (musicianId: number): Musician | null => {
     if (!musicians || !Array.isArray(musicians)) return null;
-    return musicians.find((m: any) => m.id === musicianId);
+    return musicians.find((m: Musician) => m.id === musicianId) || null;
   };
   
   // Get musician's category name
-  const getMusicianCategory = (musicianId: number) => {
+  const getMusicianCategory = (musicianId: number): string => {
     const musician = getMusician(musicianId);
     if (!musician || !musician.categoryId) return "Unknown";
     
@@ -315,11 +315,11 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   };
 
   // Calculate total amount for a slot
-  const calculateSlotTotal = (slotId: number) => {
+  const calculateSlotTotal = (slotId: number): number => {
     const assignments = getAssignmentsForSlot(slotId);
     if (!assignments || assignments.length === 0) return 0;
     
-    return assignments.reduce((total: number, assignment: any) => {
+    return assignments.reduce((total: number, assignment: Assignment) => {
       // Use the same fee calculation logic for consistency
       const fee = calculateFeeForAssignment(assignment);
       return total + fee;
@@ -342,7 +342,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   };
   
   // Calculate fee for a single assignment (used in grid display)
-  const calculateFeeForAssignment = (assignment: any): number => {
+  const calculateFeeForAssignment = (assignment: Assignment): number => {
     if (!assignment) return 0;
     
     // Use the assignment's actualFee if available (already calculated with proper formula)
@@ -355,42 +355,48 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     if (!musician) return 150; // Default fallback
     
     // Get the slot to determine event details
-    const slot = plannerSlots?.find((s: any) => s.id === assignment.slotId);
+    const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
     if (!slot) return 150; // Default fallback
     
-    // Determine the event category (for this demo, we'll use a default corporate events category)
+    // Calculate hours for the performance (default to 2 if not specified)
+    const hours = slot.duration || 2;
+    
+    // Determine the event category - Corporate Events is typically category ID 1, but slot may specify another
     const eventCategoryId = slot.eventCategoryId || 1; // Default to corporate events if not specified
     
-    // Find the musician's pay rate for this specific event category
+    // Get category name for logging/debugging
+    const eventCategory = eventCategories?.find((cat: any) => cat.id === eventCategoryId);
+    const categoryName = eventCategory?.title || "Corporate Events";
+    
+    // Find the musician's pay rate for this specific event category from the pay rates table
     if (payRates && Array.isArray(payRates)) {
-      const matchingPayRate = payRates.find((rate: any) => 
+      // Look for an exact match on musician ID and category ID
+      const matchingPayRate = payRates.find((rate: PayRate) => 
         rate.musicianId === musician.id && 
         rate.categoryId === eventCategoryId
       );
       
       if (matchingPayRate) {
-        // Calculate fee based on hourly rate * hours
-        const hourlyRate = matchingPayRate.hourlyRate || 0;
-        const hours = slot.duration || 2; // Default to 2 hours if not specified
-        return hourlyRate * hours;
+        console.log(`Found specific hourly rate for ${musician.name} for ${categoryName}: $${matchingPayRate.hourlyRate}/hr × ${hours}hrs`);
+        return matchingPayRate.hourlyRate * hours;
       }
     }
     
-    // If no specific category rate found, try the musician's default rate
+    // If no specific category rate found, try the musician's default hourly rate
     if (musician.payRate && musician.payRate > 0) {
-      // Use the default hours
-      const hours = slot.duration || 2; // Default to 2 hours if not specified
+      console.log(`Using ${musician.name}'s default rate: $${musician.payRate}/hr × ${hours}hrs`);
       return musician.payRate * hours;
     }
     
-    // Fall back to category default rate
+    // Fall back to instrument category default rate
     if (musician.categoryId) {
       const hourlyRate = getCategoryDefaultRate(musician.categoryId);
-      const hours = slot.duration || 2; // Default to 2 hours if not specified
+      console.log(`Using ${getMusicianCategory(musician.id)} default rate: $${hourlyRate}/hr × ${hours}hrs`);
       return hourlyRate * hours;
     }
     
-    // Ultimate fallback
+    // Ultimate fallback - use standard industry minimum
+    console.log(`No rates found, using minimum rate: $150`);
     return 150;
   };
 
@@ -581,9 +587,37 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                             >
                               {assignments.length > 0 ? (
                                 <div className="space-y-1">
-                                  {assignments.map((assignment: any) => {
+                                  {slot && slot.eventCategoryId && (
+                                    <div className="text-xs font-semibold border-b pb-1 pt-0 mb-1 text-blue-700">
+                                      {eventCategories?.find((c: any) => c.id === slot.eventCategoryId)?.title || "Event"}
+                                      {slot.duration && <span className="float-right">{slot.duration}h</span>}
+                                    </div>
+                                  )}
+                                  
+                                  {assignments.map((assignment: Assignment) => {
                                     const musician = getMusician(assignment.musicianId);
                                     const isAvailable = availabilityView ? isMusicianAvailable(assignment.musicianId, day) : true;
+                                    
+                                    // Get hourly rate information for tooltip
+                                    const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
+                                    const eventCategoryId = slot?.eventCategoryId || 1;
+                                    const hours = slot?.duration || 2;
+                                    let hourlyRate = 0;
+                                    
+                                    if (musician && payRates && Array.isArray(payRates)) {
+                                      const matchingPayRate = payRates.find((rate: PayRate) => 
+                                        rate.musicianId === musician.id && 
+                                        rate.categoryId === eventCategoryId
+                                      );
+                                      
+                                      if (matchingPayRate) {
+                                        hourlyRate = matchingPayRate.hourlyRate;
+                                      } else if (musician.payRate) {
+                                        hourlyRate = musician.payRate;
+                                      } else if (musician.categoryId) {
+                                        hourlyRate = getCategoryDefaultRate(musician.categoryId);
+                                      }
+                                    }
                                     
                                     return (
                                       <div key={assignment.id} className="flex justify-between text-sm">
@@ -600,9 +634,25 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                             {getMusicianCategory(assignment.musicianId)}
                                           </span>
                                         </div>
-                                        <span className="text-gray-600">
-                                          {formatCurrency(calculateFeeForAssignment(assignment))}
-                                        </span>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="text-gray-600">
+                                                {formatCurrency(calculateFeeForAssignment(assignment))}
+                                                <span className="text-xs block text-right">
+                                                  (${hourlyRate}/hr)
+                                                </span>
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="bottom">
+                                              <div className="text-xs">
+                                                <p>Hourly rate: ${hourlyRate}</p>
+                                                <p>Hours: {hours}</p>
+                                                <p>Total: ${hourlyRate * hours}</p>
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       </div>
                                     );
                                   })}
