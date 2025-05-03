@@ -1277,11 +1277,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       // First try to find exact match by category ID
                       let matchingRate = undefined;
                       
-                      // Only try to match by category if the event has categories defined
-                      if (event.categoryIds && Array.isArray(event.categoryIds)) {
+                      // First check for the new eventCategoryId field
+                      if (event.eventCategoryId) {
+                        matchingRate = payRates.find(rate => 
+                          rate.eventCategoryId === event.eventCategoryId
+                        );
+                        if (matchingRate) {
+                          console.log(`Found exact match for event category ID ${event.eventCategoryId}`);
+                        }
+                      }
+                      
+                      // Fallback to the old categoryIds array if no match found and it exists
+                      if (!matchingRate && event.categoryIds && Array.isArray(event.categoryIds)) {
                         matchingRate = payRates.find(rate => 
                           rate.eventCategoryId && event.categoryIds.includes(rate.eventCategoryId)
                         );
+                        if (matchingRate) {
+                          console.log(`Found match using legacy categoryIds array`);
+                        }
                       }
                       
                       // Remove fallback to event type match as it's not needed and causing issues
