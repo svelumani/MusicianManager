@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Calendar, Search, Plus } from "lucide-react";
+import { Calendar, Search, Plus, CalendarRange } from "lucide-react";
 import StatusBadge from "@/components/shared/StatusBadge";
 import type { Event, Venue } from "@shared/schema";
 import { format } from "date-fns";
@@ -43,11 +43,18 @@ export default function EventsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Events</h1>
-        <Link href="/events/add">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> Create Event
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/events/planner">
+            <Button variant="outline">
+              <CalendarRange className="mr-2 h-4 w-4" /> Monthly Planner
+            </Button>
+          </Link>
+          <Link href="/events/add">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" /> Create Event
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <Card>

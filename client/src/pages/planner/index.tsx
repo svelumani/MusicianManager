@@ -158,7 +158,7 @@ const PlannerPage = () => {
             </Button>
           )}
           {planner && (
-            <Link href={`/planner/${planner.id}/invoice`}>
+            <Link href={`/events/planner/${planner.id}/invoice`}>
               <Button variant="outline">View Invoices</Button>
             </Link>
           )}
