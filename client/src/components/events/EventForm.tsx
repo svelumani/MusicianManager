@@ -30,6 +30,7 @@ const eventFormSchema = z.object({
   eventDates: z.array(z.date()),
   status: z.string().default("pending"),
   musicianCategoryIds: z.array(z.coerce.number()), // Multi-select musician categories (replacing types)
+  paymentModel: z.string().default("daily"), // hourly, daily, or event
   notes: z.string().optional(),
 });
 
@@ -87,6 +88,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       venueId: initialData.venueId,
       status: initialData.status || "pending",
       musicianCategoryIds: initialData.musicianCategoryIds || initialData.musicianTypeIds || [], // Support both legacy and new format
+      paymentModel: initialData.paymentModel || "daily", // default to daily for existing events
       eventDates: initialData.eventDates ? 
         (Array.isArray(initialData.eventDates) ? 
           initialData.eventDates.map(d => new Date(d)) : 
@@ -99,6 +101,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       venueId: 0,
       status: "pending",
       musicianCategoryIds: [],
+      paymentModel: "daily", // default to daily for new events
       eventDates: [],
       notes: "",
     },
@@ -193,6 +196,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     venueId: number;
     status: string;
     musicianTypeIds: number[];
+    paymentModel: string; // hourly, daily, or event
     notes?: string;
     eventDates: string[];
     musicianIds?: number[]; // All selected musicians
@@ -488,6 +492,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       paxCount: values.paxCount,
       venueId: values.venueId,
       status: values.status,
+      paymentModel: values.paymentModel, // Add the payment model
       musicianCategoryIds: values.musicianCategoryIds,
       notes: values.notes,
       eventDates: values.eventDates.map(date => format(date, 'yyyy-MM-dd')), // Use consistent date format
@@ -526,7 +531,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <FormField
             control={form.control}
             name="paxCount"
@@ -566,6 +571,32 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                         {venue.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="paymentModel"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Payment Model *</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={field.onChange}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment model" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="hourly">Hourly Rate</SelectItem>
+                    <SelectItem value="daily">Daily Rate</SelectItem>
+                    <SelectItem value="event">Event Rate</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
