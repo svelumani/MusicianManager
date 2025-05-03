@@ -190,14 +190,34 @@ const InlineMusicianSelect = ({
       return;
     }
     
+    // Make sure we have a valid pay rate
+    const payRate = musician.payRate || getDefaultRateForMusician(musicianId, musician.categoryId);
+    
+    console.log(`Assigning musician ${musician.name} with pay rate: $${payRate}`);
+    
     const assignmentData = {
       slotId,
       musicianId,
       status: "scheduled",
-      actualFee: musician.payRate || 0,
+      actualFee: payRate,
     };
     
     createAssignmentMutation.mutate(assignmentData);
+  };
+  
+  // Get default rate for musician based on category if no specific rate is set
+  const getDefaultRateForMusician = (musicianId: number, categoryId: number): number => {
+    // Default rates by category
+    const defaultRates: {[key: number]: number} = {
+      1: 150, // Vocalist
+      2: 125, // Guitarist 
+      3: 125, // Keyboardist
+      4: 135, // Drummer
+      5: 125, // Bassist
+      // Add more defaults as needed
+    };
+    
+    return defaultRates[categoryId] || 100; // Fallback to 100 if no default for category
   };
 
   // Handle removing a musician
@@ -224,7 +244,16 @@ const InlineMusicianSelect = ({
     return musician ? musician.name : "Unknown Musician";
   };
 
-  // Get category name
+  // Get musician's category
+  const getMusicianCategory = (musicianId: number) => {
+    const musician = musicians.find(m => m.id === musicianId);
+    if (!musician || !musician.categoryId) return "Unknown Category";
+    
+    const category = categories.find(c => c.id === musician.categoryId);
+    return category ? category.title : "Unknown Category";
+  };
+
+  // Get category name by ID
   const getCategoryName = (categoryId: number) => {
     const category = categories.find(c => c.id === categoryId);
     return category ? category.title : "Unknown Category";
@@ -262,7 +291,7 @@ const InlineMusicianSelect = ({
                     <div className="flex flex-col">
                       <span className="font-medium">{getMusicianName(assignment.musicianId)}</span>
                       <span className="text-xs text-gray-500">
-                        ${assignment.actualFee} • {getCategoryName(parseInt(categoryId))}
+                        ${assignment.actualFee} • {getMusicianCategory(assignment.musicianId)}
                       </span>
                     </div>
                     <Button 

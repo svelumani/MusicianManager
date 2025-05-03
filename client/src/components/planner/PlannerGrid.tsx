@@ -246,6 +246,20 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     if (!musicians || !Array.isArray(musicians)) return null;
     return musicians.find((m: any) => m.id === musicianId);
   };
+  
+  // Get musician's category name
+  const getMusicianCategory = (musicianId: number) => {
+    const musician = getMusician(musicianId);
+    if (!musician || !musician.categoryId) return "Unknown";
+    
+    // Find the category from the musicians's categoryId
+    if (categories && Array.isArray(categories)) {
+      const category = categories.find((c: any) => c.id === musician.categoryId);
+      return category ? category.title : "Unknown";
+    }
+    
+    return "Unknown";
+  };
 
   // Calculate total amount for a slot
   const calculateSlotTotal = (slotId: number) => {
