@@ -783,13 +783,53 @@ export default function ViewEventPage() {
                                           // If no category match, just use the first rate
                                           const rate = categoryMatchRate || musicianRates[0];
                                           
-                                          // Choose which rate to display (prioritize hourly rate, then day rate, then event rate)
-                                          const displayRateValue = rate.hourlyRate || rate.dayRate || rate.eventRate || 0;
-                                          const rateType = rate.hourlyRate ? '/hr' : (rate.dayRate ? '/day' : '/event');
+                                          // Calculate the total rate based on the payment model
+                                          let totalRate = 0;
+                                          let rateLabel = '';
+                                          
+                                          // Use the payment model from the event to determine which rate to use
+                                          const paymentModel = event.paymentModel || 'daily'; // Default to daily if not specified
+                                          
+                                          // Debug logging for payment model and rates
+                                          console.log("Rate calculation:", {
+                                            musicianId,
+                                            paymentModel,
+                                            hourlyRate: rate.hourlyRate,
+                                            dayRate: rate.dayRate,
+                                            eventRate: rate.eventRate,
+                                            hoursCount: event.hoursCount, 
+                                            daysCount: event.daysCount
+                                          });
+                                          
+                                          if (paymentModel === 'hourly' && rate.hourlyRate) {
+                                            // For hourly payment: base hourly rate × hours count
+                                            const hours = event.hoursCount || 0;
+                                            totalRate = rate.hourlyRate * hours;
+                                            rateLabel = `$${rate.hourlyRate.toFixed(2)}/hr × ${hours} hours = $${totalRate.toFixed(2)}`;
+                                            console.log(`Calculated hourly rate: ${rate.hourlyRate} × ${hours} = ${totalRate}`);
+                                          } 
+                                          else if (paymentModel === 'daily' && rate.dayRate) {
+                                            // For daily payment: base daily rate × days count
+                                            const days = event.daysCount || 0;
+                                            totalRate = rate.dayRate * days;
+                                            rateLabel = `$${rate.dayRate.toFixed(2)}/day × ${days} days = $${totalRate.toFixed(2)}`;
+                                            console.log(`Calculated daily rate: ${rate.dayRate} × ${days} = ${totalRate}`);
+                                          }
+                                          else if (paymentModel === 'event' && rate.eventRate) {
+                                            // For event payment: flat event rate
+                                            totalRate = rate.eventRate;
+                                            rateLabel = `$${totalRate.toFixed(2)} (event rate)`;
+                                          }
+                                          else {
+                                            // Fallback to display a simple rate if no specific payment model
+                                            const displayRateValue = rate.hourlyRate || rate.dayRate || rate.eventRate || 0;
+                                            const rateType = rate.hourlyRate ? '/hr' : (rate.dayRate ? '/day' : '/event');
+                                            rateLabel = `$${displayRateValue.toFixed(2)}${rateType}`;
+                                          }
                                           
                                           return (
                                             <div className="flex items-center">
-                                              <span className="font-medium mr-2">${displayRateValue.toFixed(2)}{rateType}</span>
+                                              <span className="font-medium mr-2">{rateLabel}</span>
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
