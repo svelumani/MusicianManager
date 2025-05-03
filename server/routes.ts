@@ -893,7 +893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         id: shareLink.id,
         shareLink: `${req.protocol}://${req.get('host')}/availability/${token}`,
-        expiresAt: shareLink.expiresAt,
+        expiryDate: shareLink.expiresAt, // Changed to match frontend expectation
         createdAt: shareLink.createdAt
       });
     } catch (error) {
@@ -920,7 +920,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formattedLinks = shareLinks.map(link => ({
         id: link.id,
         shareLink: `${req.protocol}://${req.get('host')}/availability/${link.token}`,
-        expiresAt: link.expiresAt,
+        expiryDate: link.expiresAt, // Changed to match frontend expectation
         createdAt: link.createdAt,
         isExpired: link.expiresAt ? new Date() > new Date(link.expiresAt) : false
       }));
