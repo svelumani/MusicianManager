@@ -714,7 +714,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                       <h4 className="text-md font-medium">{category?.name}</h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {musiciansOfType.map((musician) => {
+                        {musiciansOfCategory.map((musician) => {
                           // Create a unique key for each musician
                           const musicianKey = `musician-${musician.id}`;
                           // Check if this musician is already selected for any date
@@ -781,10 +781,17 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                           ))}
                                         </div>
                                       )}
-                                      {/* Display musician type */}
-                                      <Badge variant="outline" className="mr-1 text-xs">
-                                        {musicianTypes?.find(t => t.id === musician.typeId)?.title}
-                                      </Badge>
+                                      {/* Display musician categories */}
+                                      <div className="flex flex-wrap gap-1">
+                                        {musician.categoryIds?.map(catId => {
+                                          const category = musicianCategories?.find(c => c.id === catId);
+                                          return (
+                                            <Badge key={catId} variant="outline" className="mr-1 text-xs">
+                                              {category?.name || 'Unknown Category'}
+                                            </Badge>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
                                   </div>
                                   <div onClick={(e) => e.stopPropagation()}>
@@ -853,7 +860,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
               </div>
             ) : (
               <div className="text-center p-6 bg-muted rounded-md">
-                <p className="text-muted-foreground">No musicians found for the selected type(s)</p>
+                <p className="text-muted-foreground">No musicians found for the selected category(ies)</p>
               </div>
             )}
           </div>
