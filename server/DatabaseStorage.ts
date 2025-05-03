@@ -444,11 +444,18 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
   
-  async createActivity(activity: Partial<InsertActivity>): Promise<Activity> {
-    const result = await db.insert(activities).values({
-      ...activity,
-      timestamp: new Date()
-    }).returning();
+  async createActivity(activityData: Partial<InsertActivity>): Promise<Activity> {
+    // Ensure the activity has the required fields
+    const activity = {
+      action: activityData.action || "system_action",
+      entityType: activityData.entityType || "system",
+      entityId: activityData.entityId || 0,
+      timestamp: new Date(),
+      userId: activityData.userId,
+      details: activityData.details
+    };
+    
+    const result = await db.insert(activities).values(activity).returning();
     return result[0];
   }
   
@@ -642,12 +649,11 @@ export class DatabaseStorage implements IStorage {
     
     // Add an activity log entry
     await this.createActivity({
-      type: "pay-rate-created",
-      message: `Pay rate added for musician ID ${payRate.musicianId}`,
-      userId: 1, // Default to admin for now
-      timestamp: new Date(),
+      action: "pay-rate-created",
+      entityType: "musician-pay-rate",
       entityId: result[0].id,
-      entityType: "musician-pay-rate"
+      userId: 1, // Default to admin for now
+      details: { message: `Pay rate added for musician ID ${payRate.musicianId}` }
     });
     
     return result[0];
@@ -670,12 +676,11 @@ export class DatabaseStorage implements IStorage {
     
     // Add an activity log entry
     await this.createActivity({
-      type: "pay-rate-updated",
-      message: `Pay rate updated for musician ID ${result[0].musicianId}`,
-      userId: 1, // Default to admin for now
-      timestamp: new Date(),
+      action: "pay-rate-updated",
+      entityType: "musician-pay-rate",
       entityId: id,
-      entityType: "musician-pay-rate"
+      userId: 1, // Default to admin for now
+      details: { message: `Pay rate updated for musician ID ${result[0].musicianId}` }
     });
     
     return result[0];
@@ -696,12 +701,11 @@ export class DatabaseStorage implements IStorage {
     if (deleted) {
       // Add an activity log entry
       await this.createActivity({
-        type: "pay-rate-deleted",
-        message: `Pay rate deleted for musician ID ${payRate.musicianId}`,
-        userId: 1, // Default to admin for now
-        timestamp: new Date(),
+        action: "pay-rate-deleted",
+        entityType: "musician-pay-rate",
         entityId: id,
-        entityType: "musician-pay-rate"
+        userId: 1, // Default to admin for now
+        details: { message: `Pay rate deleted for musician ID ${payRate.musicianId}` }
       });
     }
     
