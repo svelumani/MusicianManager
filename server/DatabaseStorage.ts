@@ -1674,6 +1674,22 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(contractLinks.createdAt));
   }
   
+  async getContractLinksByEventAndDate(eventId: number, date?: Date): Promise<ContractLink[]> {
+    if (!date) {
+      return this.getContractLinksByEvent(eventId);
+    }
+    
+    console.log(`Getting contract links for event ${eventId} and date ${date}`);
+    
+    return await db.select()
+      .from(contractLinks)
+      .where(and(
+        eq(contractLinks.eventId, eventId),
+        eq(contractLinks.eventDate, date)
+      ))
+      .orderBy(desc(contractLinks.createdAt));
+  }
+  
   async getContractLinksByMusician(musicianId: number): Promise<ContractLink[]> {
     return await db.select()
       .from(contractLinks)

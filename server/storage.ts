@@ -191,6 +191,7 @@ export interface IStorage {
   getContractLink(id: number): Promise<ContractLink | undefined>;
   getContractLinkByToken(token: string): Promise<ContractLink | undefined>;
   getContractLinksByEvent(eventId: number): Promise<ContractLink[]>;
+  getContractLinksByEventAndDate(eventId: number, date?: Date): Promise<ContractLink[]>;
   getContractLinksByMusician(musicianId: number): Promise<ContractLink[]>;
   createContractLink(contract: InsertContractLink): Promise<ContractLink>;
   updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined>;
