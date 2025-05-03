@@ -299,12 +299,12 @@ export default function ContractsPage() {
               />
             </div>
             
-            <Select value={eventFilter?.toString() || ""} onValueChange={(value) => setEventFilter(value ? parseInt(value) : null)}>
+            <Select value={eventFilter?.toString() || "all"} onValueChange={(value) => setEventFilter(value !== "all" ? parseInt(value) : null)}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="All Events" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Events</SelectItem>
+                <SelectItem value="all">All Events</SelectItem>
                 {eventOptions.map(event => (
                   <SelectItem key={event.id} value={event.id.toString()}>
                     {event.name}
