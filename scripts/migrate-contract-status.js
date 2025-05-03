@@ -7,9 +7,9 @@
  * 3. Log the migration progress
  */
 
-import { db } from '../server/db';
-import { contractLinks, entityStatus } from '../shared/schema';
-import { eq, and, isNull } from 'drizzle-orm';
+const { db } = require('../server/db');
+const { contractLinks, entityStatus } = require('../shared/schema');
+const { eq, and, isNull } = require('drizzle-orm');
 
 // Entity types constant (keep in sync with status service)
 const ENTITY_TYPES = {

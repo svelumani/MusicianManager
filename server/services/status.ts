@@ -1,7 +1,6 @@
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { db } from '../db';
 import { activities, entityStatus } from '@shared/schema';
-import { json } from 'drizzle-orm/pg-core';
 
 // Define entity types as constants for consistent use throughout the application
 export const ENTITY_TYPES = {
@@ -74,7 +73,8 @@ export class StatusService {
       return status;
     } catch (error) {
       console.error('Error getting entity status:', error);
-      throw new Error(`Failed to get status for ${entityType} #${entityId}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get status for ${entityType} #${entityId}: ${errorMessage}`);
     }
   }
 
@@ -114,7 +114,8 @@ export class StatusService {
       return statusHistory;
     } catch (error) {
       console.error('Error getting entity status history:', error);
-      throw new Error(`Failed to get status history for ${entityType} #${entityId}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get status history for ${entityType} #${entityId}: ${errorMessage}`);
     }
   }
 
@@ -128,7 +129,7 @@ export class StatusService {
     userId: number,
     details?: string,
     eventId?: number,
-    metadata?: Json,
+    metadata?: any,
     customStatus?: string,
     musicianId?: number,
     eventDate?: Date
@@ -163,7 +164,8 @@ export class StatusService {
       return statusEntry;
     } catch (error) {
       console.error('Error updating entity status:', error);
-      throw new Error(`Failed to update status for ${entityType} #${entityId}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to update status for ${entityType} #${entityId}: ${errorMessage}`);
     }
   }
 
