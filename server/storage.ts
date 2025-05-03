@@ -3945,8 +3945,33 @@ Musician: ________________________ Date: ______________`,
     return contractLink;
   }
   
-  async getContractLinks(): Promise<ContractLink[]> {
-    return Array.from(this.contractLinks.values())
+  async getContractLinks(filters?: {
+    eventId?: number,
+    musicianId?: number,
+    status?: string | string[]
+  }): Promise<ContractLink[]> {
+    let contracts = Array.from(this.contractLinks.values());
+    
+    // Apply filters if provided
+    if (filters) {
+      if (filters.eventId !== undefined) {
+        contracts = contracts.filter(c => c.eventId === filters.eventId);
+      }
+      
+      if (filters.musicianId !== undefined) {
+        contracts = contracts.filter(c => c.musicianId === filters.musicianId);
+      }
+      
+      if (filters.status !== undefined) {
+        if (Array.isArray(filters.status)) {
+          contracts = contracts.filter(c => filters.status.includes(c.status));
+        } else {
+          contracts = contracts.filter(c => c.status === filters.status);
+        }
+      }
+    }
+    
+    return contracts
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
   
@@ -3960,15 +3985,11 @@ Musician: ________________________ Date: ______________`,
   }
   
   async getContractLinksByEvent(eventId: number): Promise<ContractLink[]> {
-    return Array.from(this.contractLinks.values())
-      .filter(link => link.eventId === eventId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return this.getContractLinks({ eventId });
   }
   
   async getContractLinksByMusician(musicianId: number): Promise<ContractLink[]> {
-    return Array.from(this.contractLinks.values())
-      .filter(link => link.musicianId === musicianId)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return this.getContractLinks({ musicianId });
   }
   
   async updateContractLink(id: number, data: Partial<InsertContractLink>): Promise<ContractLink | undefined> {
