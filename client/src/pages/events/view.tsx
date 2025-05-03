@@ -12,7 +12,7 @@ import {
   DollarSign, FileCheck, ExternalLink, XCircle,
   MailPlus, MoreHorizontal
 } from "lucide-react";
-import { FileContract } from "@/components/icons/FileContract";
+import FileContract from "@/components/icons/FileContract";
 import { format } from "date-fns";
 import type { Event as EventType, Venue, Musician, ContractLink } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";

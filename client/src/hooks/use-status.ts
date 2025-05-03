@@ -1,234 +1,163 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "./use-toast";
 
-// Define types for statuses
-export interface EntityStatus {
-  id: number;
+// Status configuration types
+interface StatusConfig {
   entityType: string;
-  entityId: number;
-  primaryStatus: string;
-  customStatus?: string;
-  statusDate: string;
-  eventId: number;
-  musicianId?: number;
-  eventDate?: string;
-  metadata?: any;
-  createdAt: string;
-  updatedAt: string;
+  statuses: {
+    value: string;
+    label: string;
+    description: string;
+    colorType: string;
+    colorClass: string;
+  }[];
+  getColorClass: (status: string) => string;
+  getDescription: (status: string) => string;
 }
 
-interface StatusUpdateParams {
-  entityType: string;
-  entityId: number;
-  newStatus: string;
-  eventId: number;
-  musicianId?: number;
-  eventDate?: string;
-  metadata?: any;
-}
-
-// Hook to get status for an entity
-export function useEntityStatus(
-  entityType: string, 
-  entityId: number, 
-  eventDate?: string
-) {
-  const queryKey = ['/api/status', entityType, entityId, eventDate];
-  
-  return useQuery<EntityStatus>({
-    queryKey,
+/**
+ * Hook to get entity status configuration
+ */
+export function useEntityStatusConfig(entityType: string) {
+  return useQuery({
+    queryKey: ["/api/status/config", entityType],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (eventDate) {
-        params.append('eventDate', eventDate);
-      }
-      
-      const response = await fetch(
-        `/api/status/${entityType}/${entityId}?${params.toString()}`
-      );
-      
+      const response = await fetch(`/api/status/config?entityType=${entityType}`);
       if (!response.ok) {
-        // If status is 404, the entity doesn't have a status yet
-        if (response.status === 404) {
-          return null;
+        throw new Error("Failed to fetch status configuration");
+      }
+      const config = await response.json();
+      
+      // Add utility methods
+      return {
+        ...config,
+        getColorClass: (status: string) => {
+          const statusInfo = config.statuses.find((s: any) => s.value === status);
+          return statusInfo?.colorClass || "";
+        },
+        getDescription: (status: string) => {
+          const statusInfo = config.statuses.find((s: any) => s.value === status);
+          return statusInfo?.description || "";
         }
-        throw new Error('Failed to fetch status');
-      }
-      
-      return response.json();
+      };
     },
-    // Don't throw an error for 404 responses
-    retry: (failureCount, error: any) => {
-      return error?.status !== 404 && failureCount < 3;
-    }
+    staleTime: 300000 // Cache for 5 minutes
   });
 }
 
-// Hook to get all statuses for an event
-export function useEventStatuses(eventId: number) {
-  return useQuery<EntityStatus[]>({
-    queryKey: ['/api/status/event', eventId],
-    queryFn: async () => {
-      const response = await fetch(`/api/status/event/${eventId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch event statuses');
-      }
-      
-      return response.json();
-    }
-  });
-}
-
-// Hook to get statuses for a musician in an event
-export function useMusicianEventStatuses(
-  eventId: number,
-  musicianId: number,
-  entityType?: string
-) {
-  return useQuery<EntityStatus[]>({
-    queryKey: ['/api/status/event', eventId, 'musician', musicianId, entityType],
+/**
+ * Hook to get current status for an entity
+ */
+export function useEntityStatus(entityType: string, entityId: number, eventId?: number) {
+  return useQuery({
+    queryKey: ["/api/status", entityType, entityId, eventId],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (entityType) {
-        params.append('entityType', entityType);
+      params.append('entityType', entityType);
+      params.append('entityId', entityId.toString());
+      
+      if (eventId) {
+        params.append('eventId', eventId.toString());
       }
       
-      const response = await fetch(
-        `/api/status/event/${eventId}/musician/${musicianId}?${params.toString()}`
-      );
-      
+      const response = await fetch(`/api/status?${params.toString()}`);
       if (!response.ok) {
-        throw new Error('Failed to fetch musician event statuses');
+        throw new Error("Failed to fetch status");
       }
-      
       return response.json();
-    }
+    },
+    enabled: !!entityId,
+    staleTime: 30000 // Cache for 30 seconds
   });
 }
 
-// Hook to update a status
-export function useUpdateStatus() {
+/**
+ * Hook to update status for an entity
+ */
+export function useUpdateEntityStatus() {
   const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (params: StatusUpdateParams) => {
-      const response = await apiRequest('/api/status/update', {
-        method: 'POST',
-        data: params
-      });
-      
-      return response;
-    },
-    onSuccess: (_, variables) => {
-      const { entityType, entityId, eventId, musicianId, eventDate } = variables;
-      
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status', entityType, entityId] 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status/event', eventId] 
-      });
-      
-      if (musicianId) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['/api/status/event', eventId, 'musician', musicianId] 
-        });
-      }
-      
-      // Success toast
-      toast({
-        title: 'Status Updated',
-        description: `${entityType} status updated successfully.`
-      });
-    },
-    onError: (error: Error) => {
-      // Error toast
-      toast({
-        title: 'Status Update Failed',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  });
-}
-
-// Helper hook to cancel a contract
-export function useCancelContract() {
-  const queryClient = useQueryClient();
+  const { toast } = useToast();
   
   return useMutation({
     mutationFn: async ({ 
-      contractId, 
-      eventId, 
-      musicianId, 
-      eventDate, 
-      reason 
-    }: {
-      contractId: number;
-      eventId: number;
-      musicianId?: number;
-      eventDate?: string;
-      reason?: string;
+      entityType, 
+      entityId, 
+      status, 
+      eventId,
+      details 
+    }: { 
+      entityType: string; 
+      entityId: number; 
+      status: string; 
+      eventId?: number;
+      details?: string;
     }) => {
-      const response = await apiRequest(`/api/status/contract/${contractId}/cancel`, {
+      const response = await fetch('/api/status', {
         method: 'POST',
-        data: {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          entityType,
+          entityId,
+          status,
           eventId,
-          musicianId,
-          eventDate,
-          reason
-        }
+          details
+        })
       });
       
-      return response;
-    },
-    onSuccess: (_, variables) => {
-      const { contractId, eventId, musicianId } = variables;
-      
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status', 'contract', contractId] 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/contracts'] 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status/event', eventId] 
-      });
-      
-      if (musicianId) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['/api/status/event', eventId, 'musician', musicianId] 
-        });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to update status");
       }
       
-      // Success toast
-      toast({
-        title: 'Contract Cancelled',
-        description: 'The contract has been cancelled successfully.'
-      });
+      return response.json();
     },
-    onError: (error: Error) => {
-      // Error toast
+    onSuccess: (data, variables) => {
       toast({
-        title: 'Contract Cancellation Failed',
-        description: error.message,
-        variant: 'destructive'
+        title: "Status Updated",
+        description: `Status has been updated successfully.`,
+      });
+      
+      // Invalidate related queries
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/status", variables.entityType, variables.entityId, variables.eventId] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ["/api/status/history", variables.entityType, variables.entityId, variables.eventId] 
+      });
+      
+      // Invalidate related entity queries (e.g., if we update a contract status, refresh contracts list)
+      switch (variables.entityType) {
+        case 'contract':
+          queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/contracts", variables.entityId] });
+          break;
+        case 'musician':
+          queryClient.invalidateQueries({ queryKey: ["/api/musicians"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/musicians", variables.entityId] });
+          break;
+        case 'event':
+          queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/events", variables.entityId] });
+          break;
+      }
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to Update Status",
+        description: error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
       });
     }
   });
 }
 
-// Helper hook to sign a contract
+/**
+ * Hook to sign a contract (specialized status update)
+ */
 export function useSignContract() {
-  const queryClient = useQueryClient();
+  const updateStatus = useUpdateEntityStatus();
   
   return useMutation({
     mutationFn: async ({ 
@@ -237,84 +166,87 @@ export function useSignContract() {
       musicianId, 
       eventDate, 
       signature 
-    }: {
-      contractId: number;
-      eventId: number;
-      musicianId: number;
+    }: { 
+      contractId: number; 
+      eventId: number; 
+      musicianId: number; 
       eventDate?: string;
       signature: string;
     }) => {
-      const response = await apiRequest(`/api/status/contract/${contractId}/sign`, {
+      // First update the contract with the signature
+      const signResponse = await fetch(`/api/contracts/${contractId}/sign`, {
         method: 'POST',
-        data: {
-          eventId,
-          musicianId,
-          eventDate,
-          signature
-        }
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          signature,
+          eventDate
+        })
       });
       
-      return response;
-    },
-    onSuccess: (_, variables) => {
-      const { contractId, eventId, musicianId } = variables;
+      if (!signResponse.ok) {
+        const error = await signResponse.json();
+        throw new Error(error.message || "Failed to sign contract");
+      }
       
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status', 'contract', contractId] 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/contracts'] 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status/event', eventId] 
-      });
-      
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/status/event', eventId, 'musician', musicianId] 
-      });
-      
-      // Success toast
-      toast({
-        title: 'Contract Signed',
-        description: 'The contract has been signed successfully.'
-      });
-    },
-    onError: (error: Error) => {
-      // Error toast
-      toast({
-        title: 'Contract Signing Failed',
-        description: error.message,
-        variant: 'destructive'
+      // Then update the status
+      return updateStatus.mutateAsync({
+        entityType: 'contract',
+        entityId: contractId,
+        status: 'contract-signed',
+        eventId,
+        details: `Contract signed with signature: ${signature}`
       });
     }
   });
 }
 
-// Hook to track status changes over time for an entity
-export function useStatusHistory(
-  entityType: string,
-  entityId: number,
-  eventId: number
-) {
-  // Get all event statuses
-  const { data: eventStatuses, isLoading, error } = useEventStatuses(eventId);
+/**
+ * Hook to cancel a contract (specialized status update)
+ */
+export function useCancelContract() {
+  const updateStatus = useUpdateEntityStatus();
   
-  // Filter statuses for the specific entity
-  const filteredStatuses = eventStatuses?.filter(
-    status => status.entityType === entityType && status.entityId === entityId
-  ) || [];
-  
-  // Sort by status date (newest first)
-  const sortedStatuses = [...filteredStatuses].sort(
-    (a, b) => new Date(b.statusDate).getTime() - new Date(a.statusDate).getTime()
-  );
-  
-  return {
-    statuses: sortedStatuses,
-    isLoading,
-    error
-  };
+  return useMutation({
+    mutationFn: async ({ 
+      contractId, 
+      eventId, 
+      musicianId, 
+      eventDate, 
+      reason 
+    }: { 
+      contractId: number; 
+      eventId: number; 
+      musicianId: number; 
+      eventDate?: string;
+      reason?: string;
+    }) => {
+      // First cancel the contract
+      const cancelResponse = await fetch(`/api/contracts/${contractId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason,
+          eventDate
+        })
+      });
+      
+      if (!cancelResponse.ok) {
+        const error = await cancelResponse.json();
+        throw new Error(error.message || "Failed to cancel contract");
+      }
+      
+      // Then update the status
+      return updateStatus.mutateAsync({
+        entityType: 'contract',
+        entityId: contractId,
+        status: 'cancelled',
+        eventId,
+        details: reason ? `Contract cancelled. Reason: ${reason}` : 'Contract cancelled'
+      });
+    }
+  });
 }

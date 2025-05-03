@@ -1,147 +1,201 @@
-import { 
-  Timeline, 
-  TimelineItem, 
-  TimelineConnector, 
-  TimelineContent, 
-  TimelineDot, 
-  TimelineOppositeContent, 
-  TimelineSeparator 
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { Loader2, Info, AlertTriangle } from "lucide-react";
+import { useEntityStatusConfig } from "@/hooks/use-status";
+import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineDot,
+  TimelineConnector,
+  TimelineContent,
+  TimelineOppositeContent
 } from "@/components/ui/timeline";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent } from "@/components/ui/card";
-import { format, formatDistance } from "date-fns";
-import StatusBadge from "@/components/StatusBadge";
-import { FileClockIcon, InfoIcon } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useStatusHistory } from "@/hooks/use-status";
 
 interface StatusHistoryProps {
   entityType: string;
   entityId: number;
-  eventId: number;
-  maxHeight?: string;
+  eventId?: number;
+  maxItems?: number;
 }
 
-export default function StatusHistory({
-  entityType,
-  entityId,
-  eventId,
-  maxHeight = "300px"
+export default function StatusHistory({ 
+  entityType, 
+  entityId, 
+  eventId, 
+  maxItems = 10 
 }: StatusHistoryProps) {
-  const { statuses, isLoading, error } = useStatusHistory(entityType, entityId, eventId);
-  
+  const { data: statusConfig } = useEntityStatusConfig(entityType);
+  const [expandHistory, setExpandHistory] = useState(false);
+
+  // Fetch status history
+  const { data: statusHistory, isLoading, error } = useQuery({
+    queryKey: ["/api/status/history", entityType, entityId, eventId],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      params.append('entityType', entityType);
+      params.append('entityId', entityId.toString());
+      
+      if (eventId) {
+        params.append('eventId', eventId.toString());
+      }
+      
+      const response = await fetch(`/api/status/history?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch status history");
+      }
+      return response.json();
+    },
+    staleTime: 60000 // Cache for 1 minute
+  });
+
+  const getColorForStatus = (status: string) => {
+    if (!statusConfig) return "default";
+    
+    const statusInfo = statusConfig.statuses.find(s => s.value === status);
+    if (!statusInfo) return "default";
+    
+    switch (statusInfo.colorType) {
+      case "success": return "success";
+      case "warning": return "warning";
+      case "error": return "error";
+      case "info": return "info";
+      case "primary": return "primary";
+      case "secondary": return "secondary";
+      default: return "default";
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-2">
-            <FileClockIcon className="text-muted-foreground h-5 w-5" />
-            <p className="text-sm text-muted-foreground">Loading status history...</p>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-base">Status History</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </CardContent>
       </Card>
     );
   }
-  
-  if (error) {
+
+  if (error || !statusHistory) {
     return (
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-2">
-            <InfoIcon className="text-red-500 h-5 w-5" />
-            <p className="text-sm text-red-500">Failed to load status history</p>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-base">Status History</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center py-6 text-center">
+          <AlertTriangle className="h-8 w-8 text-amber-500 mb-2" />
+          <h3 className="font-medium">Could Not Load History</h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            {error instanceof Error ? error.message : "An error occurred while loading status history."}
+          </p>
         </CardContent>
       </Card>
     );
   }
-  
-  if (!statuses || statuses.length === 0) {
+
+  if (statusHistory.length === 0) {
     return (
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-2">
-            <FileClockIcon className="text-muted-foreground h-5 w-5" />
-            <p className="text-sm text-muted-foreground">No status history available</p>
-          </div>
+        <CardHeader>
+          <CardTitle className="text-base">Status History</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center py-6 text-center">
+          <Info className="h-8 w-8 text-blue-500 mb-2" />
+          <h3 className="font-medium">No Status History</h3>
+          <p className="text-muted-foreground text-sm mt-1">
+            There is no status history available for this {entityType}.
+          </p>
         </CardContent>
       </Card>
     );
   }
-  
+
+  const displayHistory = expandHistory 
+    ? statusHistory 
+    : statusHistory.slice(0, maxItems);
+
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center space-x-2 mb-3">
-          <FileClockIcon className="text-muted-foreground h-5 w-5" />
-          <h3 className="text-sm font-medium">Status History</h3>
-        </div>
-        <Separator className="mb-3" />
-        <ScrollArea className={`pr-4 ${maxHeight ? `max-h-[${maxHeight}]` : ''}`}>
-          <Timeline position="right">
-            {statuses.map((status, index) => (
-              <TimelineItem key={status.id}>
-                <TimelineOppositeContent className="min-w-[120px] text-xs text-muted-foreground">
-                  <div>
-                    {format(new Date(status.statusDate), "MMM d, yyyy")}
-                  </div>
-                  <div>
-                    {format(new Date(status.statusDate), "h:mm a")}
-                  </div>
+      <CardHeader>
+        <CardTitle className="text-base">Status History</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Timeline position="alternate">
+          {displayHistory.map((entry, index) => (
+            <TimelineItem key={`${entry.id}-${index}`}>
+              <TimelineOppositeContent className="text-xs text-muted-foreground">
+                {format(new Date(entry.timestamp), "MMM d, yyyy - h:mm a")}
+              </TimelineOppositeContent>
+              
+              <TimelineSeparator>
+                <TimelineDot 
+                  color={getColorForStatus(entry.status)} 
+                  variant={index === 0 ? "filled" : "outlined"}
+                  size={index === 0 ? "large" : "medium"}
+                />
+                {index < displayHistory.length - 1 && <TimelineConnector />}
+              </TimelineSeparator>
+              
+              <TimelineContent className="py-1">
+                <div className="text-sm font-medium mb-1">
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <div className="text-[10px] cursor-help underline decoration-dotted underline-offset-2">
-                          {formatDistance(new Date(status.statusDate), new Date(), { addSuffix: true })}
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className={`
+                            ${index === 0 ? 'border-2' : 'border'}
+                            ${statusConfig?.getColorClass?.(entry.status) || ''}
+                          `}
+                        >
+                          {entry.statusLabel || entry.status}
+                        </Badge>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p className="text-xs">
-                          {format(new Date(status.statusDate), "PPpp")}
-                        </p>
+                      <TooltipContent>
+                        {statusConfig?.getDescription?.(entry.status) || "Status update"}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                </TimelineOppositeContent>
+                </div>
                 
-                <TimelineSeparator>
-                  <TimelineDot />
-                  {index < statuses.length - 1 && <TimelineConnector />}
-                </TimelineSeparator>
-                
-                <TimelineContent className="py-1">
-                  <div className="flex flex-col gap-1">
-                    <StatusBadge 
-                      status={status.primaryStatus} 
-                      entityType={status.entityType}
-                      size="sm"
-                      showTooltip={false}
-                    />
-                    
-                    {status.metadata && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {typeof status.metadata === 'object' 
-                          ? Object.entries(status.metadata).map(([key, value]) => (
-                              <div key={key} className="flex items-start">
-                                <span className="font-medium mr-1">{key}:</span> 
-                                <span>{String(value)}</span>
-                              </div>
-                            ))
-                          : status.metadata}
-                      </div>
-                    )}
+                {entry.details && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {entry.details}
                   </div>
-                </TimelineContent>
-              </TimelineItem>
-            ))}
-          </Timeline>
-        </ScrollArea>
+                )}
+                
+                {entry.userName && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    By: {entry.userName}
+                  </div>
+                )}
+              </TimelineContent>
+            </TimelineItem>
+          ))}
+        </Timeline>
+        
+        {statusHistory.length > maxItems && (
+          <div className="text-center mt-4">
+            <button
+              className="text-xs text-primary hover:underline"
+              onClick={() => setExpandHistory(!expandHistory)}
+            >
+              {expandHistory ? "Show less" : `Show ${statusHistory.length - maxItems} more entries`}
+            </button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

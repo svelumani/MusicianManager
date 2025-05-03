@@ -42,6 +42,7 @@ import SharedAvailabilityView from "@/pages/availability/[token]";
 import ContractsPage from "@/pages/contracts/index";
 import ContractViewPage from "@/pages/contracts/view";
 import ContractResponsePage from "@/pages/contracts/respond";
+import ContractDetailPage from "@/pages/contracts/[id]";
 
 function Router() {
   const [location] = useLocation();
@@ -232,10 +233,18 @@ function Router() {
       <Route path="/contracts/respond/:token">
         <ContractResponsePage />
       </Route>
-      <Route path="/contracts/:id">
+      <Route path="/contracts/:id/view">
         {(params) => (
           <AppLayout>
             <ContractViewPage />
+          </AppLayout>
+        )}
+      </Route>
+      <Route path="/contracts/:id">
+        {(params) => (
+          <AppLayout>
+            {/* Using our new contract detail page with status history */}
+            <ContractDetailPage />
           </AppLayout>
         )}
       </Route>

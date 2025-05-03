@@ -12,9 +12,9 @@ import {
   Loader2,
   XCircle,
   FilePenLine,
-  Check
+  Check,
+  FileSignature
 } from "lucide-react";
-import FileContract from "@/components/icons/FileContract";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -168,7 +168,7 @@ export default function ContractDetailPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <FileContract className="h-5 w-5 mr-2" /> Contract Details
+                <FileSignature className="h-5 w-5 mr-2" /> Contract Details
               </CardTitle>
               <CardDescription>View and manage contract information</CardDescription>
             </CardHeader>
