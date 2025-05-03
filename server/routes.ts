@@ -3257,9 +3257,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       const status = req.query.status ? req.query.status as string : undefined;
       
+      // If an event ID is specified, use the specialized endpoint logic
+      if (eventId && !isNaN(eventId)) {
+        console.log(`Using specialized event contracts logic for event ${eventId}`);
+        
+        // First get the event to check musician assignments
+        const event = await storage.getEvent(eventId);
+        if (!event || !event.musicianAssignments) {
+          return res.status(404).json({ message: "Event not found or has no musician assignments" });
+        }
+        
+        // Extract all musician IDs assigned to this event across all dates
+        const assignedMusicianIds = new Set<number>();
+        Object.values(event.musicianAssignments).forEach(musicianIds => {
+          if (Array.isArray(musicianIds)) {
+            musicianIds.forEach(id => assignedMusicianIds.add(id));
+          }
+        });
+        
+        // Get all contracts for this event
+        const allContracts = await storage.getContractLinksByEvent(eventId);
+        console.log(`Found ${allContracts.length} total contracts for event ${eventId}`);
+        
+        // Filter contracts to only include assigned musicians
+        const filteredContracts = allContracts.filter(contract => 
+          assignedMusicianIds.has(contract.musicianId)
+        );
+        
+        // Apply additional status filter if provided
+        const statusFilteredContracts = status 
+          ? filteredContracts.filter(c => c.status === status)
+          : filteredContracts;
+        
+        console.log(`Event ${eventId} has ${assignedMusicianIds.size} assigned musicians: ${[...assignedMusicianIds]}`);
+        console.log(`Found ${allContracts.length} contracts, filtered to ${filteredContracts.length}, after status filter: ${statusFilteredContracts.length}`);
+        
+        // Update contracts with latest status from events
+        const updatedContracts = await updateContractsWithEventStatus(statusFilteredContracts);
+        return res.json(updatedContracts);
+      }
+      
+      // Regular contracts endpoint logic (for non-event-specific requests)
       // Build filters object for more flexible filtering
       const filters: { eventId?: number; musicianId?: number; status?: string | string[] } = {};
-      if (eventId && !isNaN(eventId)) filters.eventId = eventId;
       if (musicianId && !isNaN(musicianId)) filters.musicianId = musicianId;
       if (status) filters.status = status;
       
@@ -3272,9 +3312,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get contracts with filters
       let contracts = await storage.getContractLinks(filters);
+      console.log(`Found ${contracts.length} contracts with filters:`, filters);
       
       // Additional validation to only show contracts for musicians actually assigned to events
-      // This fixes the issue of random musicians showing up in contracts
       const validatedContracts = [];
       for (const contract of contracts) {
         // Only include contracts where the musician is actually assigned to the event
@@ -3303,68 +3343,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       contracts = validatedContracts;
+      console.log(`After validation, ${contracts.length} contracts remain`);
       
-      // For each contract, check if there's a more recent status in the event musician statuses
-      const updatedContracts = await Promise.all(contracts.map(async (contract) => {
-        // If we have both event and musician IDs
-        if (contract.eventId && contract.musicianId) {
-          // Get the event to check its musician statuses
-          const event = await storage.getEvent(contract.eventId);
-          if (event && event.musicianStatuses) {
-            // Check if this musician has a status in the event
-            // We need to look at the specific date for the contract, not the global 'all' status
-            let musicianStatus;
-            
-            if (contract.eventDate) {
-              // Convert date to YYYY-MM-DD format
-              const dateStr = new Date(contract.eventDate).toISOString().split('T')[0];
-              
-              // First check date-specific status
-              if (event.musicianStatuses[dateStr] && event.musicianStatuses[dateStr][contract.musicianId]) {
-                musicianStatus = event.musicianStatuses[dateStr][contract.musicianId];
-                console.log(`Found date-specific status for contract ${contract.id} on date ${dateStr}: ${musicianStatus}`);
-              } 
-              // Only fall back to global status if no date-specific status exists
-              else if (event.musicianStatuses.all && event.musicianStatuses.all[contract.musicianId]) {
-                musicianStatus = event.musicianStatuses.all[contract.musicianId];
-                console.log(`Using global status for contract ${contract.id}: ${musicianStatus}`);
-              }
-            } else {
-              // If no date on contract, use global status
-              const allStatuses = event.musicianStatuses.all || {};
-              musicianStatus = allStatuses[contract.musicianId];
-              console.log(`No date on contract ${contract.id}, using global status: ${musicianStatus}`);
-            }
-            
-            // If the event has a status for this musician that's different from the contract's status
-            if (musicianStatus && musicianStatus !== contract.status) {
-              // Only synchronize status if the event status is a valid contract status
-              const validContractStatuses = ['pending', 'contract-sent', 'contract-signed', 'accepted', 'rejected', 'cancelled'];
-              
-              if (validContractStatuses.includes(musicianStatus)) {
-                console.log(`Updating contract ${contract.id} status from ${contract.status} to ${musicianStatus}`);
-                
-                // Update the contract status
-                const updatedContract = await storage.updateContractLink(contract.id, {
-                  status: musicianStatus
-                });
-                
-                return updatedContract || contract;
-              } else {
-                console.log(`Skipping status update for contract ${contract.id} because event status "${musicianStatus}" is not a valid contract status`);
-              }
-            }
-          }
-        }
-        return contract;
-      }));
-      
+      // Update contracts with latest status from events
+      const updatedContracts = await updateContractsWithEventStatus(contracts);
       res.json(updatedContracts);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching contracts" });
     }
   });
+  
+  // Helper function to update contract statuses from event data
+  async function updateContractsWithEventStatus(contracts: any[]) {
+    return Promise.all(contracts.map(async (contract) => {
+      // If we have both event and musician IDs
+      if (contract.eventId && contract.musicianId) {
+        // Get the event to check its musician statuses
+        const event = await storage.getEvent(contract.eventId);
+        if (event && event.musicianStatuses) {
+          // Check if this musician has a status in the event
+          // We need to look at the specific date for the contract, not the global 'all' status
+          let musicianStatus;
+          
+          if (contract.eventDate) {
+            // Convert date to YYYY-MM-DD format
+            const dateStr = new Date(contract.eventDate).toISOString().split('T')[0];
+            
+            // First check date-specific status
+            if (event.musicianStatuses[dateStr] && event.musicianStatuses[dateStr][contract.musicianId]) {
+              musicianStatus = event.musicianStatuses[dateStr][contract.musicianId];
+              console.log(`Found date-specific status for contract ${contract.id} on date ${dateStr}: ${musicianStatus}`);
+            } 
+            // Only fall back to global status if no date-specific status exists
+            else if (event.musicianStatuses.all && event.musicianStatuses.all[contract.musicianId]) {
+              musicianStatus = event.musicianStatuses.all[contract.musicianId];
+              console.log(`Using global status for contract ${contract.id}: ${musicianStatus}`);
+            }
+          } else {
+            // If no date on contract, use global status
+            const allStatuses = event.musicianStatuses.all || {};
+            musicianStatus = allStatuses[contract.musicianId];
+            console.log(`No date on contract ${contract.id}, using global status: ${musicianStatus}`);
+          }
+          
+          // If the event has a status for this musician that's different from the contract's status
+          if (musicianStatus && musicianStatus !== contract.status) {
+            // Only synchronize status if the event status is a valid contract status
+            const validContractStatuses = ['pending', 'contract-sent', 'contract-signed', 'accepted', 'rejected', 'cancelled'];
+            
+            if (validContractStatuses.includes(musicianStatus)) {
+              console.log(`Updating contract ${contract.id} status from ${contract.status} to ${musicianStatus}`);
+              
+              // Update the contract status
+              const updatedContract = await storage.updateContractLink(contract.id, {
+                status: musicianStatus
+              });
+              
+              return updatedContract || contract;
+            } else {
+              console.log(`Skipping status update for contract ${contract.id} because event status "${musicianStatus}" is not a valid contract status`);
+            }
+          }
+        }
+      }
+      return contract;
+    }));
+  }
 
   apiRouter.get("/contracts/:id", isAuthenticated, async (req, res) => {
     try {
@@ -3381,8 +3426,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/contracts/event/:eventId", isAuthenticated, async (req, res) => {
     try {
-      const contracts = await storage.getContractLinksByEvent(parseInt(req.params.eventId));
-      res.json(contracts);
+      const eventId = parseInt(req.params.eventId);
+      
+      // First get the event to check musician assignments
+      const event = await storage.getEvent(eventId);
+      if (!event || !event.musicianAssignments) {
+        return res.status(404).json({ message: "Event not found or has no musician assignments" });
+      }
+      
+      // Extract all musician IDs assigned to this event across all dates
+      const assignedMusicianIds = new Set<number>();
+      Object.values(event.musicianAssignments).forEach(musicianIds => {
+        if (Array.isArray(musicianIds)) {
+          musicianIds.forEach(id => assignedMusicianIds.add(id));
+        }
+      });
+      
+      // Get all contracts for this event
+      const allContracts = await storage.getContractLinksByEvent(eventId);
+      
+      // Filter contracts to only include assigned musicians
+      const filteredContracts = allContracts.filter(contract => 
+        assignedMusicianIds.has(contract.musicianId)
+      );
+      
+      // For logging/debugging
+      console.log(`Event ${eventId} has ${assignedMusicianIds.size} assigned musicians:`);
+      console.log([...assignedMusicianIds]);
+      console.log(`Found ${allContracts.length} contracts, filtered to ${filteredContracts.length}`);
+      
+      res.json(filteredContracts);
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Error fetching contracts for event" });

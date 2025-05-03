@@ -50,10 +50,11 @@ function ContractsTable({ eventId }: ContractsTableProps) {
     isLoading,
     error
   } = useQuery<ContractLink[]>({
-    queryKey: ["/api/contracts", { eventId }],
+    queryKey: ["/api/contracts/event", eventId],
     queryFn: async () => {
-      const res = await fetch(`/api/contracts?eventId=${eventId}`);
+      const res = await fetch(`/api/contracts/event/${eventId}`);
       if (!res.ok) throw new Error("Failed to load contracts");
+      console.log('Loaded contracts for event:', eventId);
       return res.json();
     }
   });
