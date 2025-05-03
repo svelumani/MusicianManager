@@ -594,4 +594,89 @@ export class DatabaseStorage implements IStorage {
 
   // The remaining methods from IStorage would be implemented here, but I'm 
   // focusing only on the planner-related methods for this implementation
+
+  // Musician Pay Rates Management Methods
+  async getMusicianPayRates(): Promise<MusicianPayRate[]> {
+    return await db.select().from(musicianPayRates);
+  }
+
+  async getMusicianPayRate(id: number): Promise<MusicianPayRate | undefined> {
+    const result = await db.select().from(musicianPayRates).where(eq(musicianPayRates.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getMusicianPayRatesByMusicianId(musicianId: number): Promise<MusicianPayRate[]> {
+    return await db.select().from(musicianPayRates).where(eq(musicianPayRates.musicianId, musicianId));
+  }
+
+  async createMusicianPayRate(payRate: InsertMusicianPayRate): Promise<MusicianPayRate> {
+    const result = await db.insert(musicianPayRates).values(payRate).returning();
+    
+    // Add an activity log entry
+    await this.createActivity({
+      type: "pay-rate-created",
+      message: `Pay rate added for musician ID ${payRate.musicianId}`,
+      userId: 1, // Default to admin for now
+      timestamp: new Date(),
+      entityId: result[0].id,
+      entityType: "musician-pay-rate"
+    });
+    
+    return result[0];
+  }
+
+  async updateMusicianPayRate(id: number, data: Partial<InsertMusicianPayRate>): Promise<MusicianPayRate | undefined> {
+    const existingPayRate = await this.getMusicianPayRate(id);
+    if (!existingPayRate) {
+      return undefined;
+    }
+    
+    const result = await db.update(musicianPayRates)
+      .set(data)
+      .where(eq(musicianPayRates.id, id))
+      .returning();
+    
+    if (result.length === 0) {
+      return undefined;
+    }
+    
+    // Add an activity log entry
+    await this.createActivity({
+      type: "pay-rate-updated",
+      message: `Pay rate updated for musician ID ${result[0].musicianId}`,
+      userId: 1, // Default to admin for now
+      timestamp: new Date(),
+      entityId: id,
+      entityType: "musician-pay-rate"
+    });
+    
+    return result[0];
+  }
+
+  async deleteMusicianPayRate(id: number): Promise<boolean> {
+    const payRate = await this.getMusicianPayRate(id);
+    if (!payRate) {
+      return false;
+    }
+    
+    const result = await db.delete(musicianPayRates)
+      .where(eq(musicianPayRates.id, id))
+      .returning();
+    
+    const deleted = result.length > 0;
+    
+    if (deleted) {
+      // Add an activity log entry
+      await this.createActivity({
+        type: "pay-rate-deleted",
+        message: `Pay rate deleted for musician ID ${payRate.musicianId}`,
+        userId: 1, // Default to admin for now
+        timestamp: new Date(),
+        entityId: id,
+        entityType: "musician-pay-rate"
+      });
+    }
+    
+    return deleted;
+  }
 }
