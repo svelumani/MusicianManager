@@ -182,7 +182,8 @@ export const events = pgTable("events", {
   endDate: timestamp("end_date"),
   eventDates: timestamp("event_dates").array(), // Array of dates for multi-day events
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
-  categoryIds: integer("category_ids").array(), // Foreign keys to event_categories
+  eventCategoryId: integer("event_category_id"), // Primary event category for rate calculation
+  categoryIds: integer("category_ids").array(), // Foreign keys to event_categories (legacy, use eventCategoryId instead)
   musicianCategoryIds: integer("musician_category_ids").array(), // Foreign keys to musician_categories (replacing type_id)
   totalPayment: doublePrecision("total_payment"), // Total payment amount for the event
   advancePayment: doublePrecision("advance_payment"), // Advance payment received
@@ -207,7 +208,8 @@ export const insertEventSchema = createInsertSchema(events, {
     venueId: true,
     eventDates: true,
     status: true,
-    categoryIds: true,
+    eventCategoryId: true, // Primary event category for rate calculation
+    categoryIds: true,     // Legacy field
     musicianCategoryIds: true, // Updated to musician category IDs
     totalPayment: true,
     advancePayment: true,
