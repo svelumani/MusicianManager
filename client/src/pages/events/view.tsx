@@ -680,15 +680,38 @@ export default function ViewEventPage() {
                                       {(() => {
                                         // Find a matching rate for this musician and event
                                         const musicianRates = musicianPayRates.filter((rate: any) => 
-                                          rate.musicianId === musicianId && 
-                                          (!event.musicianCategoryIds || event.musicianCategoryIds.includes(rate.eventCategoryId))
+                                          rate.musicianId === musicianId && (
+                                            // Match with event's category if available
+                                            (event.musicianCategoryIds && event.musicianCategoryIds.length > 0 && 
+                                             event.musicianCategoryIds.includes(rate.eventCategoryId)) ||
+                                            // If no category match, include all rates for this musician
+                                            (!event.musicianCategoryIds || event.musicianCategoryIds.length === 0)
+                                          )
                                         );
                                         
+                                        // Log for debugging
+                                        console.log("Musician rates for musician", musicianId, ":", musicianRates);
+                                        
                                         if (musicianRates && musicianRates.length > 0) {
-                                          const rate = musicianRates[0];
+                                          // Try to find the best rate to display
+                                          
+                                          // First, try to find a rate that matches one of the event categories
+                                          const categoryMatchRate = event.musicianCategoryIds 
+                                            ? musicianRates.find(rate => 
+                                                event.musicianCategoryIds.includes(rate.eventCategoryId)
+                                              )
+                                            : null;
+                                          
+                                          // If no category match, just use the first rate
+                                          const rate = categoryMatchRate || musicianRates[0];
+                                          
+                                          // Choose which rate to display (prioritize hourly rate, then day rate, then event rate)
+                                          const displayRateValue = rate.hourlyRate || rate.dayRate || rate.eventRate || 0;
+                                          const rateType = rate.hourlyRate ? '/hr' : (rate.dayRate ? '/day' : '/event');
+                                          
                                           return (
                                             <div className="flex items-center">
-                                              <span className="font-medium mr-2">${rate.hourlyRate ? rate.hourlyRate.toFixed(2) : '0.00'}/hr</span>
+                                              <span className="font-medium mr-2">${displayRateValue.toFixed(2)}{rateType}</span>
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
