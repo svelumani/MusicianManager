@@ -4309,11 +4309,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
   
+  /**
+   * Generates, renders and stores the contract content at creation time.
+   * This ensures that the content viewed by the musician matches
+   * exactly what is shown in the admin interface.
+   */
+  async function generateAndStoreContractContent(contractId: number): Promise<void> {
+    try {
+      // Render the content
+      const renderedContent = await renderContractContent(contractId);
+      
+      // Store the rendered content in the centralized status system
+      const { statusService, ENTITY_TYPES } = await import('./services/status');
+      
+      // Update contract content in the centralized system
+      await statusService.updateEntityStatus(
+        ENTITY_TYPES.CONTRACT,
+        contractId,
+        'contract-sent', // Use the same status, we'll just update metadata
+        0, // No specific user ID for automated actions
+        `Contract content generated and stored`,
+        0, // No specific event ID needed for this operation
+        {
+          renderedContent: renderedContent,
+          generatedAt: new Date().toISOString(),
+          templateVersion: 1, // Could track template versions in the future
+        },
+        true // Keep existing status, just update metadata
+      );
+      
+      console.log(`Contract content for contract ID ${contractId} has been generated and stored`);
+    } catch (error) {
+      console.error("Error generating and storing contract content:", error);
+    }
+  }
+  
   // Endpoint to get rendered contract content
   apiRouter.get("/contracts/:id/content", isAuthenticated, async (req, res) => {
     try {
       const contractId = parseInt(req.params.id);
-      const content = await renderContractContent(contractId);
+      
+      // Try to get stored content first from status system
+      let content = null;
+      try {
+        const { statusService, ENTITY_TYPES } = await import('./services/status');
+        const statusEntries = await statusService.getEntityStatuses(
+          ENTITY_TYPES.CONTRACT,
+          contractId
+        );
+        
+        // Find the latest status entry with rendered content
+        const contentEntry = statusEntries.find(entry => 
+          entry.metadata && entry.metadata.renderedContent
+        );
+        
+        if (contentEntry && contentEntry.metadata && contentEntry.metadata.renderedContent) {
+          content = contentEntry.metadata.renderedContent;
+          console.log(`Using stored contract content for contract ID ${contractId}`);
+        }
+      } catch (e) {
+        console.error("Error retrieving stored contract content:", e);
+      }
+      
+      // If no stored content found, generate it on the fly
+      if (!content) {
+        content = await renderContractContent(contractId);
+        console.log(`Generated fresh contract content for contract ID ${contractId}`);
+      }
+      
       res.json({ content });
     } catch (error) {
       console.error("Error getting contract content:", error);
