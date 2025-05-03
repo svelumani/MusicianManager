@@ -169,9 +169,15 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
   const getEventsForDate = (date: Date): EventData[] => {
     if (!calendarData || !calendarData.events) return [];
     
-    return calendarData.events.filter(event => 
-      isSameDay(new Date(event.date), date)
-    );
+    // Make sure to properly parse the date strings to Date objects
+    return calendarData.events.filter(event => {
+      // Handle cases where event.date might be a string or Date object
+      const eventDate = typeof event.date === 'string' 
+        ? new Date(event.date) 
+        : event.date;
+      
+      return isSameDay(eventDate, date);
+    });
   };
   
   // Helper function to determine the event status class
@@ -209,30 +215,39 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
     
     return (
       <div className="absolute bottom-1 right-1 left-1 flex flex-col gap-0.5">
-        {events.map((event, index) => (
-          <TooltipProvider key={`${event.eventId}-${index}`}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div 
-                  className={`${getEventStatusClass(event.contractStatus)} rounded-sm h-1.5 cursor-pointer`} 
-                />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[250px]">
-                <div className="text-xs space-y-1">
-                  <p className="font-semibold">{event.venueName}</p>
-                  <div className="flex items-center gap-1">
-                    <CalendarIcon className="h-3 w-3" />
-                    <span>{format(new Date(event.date), "PPP")}</span>
+        {events.map((event, index) => {
+          // Default values for missing data
+          const contractStatus = event.contractStatus || 'pending';
+          const venueName = event.venueName || 'Venue information unavailable';
+          const eventDate = typeof event.date === 'string' ? new Date(event.date) : event.date;
+          const displayDate = isValid(eventDate) ? format(eventDate, "PPP") : format(date, "PPP");
+          
+          return (
+            <TooltipProvider key={`${event.eventId || index}-${index}`}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div 
+                    className={`${getEventStatusClass(contractStatus)} rounded-sm h-1.5 cursor-pointer`} 
+                  />
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[250px]">
+                  <div className="text-xs space-y-1">
+                    <p className="font-semibold">{event.eventTitle || 'Event'}</p>
+                    <p className="text-muted-foreground">{venueName}</p>
+                    <div className="flex items-center gap-1">
+                      <CalendarIcon className="h-3 w-3" />
+                      <span>{displayDate}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="font-medium">Status:</span>
+                      <span className="capitalize">{contractStatus.replace('-', ' ')}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium">Status:</span>
-                    <span className="capitalize">{event.contractStatus.replace('-', ' ')}</span>
-                  </div>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ))}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        })}
       </div>
     );
   };
