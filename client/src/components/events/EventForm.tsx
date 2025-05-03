@@ -234,11 +234,31 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   });
 
   // Update the form when selectedDates changes
+  // We need to carefully control when this runs to avoid infinite loops
   useEffect(() => {
-    if (selectedDates.length > 0) {
-      form.setValue('eventDates', selectedDates);
+    // Only update if values actually differ - shallow equality isn't enough
+    const currentFormDates = form.getValues('eventDates') || [];
+    
+    // Skip update if both are empty
+    if (selectedDates.length === 0 && currentFormDates.length === 0) {
+      return;
     }
-  }, [selectedDates, form]);
+    
+    // Skip if they have same length and all dates match
+    if (currentFormDates.length === selectedDates.length) {
+      const allMatch = currentFormDates.every((date, index) => {
+        if (!date || !selectedDates[index]) return false;
+        return format(date, 'yyyy-MM-dd') === format(selectedDates[index], 'yyyy-MM-dd');
+      });
+      
+      if (allMatch) return;
+    }
+    
+    // Only update if there are actually changes
+    if (selectedDates.length > 0) {
+      form.setValue('eventDates', selectedDates, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [selectedDates]);
 
   // Handle multi-day date selection
   const handleMultiDateSelect = (date: Date | undefined) => {
@@ -269,14 +289,17 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   );
   
   // When selectedDates changes, set the active date to the first date if not already set
+  // Only watching selectedDates to avoid potential infinite loops
   useEffect(() => {
+    // Only update active date if necessary to prevent infinite loops
     if (selectedDates.length > 0 && !activeDate) {
+      // We have dates but no active date - set the first one as active
       setActiveDate(selectedDates[0]);
-    } else if (selectedDates.length === 0) {
-      // If all dates are removed, clear the active date
+    } else if (selectedDates.length === 0 && activeDate) {
+      // We have no dates but still have an active date - clear it
       setActiveDate(null);
     }
-  }, [selectedDates, activeDate]);
+  }, [selectedDates]);
   
   // Add an info alert at the top of the musicians section if there are selected dates
   const renderAvailabilityInfo = () => {
@@ -297,14 +320,15 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   };
   
   // Extra effect to fetch musicians when editing an event with existing musician categories or types
+  // We only want this to run once on component mount, hence the empty dependency array
   useEffect(() => {
+    // This is initialization code so we only want it to run once
     console.log("Initial musician data:", { 
       categoryIds: initialData?.musicianCategoryIds,
       typeIds: initialData?.musicianTypeIds 
     });
     
-    // Only run this effect once on initial render if initialData is available
-    // Support both legacy typeIds and new categoryIds
+    // Only run this if initialData and form are available
     if ((initialData?.musicianCategoryIds?.length > 0 || initialData?.musicianTypeIds?.length > 0) && form) {
       const categoryIds = initialData?.musicianCategoryIds || initialData?.musicianTypeIds || [];
       console.log("Setting form musicianCategoryIds", categoryIds);
@@ -317,7 +341,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       // Update the musicianAssignments state with the initial assignments
       setMusicianAssignments(initialData.musicianAssignments);
     }
-  }, [initialData, form]);
+  }, []);
   
   // Function to check if a musician is available on a specific date
   const isMusicianAvailableForDate = (musicianId: number, date: Date): boolean => {
