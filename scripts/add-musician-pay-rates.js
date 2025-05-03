@@ -90,15 +90,22 @@ async function addMusicianPayRates() {
         const adjustedDailyRate = adjustRateForExperience(dailyRate, experienceLevel);
         const adjustedEventRate = adjustRateForExperience(eventRate, experienceLevel);
         
-        // Insert into database
-        await db.insert(musicianPayRates).values({
+        // Ensure all rates are properly set
+        const payRateData = {
           musicianId: musician.id,
           eventCategoryId: category.id,
           hourlyRate: adjustedHourlyRate,
-          dailyRate: adjustedDailyRate,
+          dayRate: adjustedDailyRate, // Correct field name is dayRate, not dailyRate
           eventRate: adjustedEventRate,
           notes: `Auto-generated based on average rates for ${category.title}`
-        });
+        };
+        
+        // Debug log to verify values
+        console.log(`Inserting rates for ${musician.name} - ${category.title}`, 
+          { hourly: payRateData.hourlyRate, daily: payRateData.dayRate, event: payRateData.eventRate });
+        
+        // Insert into database
+        await db.insert(musicianPayRates).values(payRateData);
         
         console.log(`Added pay rate for ${musician.name} - ${category.title}: $${adjustedHourlyRate}/hr, $${adjustedDailyRate}/day, $${adjustedEventRate}/event`);
         totalRatesAdded++;
