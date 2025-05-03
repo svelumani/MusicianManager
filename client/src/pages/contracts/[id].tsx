@@ -187,22 +187,39 @@ export default function ContractDetailPage() {
                 </div>
               </div>
               
-              {contract.signature && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="font-medium mb-2">Signature</h3>
-                    <div className="border rounded-md p-4">
-                      <div className="font-medium italic text-primary">
-                        {contract.signature}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Signed on {format(new Date(contract.signedAt || contract.updatedAt), "MMMM d, yyyy")}
-                      </div>
+              <Separator />
+              <div>
+                <h3 className="font-medium mb-2">Signatures</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="border rounded-md p-4">
+                    <h4 className="text-sm font-medium mb-1">Company</h4>
+                    <div className="font-medium italic text-primary">
+                      {contract.companySignature || "VAMP Management"}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      Signed on {format(new Date(contract.companySignedAt || contract.createdAt), "MMMM d, yyyy")}
                     </div>
                   </div>
-                </>
-              )}
+                  
+                  <div className="border rounded-md p-4">
+                    <h4 className="text-sm font-medium mb-1">Musician</h4>
+                    {contract.signature ? (
+                      <>
+                        <div className="font-medium italic text-primary">
+                          {contract.signature}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Signed on {format(new Date(contract.signedAt || contract.updatedAt), "MMMM d, yyyy")}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-muted-foreground italic">
+                        Not yet signed
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </CardContent>
             {/* Footer content removed */}
           </Card>
@@ -253,8 +270,14 @@ export default function ContractDetailPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="font-medium mb-2">CLIENT:</p>
-                        <div className="border-b border-dashed h-8 mb-2"></div>
-                        <p className="text-sm">Date: ________________</p>
+                        <div className="border-b h-8 mb-2 flex items-end">
+                          <span className="font-medium italic text-primary">
+                            {contract.companySignature || "VAMP Management"}
+                          </span>
+                        </div>
+                        <p className="text-sm">
+                          Date: {contract.companySignedAt ? format(new Date(contract.companySignedAt), "MM/dd/yyyy") : format(new Date(contract.createdAt), "MM/dd/yyyy")}
+                        </p>
                       </div>
                       
                       <div>
