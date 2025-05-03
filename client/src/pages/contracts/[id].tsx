@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -11,37 +10,20 @@ import {
   Clock, 
   Loader2,
   XCircle,
-  FilePenLine,
-  Check,
   FileSignature
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import StatusBadge from "@/components/StatusBadge";
 import StatusHistory from "@/components/StatusHistory";
-import { useEntityStatus, useSignContract, useCancelContract } from "@/hooks/use-status";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEntityStatus } from "@/hooks/use-status";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 export default function ContractDetailPage() {
   const [, params] = useRoute("/contracts/:id");
   const [, navigate] = useLocation();
   const contractId = parseInt(params?.id || "0");
-  const [isSignDialogOpen, setIsSignDialogOpen] = useState(false);
-  const [signature, setSignature] = useState("");
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
   const { toast } = useToast();
   
   const { data: contract, isLoading, error } = useQuery({
@@ -82,47 +64,6 @@ export default function ContractDetailPage() {
   
   // Use the status hooks
   const { data: contractStatus } = useEntityStatus('contract', contractId);
-  const signContractMutation = useSignContract();
-  const cancelContractMutation = useCancelContract();
-  
-  const handleSignContract = () => {
-    if (!signature.trim()) {
-      toast({
-        title: "Signature Required",
-        description: "Please enter your signature to sign the contract.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    signContractMutation.mutate({
-      contractId: contractId,
-      eventId: contract.eventId,
-      musicianId: contract.musicianId,
-      eventDate: contract.eventDate,
-      signature: signature
-    }, {
-      onSuccess: () => {
-        setIsSignDialogOpen(false);
-        setSignature("");
-      }
-    });
-  };
-  
-  const handleCancelContract = () => {
-    cancelContractMutation.mutate({
-      contractId: contractId,
-      eventId: contract.eventId,
-      musicianId: contract.musicianId,
-      eventDate: contract.eventDate,
-      reason: cancelReason
-    }, {
-      onSuccess: () => {
-        setIsCancelDialogOpen(false);
-        setCancelReason("");
-      }
-    });
-  };
   
   if (isLoading) {
     return (
@@ -263,92 +204,7 @@ export default function ContractDetailPage() {
                 </>
               )}
             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-              {contract.status !== "accepted" && contract.status !== "rejected" && contract.status !== "cancelled" && (
-                <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="destructive">
-                      <XCircle className="h-4 w-4 mr-2" /> Cancel Contract
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Cancel Contract</DialogTitle>
-                      <DialogDescription>
-                        Are you sure you want to cancel this contract? This action cannot be undone.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-3 py-3">
-                      <Label htmlFor="cancelReason">Reason for Cancellation (Optional)</Label>
-                      <Input
-                        id="cancelReason"
-                        placeholder="Enter reason for cancellation"
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsCancelDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        onClick={handleCancelContract}
-                        disabled={cancelContractMutation.isPending}
-                      >
-                        {cancelContractMutation.isPending && (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        )}
-                        Confirm Cancellation
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-              
-              {contract.status === "contract-sent" && (
-                <Dialog open={isSignDialogOpen} onOpenChange={setIsSignDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button>
-                      <FilePenLine className="h-4 w-4 mr-2" /> Sign Contract
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Sign Contract</DialogTitle>
-                      <DialogDescription>
-                        By signing this contract, you agree to all the terms and conditions.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-3 py-3">
-                      <Label htmlFor="signature">Signature (type your full name)</Label>
-                      <Input
-                        id="signature"
-                        placeholder="Type your full name as signature"
-                        value={signature}
-                        onChange={(e) => setSignature(e.target.value)}
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsSignDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleSignContract}
-                        disabled={signContractMutation.isPending}
-                      >
-                        {signContractMutation.isPending ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <Check className="h-4 w-4 mr-2" />
-                        )}
-                        Sign Contract
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
-            </CardFooter>
+            {/* Footer content removed */}
           </Card>
           
           {/* Contract Content */}
