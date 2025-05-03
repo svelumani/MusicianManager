@@ -66,7 +66,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
-    queryKey: ['/api/planner-assignments'],
+    queryKey: ['/api/planner-assignments', planner?.id, plannerSlots],
     queryFn: () => {
       if (!plannerSlots || plannerSlots.length === 0) return [];
       const slotIds = plannerSlots.map((slot: any) => slot.id);
@@ -150,7 +150,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Handle musician assignment
   const handleMusicianAssigned = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', planner?.id, plannerSlots] });
   };
 
   // Refresh data
