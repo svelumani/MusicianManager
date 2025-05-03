@@ -989,10 +989,11 @@ export class DatabaseStorage implements IStorage {
     
     // Create activity log
     await this.createActivity({
-      type: 'event',
+      entityType: 'event',
+      entityId: newEvent.id, // Add the event ID
       action: 'create',
       userId: 1, // Default admin user
-      details: `Created new event: ${newEvent.title}`
+      details: `Created new event: ${newEvent.name}`
     });
     
     return newEvent;
@@ -1007,10 +1008,11 @@ export class DatabaseStorage implements IStorage {
     // Create activity log
     if (updated) {
       await this.createActivity({
-        type: 'event',
+        entityType: 'event',
+        entityId: updated.id,
         action: 'update',
         userId: 1, // Default admin user
-        details: `Updated event: ${updated.title}`
+        details: `Updated event: ${updated.name}`
       });
     }
     
@@ -1027,10 +1029,11 @@ export class DatabaseStorage implements IStorage {
     // Create activity log
     if (result.rowCount > 0 && event) {
       await this.createActivity({
-        type: 'event',
+        entityType: 'event',
+        entityId: event.id,
         action: 'delete',
         userId: 1, // Default admin user
-        details: `Deleted event: ${event.title}`
+        details: `Deleted event: ${event.name}`
       });
     }
     
