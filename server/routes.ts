@@ -1201,7 +1201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // If the status is 'accepted' or 'contract-sent', create a contract
+      // If the status is 'accepted' or 'contract-sent', create a contract (if one doesn't already exist)
       if (status === 'accepted' || status === 'contract-sent') {
         try {
           // Get the musician data
@@ -1209,60 +1209,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!musician) {
             console.error(`Error: Musician with ID ${musicianId} not found`);
           } else {
-            // Find latest booking for this musician and event
-            const bookings = await storage.getBookingsByEventAndMusician(eventId, musicianId);
-            let bookingId = 0;
-            let invitationId = 0;
-            
-            if (bookings && bookings.length > 0) {
-              bookingId = bookings[0].id;
-              // If booking exists, it should have an invitation ID
-              invitationId = bookings[0].invitationId;
-            }
-            
-            // If we don't have an invitation ID from booking, try to find one
-            if (invitationId === 0) {
-              // Get invitations for this musician and event
-              const invitations = await storage.getInvitationsByEventAndMusician(eventId, musicianId);
-              if (invitations && invitations.length > 0) {
-                invitationId = invitations[0].id;
-              } else {
-                console.error(`No invitation found for musician ${musicianId} in event ${eventId}`);
-                return; // Can't proceed without an invitation ID
-              }
-            }
-            
-            // Generate a unique token for the contract
-            const token = crypto.randomBytes(32).toString('hex');
-            
-            // Calculate expiry date (7 days from now)
-            const expiresAt = new Date();
-            expiresAt.setDate(expiresAt.getDate() + 7);
-            
-            // Create a contract link
-            const contractData = {
-              bookingId,
+            // First, check if there's already an active contract for this musician/event combination
+            const existingContracts = await storage.getContractLinks({
               eventId,
               musicianId,
-              invitationId, // Add the invitation ID
-              token,
-              expiresAt,
-              status: 'pending',
-              eventDate: dateStr ? new Date(dateStr) : undefined
-            };
+              status: ['pending', 'accepted'] // Only consider active contracts
+            });
             
-            // Create the contract link
-            const contract = await storage.createContractLink(contractData);
-            console.log(`Created contract with ID ${contract.id} for musician ${musicianId}`);
-            
-            // After creating the contract, update the status to "contract-sent" instead of keeping it as "accepted"
-            if (status === 'accepted') {
-              await storage.updateMusicianEventStatusForDate(eventId, musicianId, 'contract-sent', dateStr || '');
+            // Only create a new contract if there are no active contracts
+            if (!existingContracts || existingContracts.length === 0) {
+              console.log(`No active contracts found for musician ${musicianId} in event ${eventId}. Creating new contract.`);
+              
+              // Find latest booking for this musician and event
+              const bookings = await storage.getBookingsByEventAndMusician(eventId, musicianId);
+              let bookingId = 0;
+              let invitationId = 0;
+              
+              if (bookings && bookings.length > 0) {
+                bookingId = bookings[0].id;
+                // If booking exists, it should have an invitation ID
+                invitationId = bookings[0].invitationId;
+              }
+              
+              // If we don't have an invitation ID from booking, try to find one
+              if (invitationId === 0) {
+                // Get invitations for this musician and event
+                const invitations = await storage.getInvitationsByEventAndMusician(eventId, musicianId);
+                if (invitations && invitations.length > 0) {
+                  invitationId = invitations[0].id;
+                } else {
+                  console.error(`No invitation found for musician ${musicianId} in event ${eventId}`);
+                  return; // Can't proceed without an invitation ID
+                }
+              }
+              
+              // Generate a unique token for the contract
+              const token = crypto.randomBytes(32).toString('hex');
+              
+              // Calculate expiry date (7 days from now)
+              const expiresAt = new Date();
+              expiresAt.setDate(expiresAt.getDate() + 7);
+              
+              // Create a contract link
+              const contractData = {
+                bookingId,
+                eventId,
+                musicianId,
+                invitationId, // Add the invitation ID
+                token,
+                expiresAt,
+                status: 'pending',
+                eventDate: dateStr ? new Date(dateStr) : undefined
+              };
+              
+              // Create the contract link
+              const contract = await storage.createContractLink(contractData);
+              console.log(`Created contract with ID ${contract.id} for musician ${musicianId}`);
+              
+              // After creating the contract, update the status to "contract-sent" instead of keeping it as "accepted"
+              if (status === 'accepted') {
+                await storage.updateMusicianEventStatusForDate(eventId, musicianId, 'contract-sent', dateStr || '');
+              }
+            } else {
+              console.log(`Active contract already exists for musician ${musicianId} in event ${eventId}. ID: ${existingContracts[0].id}`);
+              
+              // Ensure the status is correctly set to "contract-sent" regardless
+              if (status === 'accepted') {
+                await storage.updateMusicianEventStatusForDate(eventId, musicianId, 'contract-sent', dateStr || '');
+              }
             }
           }
         } catch (contractError) {
-          console.error("Error creating contract:", contractError);
-          // Don't fail the request if contract creation fails
+          console.error("Error handling contract:", contractError);
+          // Don't fail the request if contract handling fails
         }
       }
       
@@ -1342,11 +1361,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.put("/events/:id", isAuthenticated, async (req, res) => {
     try {
+      const eventId = parseInt(req.params.id);
+      
+      // Get existing musician statuses before updating event
+      const existingStatuses = await storage.getEventMusicianStatuses(eventId);
+      
       const eventData = insertEventSchema.partial().parse(req.body);
-      const event = await storage.updateEvent(parseInt(req.params.id), eventData);
+      
+      // Get the musician assignments from the request
+      const musicianAssignments = eventData.musicianAssignments;
+      
+      // Update the event
+      const event = await storage.updateEvent(eventId, eventData);
       if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
+      
+      // If we have updated assignments and statuses, ensure we don't lose existing statuses
+      if (musicianAssignments && existingStatuses) {
+        console.log("Processing musician assignments update for event", eventId, musicianAssignments);
+        
+        // For each date in the assignments
+        for (const [dateStr, musicianIds] of Object.entries(musicianAssignments)) {
+          // For each musician that has been assigned
+          for (const musicianId of musicianIds as number[]) {
+            // Check if this musician already has a status for this date
+            const statusKey = 'all'; // Most status updates use 'all' as the key
+            const existingStatus = existingStatuses[statusKey]?.[musicianId];
+            
+            // If there was a previous status, ensure it's preserved
+            if (existingStatus && ['contract-sent', 'contract-signed'].includes(existingStatus)) {
+              // Preserve the existing status
+              await storage.updateMusicianEventStatusForDate(eventId, musicianId, existingStatus, dateStr);
+              console.log(`Preserved status "${existingStatus}" for musician ${musicianId} on date ${dateStr}`);
+            }
+          }
+        }
+      }
+      
       res.json(event);
     } catch (error) {
       if (error instanceof z.ZodError) {
