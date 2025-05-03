@@ -2251,8 +2251,9 @@ export class DatabaseStorage implements IStorage {
     if (updated) {
       // Create activity
       await this.createActivity({
-        type: 'planner',
         action: 'update',
+        entityType: 'monthly_planner',
+        entityId: updated.id,
         userId: 1,
         details: `Updated monthly planner for ${format(new Date(updated.year, updated.month - 1), 'MMMM yyyy')}`
       });
@@ -2291,8 +2292,9 @@ export class DatabaseStorage implements IStorage {
     // Create activity log
     if (result.rowCount > 0 && planner) {
       await this.createActivity({
-        type: 'planner',
         action: 'delete',
+        entityType: 'monthly_planner',
+        entityId: id,
         userId: 1,
         details: `Deleted monthly planner for ${format(new Date(planner.year, planner.month - 1), 'MMMM yyyy')}`
       });
@@ -2398,8 +2400,9 @@ export class DatabaseStorage implements IStorage {
     
     if (musician && slot) {
       await this.createActivity({
-        type: 'assignment',
         action: 'create',
+        entityType: 'planner_assignment',
+        entityId: newAssignment.id,
         userId: 1,
         details: `Assigned ${musician.name} to ${slot.venue} on ${format(slot.date, 'yyyy-MM-dd')}`
       });
@@ -2431,8 +2434,9 @@ export class DatabaseStorage implements IStorage {
       
       if (musician && slot) {
         await this.createActivity({
-          type: 'assignment',
           action: 'delete',
+          entityType: 'planner_assignment',
+          entityId: id,
           userId: 1,
           details: `Removed ${musician.name} from ${slot.venue} on ${format(slot.date, 'yyyy-MM-dd')}`
         });
@@ -2460,8 +2464,9 @@ export class DatabaseStorage implements IStorage {
       
       if (musician && slot) {
         await this.createActivity({
-          type: 'attendance',
           action: 'mark',
+          entityType: 'attendance',
+          entityId: updated.id,
           userId,
           details: `Marked ${musician.name} as ${status} for ${slot.venue} on ${format(slot.date, 'yyyy-MM-dd')}`
         });
@@ -2658,7 +2663,8 @@ export class DatabaseStorage implements IStorage {
       
       if (musician) {
         await this.createActivity({
-          type: 'invoice',
+          entityType: 'monthly_invoice',
+          entityId: updated.id,
           action: 'finalize',
           userId: 1,
           details: `Finalized invoice for ${musician.name} for ${format(new Date(updated.year, updated.month - 1), 'MMMM yyyy')}`
@@ -2685,7 +2691,8 @@ export class DatabaseStorage implements IStorage {
       
       if (musician) {
         await this.createActivity({
-          type: 'invoice',
+          entityType: 'monthly_invoice',
+          entityId: updated.id,
           action: 'paid',
           userId: 1,
           details: `Marked invoice for ${musician.name} as paid for ${format(new Date(updated.year, updated.month - 1), 'MMMM yyyy')}`
