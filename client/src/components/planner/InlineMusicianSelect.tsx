@@ -321,6 +321,24 @@ const InlineMusicianSelect = ({
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Confirm button */}
+              {currentAssignments && currentAssignments.length > 0 && (
+                <Button 
+                  className="w-full mt-4" 
+                  variant="default"
+                  onClick={() => {
+                    onMusicianAssigned && onMusicianAssigned();
+                    toast({
+                      title: "Success",
+                      description: "Assignments confirmed and updated in the planner",
+                    });
+                    onClose();
+                  }}
+                >
+                  <Check className="h-4 w-4 mr-2" /> Confirm
+                </Button>
+              )}
             </div>
           </div>
         </TabsContent>
