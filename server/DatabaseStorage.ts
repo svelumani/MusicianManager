@@ -185,18 +185,20 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateMusicianEventStatusForDate(eventId: number, musicianId: number, status: string, dateStr: string): Promise<boolean> {
+    console.log(`Updating status to ${status} for musician ${musicianId} in event ${eventId} on date ${dateStr}`);
     const date = new Date(dateStr);
     
     if (!isValid(date)) {
       throw new Error('Invalid date format');
     }
     
-    // Find invitation for this event and musician
+    // Find invitation for this event and musician (global one without date)
     const invites = await db.select()
       .from(invitations)
       .where(and(
         eq(invitations.eventId, eventId),
-        eq(invitations.musicianId, musicianId)
+        eq(invitations.musicianId, musicianId),
+        isNull(invitations.date)
       ));
     
     // Check for date-specific invitation first
@@ -208,26 +210,42 @@ export class DatabaseStorage implements IStorage {
         eq(invitations.date, date)
       ));
     
+    console.log(`Found ${dateSpecificInvites.length} date-specific invitations and ${invites.length} global invitations`);
+    
     if (dateSpecificInvites.length > 0) {
       // Update existing date-specific invitation
       console.log(`Updating existing date-specific invitation ${dateSpecificInvites[0].id} with status ${status} for date ${dateStr}`);
       await db.update(invitations)
-        .set({ status, updatedAt: new Date() })
+        .set({ 
+          status, 
+          updatedAt: new Date(),
+          respondedAt: status !== 'invited' ? new Date() : dateSpecificInvites[0].respondedAt 
+        })
         .where(eq(invitations.id, dateSpecificInvites[0].id));
+        
+      return true;
     } else if (invites.length > 0) {
       // If no date-specific invitation but we have a general one,
       // create a new date-specific one based on the general invitation
       console.log(`Creating new date-specific invitation for existing musician ${musicianId} in event ${eventId} with status ${status} for date ${dateStr}`);
-      await db.insert(invitations).values({
+      
+      const newInvitation = {
         eventId,
         musicianId,
         invitedAt: new Date(),
         status,
-        date, // Important! Store the date
+        date, // Store the specific date this status applies to
+        updatedAt: new Date(),
+        respondedAt: status !== 'invited' ? new Date() : null,
         email: invites[0].email,
         messageSubject: `Event Invitation for ${dateStr}`,
-        messageBody: `You have been invited to an event on ${dateStr}.`
-      });
+        messageBody: `You have been invited to an event on ${dateStr}.`,
+        reminders: 0,
+        lastReminderAt: null,
+        responseMessage: null
+      };
+      
+      await db.insert(invitations).values(newInvitation);
     } else {
       // No invitation exists at all, create a new one with the date
       console.log(`Creating completely new invitation for musician ${musicianId} in event ${eventId} with status ${status} for date ${dateStr}`);
