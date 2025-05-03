@@ -361,12 +361,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     // Calculate hours for the performance (default to 2 if not specified)
     const hours = slot.duration || 2;
     
-    // Determine the event category - Corporate Events is typically category ID 1, but slot may specify another
-    const eventCategoryId = slot.eventCategoryId || 1; // Default to corporate events if not specified
+    // TEMPORARY FIX: Hardcode to Corporate Events (ID 2) per client request
+    const eventCategoryId = 2; // Hardcoded to Corporate Events
     
     // Get category name for logging/debugging
     const eventCategory = eventCategories?.find((cat: any) => cat.id === eventCategoryId);
-    const categoryName = eventCategory?.title || "Unknown Event Type";
+    const categoryName = "Corporate Events"; // Hardcoded name
     
     console.log(`⚠️ Calculating fee for Assignment ${assignment.id} - Musician ${musician.name} for event category ${categoryName} (${eventCategoryId})`);
     
@@ -599,9 +599,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                             >
                               {assignments.length > 0 ? (
                                 <div className="space-y-1">
-                                  {slot && slot.eventCategoryId && (
+                                  {slot && (
                                     <div className="text-xs font-semibold border-b pb-1 pt-0 mb-1 text-blue-700">
-                                      {eventCategories?.find((c: any) => c.id === slot.eventCategoryId)?.title || "Event"}
+                                      Corporate Events
                                       {slot.duration && <span className="float-right">{slot.duration}h</span>}
                                     </div>
                                   )}
@@ -612,27 +612,25 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                     
                                     // Get hourly rate information for tooltip
                                     const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
-                                    const eventCategoryId = slot?.eventCategoryId || 1;
+                                    // TEMPORARY FIX: Hardcode to Corporate Events (ID 2) per client request
+                                    const eventCategoryId = 2; // Hardcoded to Corporate Events
                                     const hours = slot?.duration || 2;
                                     let hourlyRate = 0;
                                     let rateSource = "unknown";
                                     
-                                    // Get event category name for debugging
-                                    const eventCategory = eventCategories?.find((cat: any) => cat.id === eventCategoryId);
-                                    const categoryName = eventCategory?.title || "Unknown Event Type";
-                                    
-                                    console.log(`Assignment ${assignment.id} - Musician ${musician?.name} (ID: ${musician?.id}) - Event Category: ${categoryName} (ID: ${eventCategoryId})`);
+                                    // Hardcoded name
+                                    const categoryName = "Corporate Events";
                                     
                                     if (musician && payRates && Array.isArray(payRates)) {
                                       // Find all rates for this musician to debug
                                       const allRatesForMusician = payRates.filter((rate: PayRate) => rate.musicianId === musician.id);
                                       console.log(`Found ${allRatesForMusician.length} pay rates for ${musician.name}:`);
-                                      allRatesForMusician.forEach((rate: PayRate) => {
-                                        const rateCat = eventCategories?.find((cat: any) => cat.id === rate.categoryId);
-                                        console.log(`- Category: ${rateCat?.title || rate.categoryId} - Rate: $${rate.hourlyRate}/hr`);
-                                      });
                                       
-                                      // Look for exact match for this event category
+                                      // Debug corporate event rates
+                                      const corpRates = payRates.filter((rate: PayRate) => rate.categoryId === 2);
+                                      console.log(`Found ${corpRates.length} Corporate Events rates`);
+                                      
+                                      // Look for exact match for Corporate Events category
                                       const matchingPayRate = payRates.find((rate: PayRate) => 
                                         rate.musicianId === musician.id && 
                                         rate.categoryId === eventCategoryId
@@ -640,12 +638,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                       
                                       if (matchingPayRate) {
                                         hourlyRate = matchingPayRate.hourlyRate;
-                                        rateSource = `rate for ${categoryName}`;
-                                        console.log(`✓ Found specific rate: $${hourlyRate}/hr for ${categoryName}`);
+                                        rateSource = `Corporate rate`;
+                                        console.log(`✓ Found Corporate rate: $${hourlyRate}/hr for ${musician.name}`);
                                       } else if (musician.payRate) {
                                         hourlyRate = musician.payRate;
                                         rateSource = "default rate";
-                                        console.log(`⚠ No specific rate found for ${categoryName}. Using default: $${hourlyRate}/hr`);
+                                        console.log(`⚠ No corporate rate found. Using default: $${hourlyRate}/hr`);
                                       } else if (musician.categoryId) {
                                         hourlyRate = getCategoryDefaultRate(musician.categoryId);
                                         rateSource = getMusicianCategory(musician.id) + " default";
