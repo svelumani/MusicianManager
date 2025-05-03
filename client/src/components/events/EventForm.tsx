@@ -392,26 +392,28 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     // Use a consistent date string format
     const dateKey = format(date, 'yyyy-MM-dd');
     
-    // Check if musician is already assigned to this date
-    const isCurrentlyAssigned = musicianAssignments[dateKey]?.includes(musicianId) || false;
-    
-    // Check if musician is available for this specific date (only if not already assigned)
-    if (!isCurrentlyAssigned) {
-      const isAvailable = isMusicianAvailableForDate(musicianId, date);
-      
-      // Don't allow assigning unavailable musicians
-      if (!isAvailable) {
-        toast({
-          title: "Musician unavailable",
-          description: "This musician is not available on this date. Please choose another musician or date.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-    
-    // Use functional state update to avoid stale state issues
+    // Use functional state update - this allows us to access the latest state
+    // without including musicianAssignments in the dependency array
     setMusicianAssignments(prevAssignments => {
+      // Check if musician is already assigned to this date - using current state
+      const isCurrentlyAssigned = prevAssignments[dateKey]?.includes(musicianId) || false;
+      
+      // Check if musician is available for this specific date (only if not already assigned)
+      if (!isCurrentlyAssigned) {
+        const isAvailable = isMusicianAvailableForDate(musicianId, date);
+        
+        // Don't allow assigning unavailable musicians
+        if (!isAvailable) {
+          toast({
+            title: "Musician unavailable",
+            description: "This musician is not available on this date. Please choose another musician or date.",
+            variant: "destructive",
+          });
+          // Return unchanged state
+          return prevAssignments;
+        }
+      }
+      
       // Create a deep copy of the current assignments
       const newAssignments = {...prevAssignments};
       
@@ -436,7 +438,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       
       return newAssignments;
     });
-  }, [musicianAssignments, isMusicianAvailableForDate, toast]);
+  }, [isMusicianAvailableForDate, toast]);
 
   function onSubmit(values: EventFormValues) {
     // Validate if there are any musician assignments
