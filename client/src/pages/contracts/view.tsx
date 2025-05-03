@@ -14,6 +14,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import FileContract from "@/components/icons/FileContract";
+import ContractContentPreview from "@/components/ContractContentPreview";
 
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 
 import type { ContractLink, Event, Musician } from "@shared/schema";
@@ -363,33 +363,4 @@ export default function ContractViewPage() {
 }
 
 // Contract Content Preview Component
-function ContractContentPreview({ contractId }: { contractId: number }) {
-  const { data: contractContent, isLoading } = useQuery({
-    queryKey: [`/api/contracts/${contractId}/content`],
-  });
-  
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  }
-  
-  if (!contractContent?.content) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12">
-        <p className="text-muted-foreground">Contract template not found. Please create a template first.</p>
-      </div>
-    );
-  }
-  
-  return (
-    <ScrollArea className="border rounded-md h-[500px] p-4">
-      <div 
-        className="p-6 bg-white"
-        dangerouslySetInnerHTML={{ __html: contractContent.content.replace(/\n/g, '<br/>') }}
-      />
-    </ScrollArea>
-  );
-}
+// The ContractContentPreview component is now imported from @/components/ContractContentPreview
