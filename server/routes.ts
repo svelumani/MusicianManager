@@ -1294,17 +1294,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       }
                       
                       if (matchingRate) {
-                        // Use day rate if we have one, or hourly rate * 8 hours as a fallback
-                        if (matchingRate.dayRate) {
-                          contractAmount = matchingRate.dayRate;
-                          console.log(`Using day rate: $${contractAmount} for musician ${musicianId} from rate ID ${matchingRate.id}`);
-                        } else if (matchingRate.hourlyRate) {
+                        // Use the payment model from the event to determine which rate to use
+                        // Default to day rate if payment model isn't specified
+                        const paymentModel = event.paymentModel || 'daily';
+                        
+                        if (paymentModel === 'hourly' && matchingRate.hourlyRate) {
+                          // For hourly payment model, use the hourly rate * 8 hours (standard day)
                           contractAmount = matchingRate.hourlyRate * 8;
-                          console.log(`Using hourly rate: $${matchingRate.hourlyRate} * 8 hours = $${contractAmount} for musician ${musicianId}`);
-                        } else {
-                          // If neither rate is available, use the "event rate" which is a fixed amount for the entire event
-                          contractAmount = matchingRate.eventRate || 0;
-                          console.log(`Using event rate: $${contractAmount} for musician ${musicianId} from rate ID ${matchingRate.id}`);
+                          console.log(`Using hourly rate: $${matchingRate.hourlyRate} * 8 hours = $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
+                        }
+                        else if (paymentModel === 'daily' && matchingRate.dayRate) {
+                          // For daily payment model, use the day rate directly
+                          contractAmount = matchingRate.dayRate;
+                          console.log(`Using day rate: $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
+                        }
+                        else if (paymentModel === 'event' && matchingRate.eventRate) {
+                          // For event payment model, use the event rate
+                          contractAmount = matchingRate.eventRate;
+                          console.log(`Using event rate: $${contractAmount} for musician ${musicianId} (model: ${paymentModel})`);
+                        }
+                        else {
+                          // If the specific rate for the chosen payment model isn't available, try to use available rates in order: day rate, hourly rate, event rate
+                          if (matchingRate.dayRate) {
+                            contractAmount = matchingRate.dayRate;
+                            console.log(`Using day rate: $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
+                          } else if (matchingRate.hourlyRate) {
+                            contractAmount = matchingRate.hourlyRate * 8;
+                            console.log(`Using hourly rate: $${matchingRate.hourlyRate} * 8 hours = $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
+                          } else if (matchingRate.eventRate) {
+                            contractAmount = matchingRate.eventRate;
+                            console.log(`Using event rate: $${contractAmount} for musician ${musicianId} as fallback (requested model: ${paymentModel})`);
+                          }
                         }
                       }
                     }
