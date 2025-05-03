@@ -191,34 +191,40 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Invalid date format');
     }
     
-    // Find invitation for specific date
+    // Find invitation for this event and musician
     const invites = await db.select()
       .from(invitations)
       .where(and(
         eq(invitations.eventId, eventId),
-        eq(invitations.musicianId, musicianId),
-        eq(invitations.date, date)
+        eq(invitations.musicianId, musicianId)
       ));
     
     if (invites.length > 0) {
       // Update existing invitation
       await db.update(invitations)
-        .set({ status, updatedAt: new Date() })
+        .set({ status })
         .where(eq(invitations.id, invites[0].id));
     } else {
+      // Get musician data for the email
+      const musician = await db.select()
+        .from(musicians)
+        .where(eq(musicians.id, musicianId))
+        .limit(1);
+        
       // Create new invitation
       await db.insert(invitations).values({
         eventId,
         musicianId,
-        date,
+        invitedAt: new Date(),
         status,
-        sentAt: new Date(),
-        updatedAt: new Date()
+        email: musician.length > 0 ? musician[0].email : 'no-email@example.com',
+        messageSubject: `Event Invitation`,
+        messageBody: `You have been invited to an event.`
       });
     }
     
     // Handle confirmed/declined status changes
-    if (status === 'confirmed') {
+    if (status === 'confirmed' || status === 'contract-signed') {
       // Check if booking already exists for this date
       const existingBooking = await db.select()
         .from(bookings)
@@ -229,21 +235,41 @@ export class DatabaseStorage implements IStorage {
         ));
       
       if (existingBooking.length === 0) {
+        // Find the most recent invitation for this musician and event
+        const latestInvite = await db.select()
+          .from(invitations)
+          .where(and(
+            eq(invitations.eventId, eventId),
+            eq(invitations.musicianId, musicianId)
+          ))
+          .orderBy(desc(invitations.invitedAt))
+          .limit(1);
+        
+        if (latestInvite.length === 0) {
+          throw new Error('Cannot create booking without an invitation');
+        }
+        
         // Create booking
         await db.insert(bookings).values({
           eventId,
           musicianId,
+          invitationId: latestInvite[0].id,
           date,
-          amount: 0, // To be filled in later
-          status: 'confirmed'
+          paymentStatus: 'pending'
         });
       } else {
-        // Update booking status
+        // Update booking status based on the new musician status
+        const bookingStatus = status === 'contract-signed' ? 'confirmed' : 'pending';
+        
         await db.update(bookings)
-          .set({ status: 'confirmed' })
+          .set({ 
+            contractSigned: status === 'contract-signed',
+            contractSignedAt: status === 'contract-signed' ? new Date() : undefined,
+            paymentStatus: bookingStatus
+          })
           .where(eq(bookings.id, existingBooking[0].id));
       }
-    } else if (status === 'declined') {
+    } else if (status === 'rejected') {
       // Delete booking if exists
       await db.delete(bookings)
         .where(and(
