@@ -3,6 +3,7 @@ import {
   musicians, musicianPayRates, availability, events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
   settings, emailTemplates, musicianTypes, invitations, availabilityShareLinks, contractLinks, contractTemplates,
+  monthlyContracts, monthlyContractMusicians, monthlyContractDates,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type MusicianCategory, type InsertMusicianCategory,
@@ -23,7 +24,10 @@ import {
   type PerformanceRating, type InsertPerformanceRating,
   type AvailabilityShareLink, type InsertAvailabilityShareLink,
   type ContractLink, type InsertContractLink,
-  type ContractTemplate, type InsertContractTemplate
+  type ContractTemplate, type InsertContractTemplate,
+  type MonthlyContract, type InsertMonthlyContract,
+  type MonthlyContractMusician, type InsertMonthlyContractMusician,
+  type MonthlyContractDate, type InsertMonthlyContractDate
 } from "@shared/schema";
 import { IStorage } from "./storage";
 import { db } from "./db";
@@ -3203,5 +3207,363 @@ export class DatabaseStorage implements IStorage {
       .where(eq(availabilityShareLinks.id, id));
     
     return result.rowCount > 0;
+  }
+  
+  // Monthly Contract management implementation
+  async getMonthlyContracts(): Promise<MonthlyContract[]> {
+    return await db.select().from(monthlyContracts).orderBy(desc(monthlyContracts.createdAt));
+  }
+
+  async getMonthlyContract(id: number): Promise<MonthlyContract | undefined> {
+    const [contract] = await db.select()
+      .from(monthlyContracts)
+      .where(eq(monthlyContracts.id, id));
+    
+    return contract;
+  }
+
+  async getMonthlyContractsByPlanner(plannerId: number): Promise<MonthlyContract[]> {
+    return await db.select()
+      .from(monthlyContracts)
+      .where(eq(monthlyContracts.plannerId, plannerId))
+      .orderBy(desc(monthlyContracts.createdAt));
+  }
+
+  async createMonthlyContract(contract: InsertMonthlyContract): Promise<MonthlyContract> {
+    const [newContract] = await db.insert(monthlyContracts)
+      .values({
+        ...contract,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    // Log activity
+    await this.createActivity({
+      entityType: 'monthlyContract',
+      entityId: newContract.id,
+      action: 'create',
+      userId: 1, // Assuming admin user
+      timestamp: new Date(),
+      details: JSON.stringify({
+        message: `Monthly contract created for planner: ${newContract.plannerId}`,
+        status: newContract.status
+      })
+    });
+    
+    return newContract;
+  }
+
+  async updateMonthlyContract(id: number, data: Partial<InsertMonthlyContract>): Promise<MonthlyContract | undefined> {
+    const [updated] = await db.update(monthlyContracts)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(monthlyContracts.id, id))
+      .returning();
+    
+    if (updated) {
+      // Log activity
+      await this.createActivity({
+        entityType: 'monthlyContract',
+        entityId: id,
+        action: 'update',
+        userId: 1, // Assuming admin user
+        timestamp: new Date(),
+        details: JSON.stringify({
+          message: `Monthly contract updated`,
+          status: data.status || updated.status
+        })
+      });
+    }
+    
+    return updated;
+  }
+
+  async deleteMonthlyContract(id: number): Promise<boolean> {
+    // First delete all associated musicians and dates
+    const musicians = await this.getMonthlyContractMusicians(id);
+    for (const musician of musicians) {
+      await this.deleteMonthlyContractMusician(musician.id);
+    }
+    
+    // Delete the contract
+    const result = await db.delete(monthlyContracts)
+      .where(eq(monthlyContracts.id, id));
+    
+    if (result.rowCount > 0) {
+      // Log activity
+      await this.createActivity({
+        entityType: 'monthlyContract',
+        entityId: id,
+        action: 'delete',
+        userId: 1, // Assuming admin user
+        timestamp: new Date(),
+        details: JSON.stringify({
+          message: `Monthly contract deleted`
+        })
+      });
+    }
+    
+    return result.rowCount > 0;
+  }
+
+  // Monthly Contract Musicians management implementation
+  async getMonthlyContractMusicians(contractId: number): Promise<MonthlyContractMusician[]> {
+    return await db.select()
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.contractId, contractId))
+      .orderBy(asc(monthlyContractMusicians.musicianId));
+  }
+
+  async getMonthlyContractMusician(id: number): Promise<MonthlyContractMusician | undefined> {
+    const [musician] = await db.select()
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.id, id));
+    
+    return musician;
+  }
+
+  async createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician> {
+    const [newMusician] = await db.insert(monthlyContractMusicians)
+      .values({
+        ...contractMusician,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    // Get musician name for activity log
+    const musician = await this.getMusician(contractMusician.musicianId);
+    const musicianName = musician ? musician.name : `Musician ID ${contractMusician.musicianId}`;
+    
+    // Log activity
+    await this.createActivity({
+      entityType: 'monthlyContractMusician',
+      entityId: newMusician.id,
+      action: 'create',
+      userId: 1, // Assuming admin user
+      timestamp: new Date(),
+      details: JSON.stringify({
+        message: `${musicianName} added to monthly contract`,
+        status: newMusician.status
+      })
+    });
+    
+    return newMusician;
+  }
+
+  async updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined> {
+    const [updated] = await db.update(monthlyContractMusicians)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(monthlyContractMusicians.id, id))
+      .returning();
+    
+    if (updated) {
+      // Get musician name for activity log
+      const musician = await this.getMusician(updated.musicianId);
+      const musicianName = musician ? musician.name : `Musician ID ${updated.musicianId}`;
+      
+      // Log activity
+      await this.createActivity({
+        entityType: 'monthlyContractMusician',
+        entityId: id,
+        action: 'update',
+        userId: 1, // Assuming admin user
+        timestamp: new Date(),
+        details: JSON.stringify({
+          message: `Monthly contract for ${musicianName} updated`,
+          status: data.status || updated.status
+        })
+      });
+    }
+    
+    return updated;
+  }
+
+  async deleteMonthlyContractMusician(id: number): Promise<boolean> {
+    // First get the musician to use in activity log
+    const [musician] = await db.select()
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.id, id));
+    
+    if (musician) {
+      // First delete all associated dates
+      const dates = await this.getMonthlyContractDates(id);
+      for (const date of dates) {
+        await this.deleteMonthlyContractDate(date.id);
+      }
+      
+      // Delete the musician contract
+      const result = await db.delete(monthlyContractMusicians)
+        .where(eq(monthlyContractMusicians.id, id));
+      
+      if (result.rowCount > 0) {
+        // Get musician name for activity log
+        const musicianData = await this.getMusician(musician.musicianId);
+        const musicianName = musicianData ? musicianData.name : `Musician ID ${musician.musicianId}`;
+        
+        // Log activity
+        await this.createActivity({
+          entityType: 'monthlyContractMusician',
+          entityId: id,
+          action: 'delete',
+          userId: 1, // Assuming admin user
+          timestamp: new Date(),
+          details: JSON.stringify({
+            message: `${musicianName} removed from monthly contract`
+          })
+        });
+      }
+      
+      return result.rowCount > 0;
+    }
+    
+    return false;
+  }
+
+  // Monthly Contract Dates management implementation
+  async getMonthlyContractDates(musicianContractId: number): Promise<MonthlyContractDate[]> {
+    return await db.select()
+      .from(monthlyContractDates)
+      .where(eq(monthlyContractDates.musicianContractId, musicianContractId))
+      .orderBy(asc(monthlyContractDates.date));
+  }
+
+  async getMonthlyContractDate(id: number): Promise<MonthlyContractDate | undefined> {
+    const [date] = await db.select()
+      .from(monthlyContractDates)
+      .where(eq(monthlyContractDates.id, id));
+    
+    return date;
+  }
+
+  async createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate> {
+    const [newDate] = await db.insert(monthlyContractDates)
+      .values({
+        ...contractDate,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    // Get musician contract and musician for activity log
+    const musicianContract = await this.getMonthlyContractMusician(contractDate.musicianContractId);
+    let musicianName = "Unknown";
+    
+    if (musicianContract) {
+      const musician = await this.getMusician(musicianContract.musicianId);
+      if (musician) {
+        musicianName = musician.name;
+      }
+    }
+    
+    // Format date for the log
+    const dateStr = format(contractDate.date, 'yyyy-MM-dd');
+    
+    // Log activity
+    await this.createActivity({
+      entityType: 'monthlyContractDate',
+      entityId: newDate.id,
+      action: 'create',
+      userId: 1, // Assuming admin user
+      timestamp: new Date(),
+      details: JSON.stringify({
+        message: `Date ${dateStr} added to monthly contract for ${musicianName}`,
+        status: newDate.status
+      })
+    });
+    
+    return newDate;
+  }
+
+  async updateMonthlyContractDate(id: number, data: Partial<InsertMonthlyContractDate>): Promise<MonthlyContractDate | undefined> {
+    const [updated] = await db.update(monthlyContractDates)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(monthlyContractDates.id, id))
+      .returning();
+    
+    if (updated) {
+      // Get musician contract and musician for activity log
+      const musicianContract = await this.getMonthlyContractMusician(updated.musicianContractId);
+      let musicianName = "Unknown";
+      
+      if (musicianContract) {
+        const musician = await this.getMusician(musicianContract.musicianId);
+        if (musician) {
+          musicianName = musician.name;
+        }
+      }
+      
+      // Format date for the log
+      const dateStr = format(updated.date, 'yyyy-MM-dd');
+      
+      // Log activity
+      await this.createActivity({
+        entityType: 'monthlyContractDate',
+        entityId: id,
+        action: 'update',
+        userId: 1, // Assuming admin user
+        timestamp: new Date(),
+        details: JSON.stringify({
+          message: `Date ${dateStr} updated in monthly contract for ${musicianName}`,
+          status: data.status || updated.status
+        })
+      });
+    }
+    
+    return updated;
+  }
+
+  async deleteMonthlyContractDate(id: number): Promise<boolean> {
+    // First get the date info to use in activity log
+    const [contractDate] = await db.select()
+      .from(monthlyContractDates)
+      .where(eq(monthlyContractDates.id, id));
+    
+    if (contractDate) {
+      // Get musician contract and musician for activity log
+      const musicianContract = await this.getMonthlyContractMusician(contractDate.musicianContractId);
+      let musicianName = "Unknown";
+      
+      if (musicianContract) {
+        const musician = await this.getMusician(musicianContract.musicianId);
+        if (musician) {
+          musicianName = musician.name;
+        }
+      }
+      
+      // Format date for the log
+      const dateStr = format(contractDate.date, 'yyyy-MM-dd');
+      
+      // Delete the date
+      const result = await db.delete(monthlyContractDates)
+        .where(eq(monthlyContractDates.id, id));
+      
+      if (result.rowCount > 0) {
+        // Log activity
+        await this.createActivity({
+          entityType: 'monthlyContractDate',
+          entityId: id,
+          action: 'delete',
+          userId: 1, // Assuming admin user
+          timestamp: new Date(),
+          details: JSON.stringify({
+            message: `Date ${dateStr} removed from monthly contract for ${musicianName}`
+          })
+        });
+      }
+      
+      return result.rowCount > 0;
+    }
+    
+    return false;
   }
 }
