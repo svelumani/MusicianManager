@@ -16,7 +16,7 @@ import FileContract from "@/components/icons/FileContract";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import StatusBadge from "@/components/StatusBadge";
-import { useCancelContract, useUpdateStatus } from "@/hooks/use-status";
+import { useCancelContract, useUpdateEntityStatus } from "@/hooks/use-status";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -375,7 +375,12 @@ export default function ContractsPage() {
                         <StatusBadge 
                           status={contract.status} 
                           entityType="contract"
-                          timestamp={contract.updatedAt}
+                          entityId={contract.id}
+                          eventId={contract.eventId}
+                          musicianId={contract.musicianId}
+                          eventDate={contract.eventDate ? new Date(contract.eventDate).toISOString() : undefined}
+                          timestamp={contract.createdAt}
+                          useCentralizedSystem={true}
                         />
                       </TableCell>
                       <TableCell>{format(new Date(contract.createdAt), "MMM d, yyyy")}</TableCell>
@@ -410,7 +415,7 @@ export default function ContractsPage() {
                                 contractId: contract.id,
                                 eventId: contract.eventId,
                                 musicianId: contract.musicianId,
-                                eventDate: contract.eventDate
+                                eventDate: contract.eventDate ? contract.eventDate.toString() : undefined
                               })}
                               disabled={cancelContractMutation.isPending}
                               title="Cancel Contract"
