@@ -4059,6 +4059,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
             notes: response || 'Contract declined'
           });
         }
+        
+        // Update the musician's status in the event to "unavailable" for the specific date
+        if (contract.eventId && contract.musicianId) {
+          try {
+            // If we have a specific event date, use it
+            if (contract.eventDate) {
+              const eventDateStr = contract.eventDate.toISOString();
+              
+              // Legacy status update for backward compatibility
+              await storage.updateMusicianEventStatusForDate(
+                contract.eventId, 
+                contract.musicianId,
+                "unavailable",
+                eventDateStr
+              );
+              
+              console.log(`Updated musician ${contract.musicianId} status for event ${contract.eventId} date ${eventDateStr} to 'unavailable' due to rejected contract`);
+            } else {
+              // If no specific date, update general status
+              await storage.updateMusicianEventStatus(
+                contract.eventId,
+                contract.musicianId,
+                "unavailable"
+              );
+              
+              console.log(`Updated musician ${contract.musicianId} general status for event ${contract.eventId} to 'unavailable' due to rejected contract`);
+            }
+            
+            // Update statuses in the centralized system
+            try {
+              // Import the status service
+              const { statusService, ENTITY_TYPES } = await import('./services/status');
+              
+              // Update contract status with the centralized status service
+              await statusService.updateEntityStatus(
+                ENTITY_TYPES.CONTRACT,
+                contract.id,
+                'rejected',
+                0, // No specific user ID for public actions
+                `Contract rejected by ${musician?.name}: ${response || 'No reason provided'}`,
+                contract.eventId,
+                {
+                  rejectedAt: new Date().toISOString(),
+                  rejectedBy: musician?.name || 'Musician',
+                  rejectionReason: response || 'No reason provided'
+                },
+                'musician-rejected', // Add custom status
+                contract.musicianId,
+                contract.eventDate
+              );
+              
+              // Also update musician status
+              await statusService.updateEntityStatus(
+                ENTITY_TYPES.MUSICIAN,
+                contract.musicianId,
+                'unavailable',
+                0, // No specific user ID for public actions
+                `Contract rejected for event: ${event?.name}`,
+                contract.eventId,
+                {
+                  contractId: contract.id,
+                  eventName: event?.name || 'Event',
+                  rejectionReason: response || 'No reason provided'
+                },
+                'contract-rejected', // Custom status for musician
+                null, // MusicianId is already specified as entityId
+                contract.eventDate
+              );
+              
+              console.log(`Updated status in centralized system for rejected contract ${contract.id}`);
+            } catch (statusError) {
+              console.error("Warning: Failed to update status via status service", statusError);
+              // Continue with the legacy approach, don't fail the request
+            }
+          } catch (statusUpdateError) {
+            console.error("Error updating musician status after contract rejection:", statusUpdateError);
+            // Don't fail the request if this part fails
+          }
+        }
       }
       
       res.json({ success: true, contract });
