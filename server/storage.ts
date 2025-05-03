@@ -238,6 +238,9 @@ export interface IStorage {
   createPlannerSlot(slot: InsertPlannerSlot): Promise<PlannerSlot>;
   updatePlannerSlot(id: number, data: Partial<InsertPlannerSlot>): Promise<PlannerSlot | undefined>;
   deletePlannerSlot(id: number): Promise<boolean>;
+  
+  // Musician availability
+  isMusicianAvailableForDate(musicianId: number, dateStr: string): Promise<boolean>;
   getPlannerSlotsByDate(date: Date): Promise<PlannerSlot[]>;
   
   // Planner Assignments management
