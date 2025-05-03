@@ -755,3 +755,45 @@ export const insertMusicianSkillSchema = createInsertSchema(musicianSkills).pick
 
 export type MusicianSkill = typeof musicianSkills.$inferSelect;
 export type InsertMusicianSkill = z.infer<typeof insertMusicianSkillSchema>;
+
+// Entity Status - centralized status management
+export const entityStatus = pgTable("entity_status", {
+  id: serial("id").primaryKey(),
+  entityType: text("entity_type").notNull(), // 'contract', 'musician_event', 'booking'
+  entityId: integer("entity_id").notNull(),
+  primaryStatus: text("primary_status").notNull(), // The canonical status
+  customStatus: text("custom_status"), // Optional status for display purposes
+  statusDate: timestamp("status_date").notNull().defaultNow(),
+  eventId: integer("event_id").notNull(),
+  musicianId: integer("musician_id"),
+  eventDate: timestamp("event_date"), // For date-specific statuses
+  metadata: jsonb("metadata"), // Additional status context
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at")
+}, (table) => [
+  // Create composite index for quick lookups
+  // index("idx_entity_status_lookup").on(
+  //   table.entityType, 
+  //   table.entityId
+  // ),
+  // // Create index for event-based lookups
+  // index("idx_entity_status_event").on(
+  //   table.eventId
+  // ),
+  // Unique constraint for entity type/id combination
+  // unique().on(table.entityType, table.entityId, table.eventDate)
+]);
+
+export const insertEntityStatusSchema = createInsertSchema(entityStatus).pick({
+  entityType: true,
+  entityId: true,
+  primaryStatus: true,
+  customStatus: true,
+  eventId: true,
+  musicianId: true,
+  eventDate: true,
+  metadata: true,
+});
+
+export type EntityStatus = typeof entityStatus.$inferSelect;
+export type InsertEntityStatus = z.infer<typeof insertEntityStatusSchema>;
