@@ -30,6 +30,13 @@ import {
   Loader2,
   Save 
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Avatar, 
@@ -48,6 +55,7 @@ import { queryClient } from "@/lib/queryClient";
 
 // Extend the schema for form validation
 const formSchema = insertMusicianPayRateSchema.extend({
+  eventCategoryId: z.number().min(1, "Event category is required"),
   hourlyRate: z.number().nonnegative().optional(),
   dayRate: z.number().nonnegative().optional(),
   eventRate: z.number().nonnegative().optional(),
@@ -114,6 +122,7 @@ export default function RateMusicianPage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       musicianId: parsedMusicianId,
+      eventCategoryId: event?.categoryIds?.[0] || event?.musicianCategoryIds?.[0], // Set from event category if available
       hourlyRate: 0,
       dayRate: 0,
       eventRate: 0,
@@ -290,6 +299,46 @@ export default function RateMusicianPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="eventCategoryId"
+                render={({ field }) => (
+                  <FormItem className="mb-4">
+                    <FormLabel className="flex items-center gap-2">
+                      Event Category
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>The type of event this rate applies to</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </FormLabel>
+                    <Select
+                      value={field.value?.toString() || ""}
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select event category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {eventCategories?.map((category) => (
+                          <SelectItem key={category.id} value={category.id.toString()}>
+                            {category.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField
                   control={form.control}
