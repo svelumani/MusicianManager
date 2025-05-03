@@ -1021,16 +1021,59 @@ export class DatabaseStorage implements IStorage {
     if (musicianAssignments && Object.keys(musicianAssignments).length > 0) {
       console.log(`Processing musician assignments for event ${newEvent.id}:`, musicianAssignments);
       
+      // Normalize the assignments to ensure consistent date formats
+      const normalizedAssignments: Record<string, number[]> = {};
+      
       for (const dateStr of Object.keys(musicianAssignments)) {
-        const date = new Date(dateStr);
-        const musicianIds = musicianAssignments[dateStr];
+        try {
+          // Parse the date to ensure it's valid
+          const date = new Date(dateStr);
+          if (isNaN(date.getTime())) {
+            console.warn(`Invalid date format in assignments: ${dateStr}, skipping`);
+            continue;
+          }
+          
+          // Normalize the date format
+          const normalizedDateStr = format(date, 'yyyy-MM-dd');
+          
+          // Ensure we have an array for this date
+          if (!normalizedAssignments[normalizedDateStr]) {
+            normalizedAssignments[normalizedDateStr] = [];
+          }
+          
+          // Get unique musician IDs for this date
+          const uniqueMusicianIds = Array.from(new Set(musicianAssignments[dateStr]));
+          normalizedAssignments[normalizedDateStr].push(...uniqueMusicianIds);
+        } catch (error) {
+          console.error(`Error processing date ${dateStr}:`, error);
+        }
+      }
+      
+      // Process normalized assignments
+      for (const normalizedDateStr of Object.keys(normalizedAssignments)) {
+        const date = new Date(normalizedDateStr);
+        const uniqueMusicianIds = Array.from(new Set(normalizedAssignments[normalizedDateStr]));
         
-        for (const musicianId of musicianIds) {
+        for (const musicianId of uniqueMusicianIds) {
           try {
             // Get musician details
             const musician = await this.getMusician(musicianId);
             if (!musician) {
               throw new Error(`Musician with ID ${musicianId} not found`);
+            }
+            
+            // Check if a booking already exists for this musician, event, and date
+            const existingBookings = await db.select()
+              .from(bookings)
+              .where(and(
+                eq(bookings.eventId, newEvent.id),
+                eq(bookings.musicianId, musicianId),
+                eq(bookings.date, date)
+              ));
+              
+            if (existingBookings.length > 0) {
+              console.log(`Booking already exists for event ${newEvent.id}, musician ${musicianId}, date ${normalizedDateStr}`);
+              continue;
             }
             
             // Create invitation record first
@@ -1057,7 +1100,7 @@ export class DatabaseStorage implements IStorage {
                 paymentStatus: 'pending'
               });
             
-            console.log(`Created booking for event ${newEvent.id}, musician ${musicianId}, date ${dateStr}`);
+            console.log(`Created booking for event ${newEvent.id}, musician ${musicianId}, date ${normalizedDateStr}`);
           } catch (error) {
             console.error(`Failed to create booking for event ${newEvent.id}, musician ${musicianId}:`, error);
           }

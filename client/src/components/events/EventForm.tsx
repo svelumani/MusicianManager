@@ -349,6 +349,10 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   // Handle musician selection/deselection for a specific date
   const toggleMusicianSelection = (musicianId: number, date: Date = activeDate!) => {
     if (!date) return; // Make sure we have a date
+    if (!musicianId) {
+      console.error("No musicianId provided to toggleMusicianSelection");
+      return;
+    }
     
     // Check if musician is available for this specific date
     const isAvailable = isMusicianAvailableForDate(musicianId, date);
@@ -363,57 +367,69 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       return;
     }
     
-    // Normalize the date to avoid timezone issues
+    // Normalize the date to avoid timezone issues - this will be our canonical key format
     const normalizedDateStr = format(date, 'yyyy-MM-dd');
-    // Create the full ISO date key that matches what's coming from the server
-    const dateKey = new Date(`${normalizedDateStr}T18:30:00.000Z`).toISOString();
     
-    // Also create a simple date string key for compatibility with existing assignments
-    const simpleDateKey = normalizedDateStr;
+    // Log the operation for debugging
+    console.log(`Toggle musician ${musicianId} for date ${normalizedDateStr}`);
     
     setMusicianAssignments(prev => {
       // Clone the assignments object
       const newAssignments = { ...prev };
       
-      // Check if we have entries with this date in different formats
-      // and consolidate them to avoid duplicates
-      const keys = Object.keys(newAssignments);
-      const matchingKeys = keys.filter(key => {
-        const keyDate = new Date(key);
-        return format(keyDate, 'yyyy-MM-dd') === normalizedDateStr;
-      });
+      // Standardize all keys to normalized format and deduplicate musicians
+      const standardizedAssignments: Record<string, number[]> = {};
       
-      // Consolidate all musician IDs from matching date keys
-      let consolidatedMusicianIds: number[] = [];
-      matchingKeys.forEach(key => {
-        if (newAssignments[key] && Array.isArray(newAssignments[key])) {
-          consolidatedMusicianIds = [...consolidatedMusicianIds, ...newAssignments[key]];
-          // Remove the old key as we'll be consolidating
-          delete newAssignments[key];
+      // First, process all existing entries and normalize them
+      Object.keys(newAssignments).forEach(key => {
+        try {
+          // Try to parse and normalize the date key
+          const keyDate = new Date(key);
+          if (!isNaN(keyDate.getTime())) {
+            const keyNormalized = format(keyDate, 'yyyy-MM-dd');
+            if (!standardizedAssignments[keyNormalized]) {
+              standardizedAssignments[keyNormalized] = [];
+            }
+            
+            // Add unique musician IDs
+            if (Array.isArray(newAssignments[key])) {
+              newAssignments[key].forEach((id: number) => {
+                if (!standardizedAssignments[keyNormalized].includes(id)) {
+                  standardizedAssignments[keyNormalized].push(id);
+                }
+              });
+            }
+          } else {
+            console.warn(`Invalid date key found in assignments: ${key}`);
+          }
+        } catch (e) {
+          console.error(`Error processing assignment key ${key}:`, e);
         }
       });
       
-      // Remove any duplicates
-      consolidatedMusicianIds = Array.from(new Set(consolidatedMusicianIds));
-      
-      // Check if musician is already assigned after consolidation
-      const isAssigned = consolidatedMusicianIds.includes(musicianId);
-      
-      if (isAssigned) {
-        // Remove the musician from the consolidated list
-        consolidatedMusicianIds = consolidatedMusicianIds.filter(id => id !== musicianId);
+      // Now toggle the specific musician for the target date
+      if (!standardizedAssignments[normalizedDateStr]) {
+        standardizedAssignments[normalizedDateStr] = [musicianId];
       } else {
-        // Add the musician to the consolidated list
-        consolidatedMusicianIds.push(musicianId);
+        // Check if musician is already in the list
+        const index = standardizedAssignments[normalizedDateStr].indexOf(musicianId);
+        if (index >= 0) {
+          // Remove musician
+          standardizedAssignments[normalizedDateStr].splice(index, 1);
+          // If empty, remove the date entry
+          if (standardizedAssignments[normalizedDateStr].length === 0) {
+            delete standardizedAssignments[normalizedDateStr];
+          }
+        } else {
+          // Add musician
+          standardizedAssignments[normalizedDateStr].push(musicianId);
+        }
       }
       
-      // If there are any musicians assigned, add the consolidated list back with the normalized key
-      if (consolidatedMusicianIds.length > 0) {
-        newAssignments[simpleDateKey] = consolidatedMusicianIds;
-      }
+      // Debug output
+      console.log("Updated musician assignments:", standardizedAssignments);
       
-      console.log(`Updated assignments for date ${normalizedDateStr}:`, newAssignments);
-      return newAssignments;
+      return standardizedAssignments;
     });
   };
 
@@ -428,6 +444,32 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       return;
     }
     
+    // Normalize all date keys in musicianAssignments to ensure consistent format
+    const normalizedAssignments: Record<string, number[]> = {};
+    
+    // Process musicianAssignments to ensure consistent date format (YYYY-MM-DD)
+    for (const dateKey of Object.keys(musicianAssignments)) {
+      try {
+        // Try to parse the date
+        const date = new Date(dateKey);
+        if (!isNaN(date.getTime())) {
+          // Format date consistently as YYYY-MM-DD
+          const normalizedDateStr = format(date, 'yyyy-MM-dd');
+          
+          // Ensure we're not adding empty arrays
+          if (Array.isArray(musicianAssignments[dateKey]) && musicianAssignments[dateKey].length > 0) {
+            normalizedAssignments[normalizedDateStr] = [...musicianAssignments[dateKey]];
+          }
+        } else {
+          console.warn(`Skipping invalid date key: ${dateKey}`);
+        }
+      } catch (error) {
+        console.error(`Error processing assignment date ${dateKey}:`, error);
+      }
+    }
+    
+    console.log("Final normalized musician assignments:", normalizedAssignments);
+    
     // Create a new object with the formatted values to match our EventApiValues type
     const formattedValues: EventApiValues = {
       name: values.name,
@@ -436,11 +478,12 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       status: values.status,
       musicianCategoryIds: values.musicianCategoryIds,
       notes: values.notes,
-      eventDates: values.eventDates.map(date => date.toISOString()),
+      eventDates: values.eventDates.map(date => format(date, 'yyyy-MM-dd')), // Use consistent date format
       musicianIds: selectedMusicians.length > 0 ? selectedMusicians : undefined,
-      musicianAssignments: Object.keys(musicianAssignments).length > 0 ? musicianAssignments : undefined,
+      musicianAssignments: Object.keys(normalizedAssignments).length > 0 ? normalizedAssignments : undefined,
     };
     
+    console.log("Submitting form data:", formattedValues);
     eventMutation.mutate(formattedValues);
   }
 
