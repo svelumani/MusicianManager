@@ -1216,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const existingContracts = await storage.getContractLinksByEventAndDate(eventId, eventDate)
               .then(contracts => contracts.filter(c => 
                 c.musicianId === musicianId && 
-                ['pending', 'accepted'].includes(c.status)
+                ['pending', 'accepted', 'contract-sent'].includes(c.status)
               ));
             
             // Only create a new contract if there are no active contracts
@@ -1328,7 +1328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 invitationId, // Add the invitation ID
                 token,
                 expiresAt,
-                status: 'pending',
+                status: status === 'contract-sent' ? 'contract-sent' : 'pending', // Use 'contract-sent' status directly if that's the current status
                 eventDate: new Date(dateStr), // Always include a specific date for the contract
                 amount: contractAmount > 0 ? contractAmount : null // Add the contract amount
               };
@@ -3271,7 +3271,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get contracts with filters
-      const contracts = await storage.getContractLinks(filters);
+      let contracts = await storage.getContractLinks(filters);
+      
+      // Additional validation to only show contracts for musicians actually assigned to events
+      // This fixes the issue of random musicians showing up in contracts
+      const validatedContracts = [];
+      for (const contract of contracts) {
+        // Only include contracts where the musician is actually assigned to the event
+        const event = await storage.getEvent(contract.eventId);
+        if (event && event.musicianAssignments) {
+          // Check if the musician is in any of the event dates
+          let musicianAssigned = false;
+          
+          // Go through each date in the event
+          for (const [dateStr, musicianIds] of Object.entries(event.musicianAssignments)) {
+            if ((musicianIds as number[]).includes(contract.musicianId)) {
+              musicianAssigned = true;
+              break;
+            }
+          }
+          
+          if (musicianAssigned) {
+            validatedContracts.push(contract);
+          } else {
+            console.log(`Filtering out contract ${contract.id} for musician ${contract.musicianId} who is not assigned to event ${contract.eventId}`);
+          }
+        } else {
+          // If we can't validate, include the contract to avoid errors
+          validatedContracts.push(contract);
+        }
+      }
+      
+      contracts = validatedContracts;
       
       // For each contract, check if there's a more recent status in the event musician statuses
       const updatedContracts = await Promise.all(contracts.map(async (contract) => {
@@ -3307,14 +3338,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // If the event has a status for this musician that's different from the contract's status
             if (musicianStatus && musicianStatus !== contract.status) {
-              console.log(`Updating contract ${contract.id} status from ${contract.status} to ${musicianStatus}`);
+              // Only synchronize status if the event status is a valid contract status
+              const validContractStatuses = ['pending', 'contract-sent', 'contract-signed', 'accepted', 'rejected', 'cancelled'];
               
-              // Update the contract status
-              const updatedContract = await storage.updateContractLink(contract.id, {
-                status: musicianStatus
-              });
-              
-              return updatedContract || contract;
+              if (validContractStatuses.includes(musicianStatus)) {
+                console.log(`Updating contract ${contract.id} status from ${contract.status} to ${musicianStatus}`);
+                
+                // Update the contract status
+                const updatedContract = await storage.updateContractLink(contract.id, {
+                  status: musicianStatus
+                });
+                
+                return updatedContract || contract;
+              } else {
+                console.log(`Skipping status update for contract ${contract.id} because event status "${musicianStatus}" is not a valid contract status`);
+              }
             }
           }
         }
