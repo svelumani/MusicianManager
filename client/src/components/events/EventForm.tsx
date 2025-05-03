@@ -27,6 +27,7 @@ const eventFormSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   paxCount: z.coerce.number().min(1, "Pax count must be at least 1"),
   venueId: z.coerce.number(),
+  eventCategoryId: z.coerce.number(), // Event category determines the rates
   eventDates: z.array(z.date()),
   status: z.string().default("pending"),
   musicianCategoryIds: z.array(z.coerce.number()), // Multi-select musician categories (replacing types)
@@ -49,6 +50,9 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     queryKey: ["/api/venues"],
   });
 
+  const { data: eventCategories, isLoading: isLoadingEventCategories } = useQuery<any[]>({
+    queryKey: ["/api/event-categories"],
+  });
 
 
   const { data: musicianCategories, isLoading: isLoadingMusicianCategories } = useQuery<MusicianCategory[]>({
@@ -86,6 +90,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       name: initialData.name,
       paxCount: initialData.paxCount,
       venueId: initialData.venueId,
+      eventCategoryId: initialData.eventCategoryId || 0,
       status: initialData.status || "pending",
       musicianCategoryIds: initialData.musicianCategoryIds || initialData.musicianTypeIds || [], // Support both legacy and new format
       paymentModel: initialData.paymentModel || "daily", // default to daily for existing events
@@ -99,6 +104,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       name: "",
       paxCount: 0,
       venueId: 0,
+      eventCategoryId: 0,
       status: "pending",
       musicianCategoryIds: [],
       paymentModel: "daily", // default to daily for new events
@@ -194,6 +200,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     name: string;
     paxCount: number;
     venueId: number;
+    eventCategoryId: number; // Adding event category for rate calculation
     status: string;
     musicianTypeIds: number[];
     paymentModel: string; // hourly, daily, or event
@@ -491,6 +498,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       name: values.name,
       paxCount: values.paxCount,
       venueId: values.venueId,
+      eventCategoryId: values.eventCategoryId, // Add event category for rate calculation
       status: values.status,
       paymentModel: values.paymentModel, // Add the payment model
       musicianCategoryIds: values.musicianCategoryIds,
@@ -504,7 +512,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     eventMutation.mutate(formattedValues);
   }
 
-  const isLoading = isLoadingVenues || isLoadingMusicianCategories;
+  const isLoading = isLoadingVenues || isLoadingMusicianCategories || isLoadingEventCategories;
 
   if (isLoading) {
     return (
@@ -531,7 +539,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
             name="paxCount"
@@ -569,6 +577,36 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                     {venues?.map((venue) => (
                       <SelectItem key={venue.id} value={venue.id.toString()}>
                         {venue.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="eventCategoryId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Event Category *</FormLabel>
+                <Select
+                  value={field.value.toString()}
+                  onValueChange={(value) => field.onChange(parseInt(value))}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select event category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {eventCategories?.map((category) => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.title}
                       </SelectItem>
                     ))}
                   </SelectContent>
