@@ -23,7 +23,10 @@ export default function ContractContentPreview({ contractId, token }: ContractCo
       ? [`/api/contracts/${contractId}/content`] 
       : [`/api/contracts/token/${token}/content`],
     onError: () => setHasError(true),
-    enabled: !!(contractId || token) // Only run if either contractId or token is provided
+    enabled: !!(contractId || token), // Only run if either contractId or token is provided
+    // Force refetch data to ensure we get the latest stored content
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
   
   if (isLoading) {

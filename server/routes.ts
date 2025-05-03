@@ -4433,10 +4433,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Error retrieving stored contract content:", e);
       }
       
-      // If no stored content found, generate it on the fly
+      // If no stored content found, generate it on the fly and store it for next time
       if (!content) {
         content = await renderContractContent(contractId);
         console.log(`Generated fresh contract content for contract ID ${contractId}`);
+        
+        // Store the generated content for future use
+        try {
+          await generateAndStoreContractContent(contractId);
+        } catch (e) {
+          console.error(`Failed to store content for contract ${contractId}:`, e);
+        }
       }
       
       res.json({ content });
