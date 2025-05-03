@@ -760,22 +760,20 @@ export default function ViewEventPage() {
                                         // We'll build our list of preferred rates based on event categories
                                         let preferredRates = [];
                                         
-                                        // First try to match using event's regular categoryIds (legacy support)
-                                        // Not needed anymore with new eventCategoryId property
-                                        
-                                        // Then try to match based on event category
-                                        if (preferredRates.length === 0 && event.eventCategoryId) {
-                                          console.log("Trying to match based on event category:", event.eventCategoryId);
+                                        // First try to match using event's category ID
+                                        if (event.eventCategoryId) {
                                           preferredRates = allMusicianRates.filter((rate: any) =>
                                             rate.eventCategoryId === event.eventCategoryId
                                           );
+                                          console.log("Found rates matching event category ID:", event.eventCategoryId, preferredRates.length);
                                         }
                                         
                                         // If no matches found, try using the musician category IDs as a fallback
-                                        if (preferredRates.length === 0 && event.musicianCategoryIds && event.musicianCategoryIds.length > 0) {
-                                          console.log("Trying to match based on musician categories:", event.musicianCategoryIds);
+                                        const musicianCatIds = event.musicianCategoryIds || [];
+                                        if (preferredRates.length === 0 && musicianCatIds.length > 0) {
+                                          console.log("Trying to match based on musician categories:", musicianCatIds);
                                           preferredRates = allMusicianRates.filter((rate: any) =>
-                                            event.musicianCategoryIds.includes(rate.eventCategoryId)
+                                            musicianCatIds.includes(rate.eventCategoryId)
                                           );
                                         }
                                         
@@ -787,21 +785,21 @@ export default function ViewEventPage() {
                                         if (musicianRates && musicianRates.length > 0) {
                                           // Try to find the best rate that matches this event category
                                           
-                                          // This is the rate we'll display - start with null, we'll fill it in below
-                                          let categoryMatchRate = null;
+                                          // Try to find a rate that best matches this event
+                                          // We prefer rates that match the event category, but will use any available rate if needed
+                                          let rate = musicianRates[0]; // Default to first rate
                                           
-                                          // Find a rate that matches the event's category
+                                          // If we have an event category, try to find an exact match
                                           if (event.eventCategoryId) {
-                                            // First try exact match with event category
-                                            categoryMatchRate = musicianRates.find((rate: any) => 
-                                              rate.eventCategoryId === event.eventCategoryId
+                                            const categoryMatch = musicianRates.find((r: any) => 
+                                              r.eventCategoryId === event.eventCategoryId
                                             );
                                             
-                                            console.log("Found category match rate for event category", event.eventCategoryId, ":", categoryMatchRate);
+                                            if (categoryMatch) {
+                                              rate = categoryMatch;
+                                              console.log("Using category-matched rate for event:", event.eventCategoryId);
+                                            }
                                           }
-                                          
-                                          // If no category match, just use the first rate
-                                          const rate = categoryMatchRate || musicianRates[0];
                                           
                                           // Calculate the total rate based on the payment model
                                           let totalRate = 0;
