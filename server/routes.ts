@@ -1333,14 +1333,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
               
               // After creating the contract, update the status to "contract-sent" instead of keeping it as "accepted"
               if (status === 'accepted') {
+                // Update musician status
                 await storage.updateMusicianEventStatusForDate(eventId, musicianId, 'contract-sent', dateStr || '');
+                
+                // Also update contract status to match
+                await storage.updateContractLink(contract.id, { status: 'contract-sent' });
+                
+                // Update centralized status for both entities if the service is available
+                try {
+                  const { statusService, ENTITY_TYPES } = await import('./services/status');
+                  
+                  // Update contract status in the centralized system
+                  await statusService.updateEntityStatus(
+                    ENTITY_TYPES.CONTRACT,
+                    contract.id,
+                    'contract-sent',
+                    0, // No specific user ID for automated actions
+                    `Contract automatically sent as musician was accepted`,
+                    eventId
+                  );
+                  
+                  // We don't need to update musician status in centralized system as that's handled elsewhere
+                } catch (statusError) {
+                  console.error("Error updating status in centralized system:", statusError);
+                  // Don't fail if this part fails
+                }
               }
             } else {
               console.log(`Active contract already exists for musician ${musicianId} in event ${eventId}. ID: ${existingContracts[0].id}`);
               
               // Ensure the status is correctly set to "contract-sent" regardless
               if (status === 'accepted') {
+                // Update musician status
                 await storage.updateMusicianEventStatusForDate(eventId, musicianId, 'contract-sent', dateStr || '');
+                
+                // Also update contract status to match if it's not already set
+                const existingContract = existingContracts[0];
+                if (existingContract && existingContract.status !== 'contract-sent') {
+                  await storage.updateContractLink(existingContract.id, { status: 'contract-sent' });
+                  
+                  // Update centralized status for contract if the service is available
+                  try {
+                    const { statusService, ENTITY_TYPES } = await import('./services/status');
+                    
+                    // Update contract status in the centralized system
+                    await statusService.updateEntityStatus(
+                      ENTITY_TYPES.CONTRACT,
+                      existingContract.id,
+                      'contract-sent',
+                      0, // No specific user ID for automated actions
+                      `Contract status synchronized with musician status`,
+                      eventId
+                    );
+                  } catch (statusError) {
+                    console.error("Error updating status in centralized system:", statusError);
+                    // Don't fail if this part fails
+                  }
+                }
               }
             }
           }
