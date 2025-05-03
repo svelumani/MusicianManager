@@ -863,9 +863,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get available musicians with optional category filtering
-      const availableMusicians = await storage.getAvailableMusiciansForDateAndCategories(
+      const availableMusicians = await storage.getAvailableMusiciansForDate(
         dateObj,
-        categoryIdsArray
+        categoryIdsArray || []
       );
       
       res.json(availableMusicians);
