@@ -1,0 +1,19 @@
+Ok lets work on the monthly planner now. Whats your understanding of my needs in the monthly planner?
+
+My admin manager is a 65 year old gentlemen, who has been using excel spreadsheet for ages. Now he insists this monthly planner be a refined spreadsheet. He need it like the following.
+
+1. First we send an availability request to all our musicians mid of the month for the upcoming month
+2. Once the musicians fills their availabilty we start the monthly planning
+3. There are multiple fixed venues where we have fixed contracts. This needs to appear in a single row (right scroll is fine)
+4. We need to allot a combination of musicians for everyday basis in advance planning. These musicians will be categorised based on musician categories.
+5. There will be any number of musicians per day for selection and invitation
+6. Now consider the day and venue as a spreadsheet cell, inside that I will need to add multiple people, i have no count - sometimes could be upto 10 members per day for a venue.
+7. When i select the day and the venue cell, I will select the musician type and the musicians available in the category will appear and I will select them.
+8. I can then add another musician for the same day in the same format - select the musician category and then available musician.
+9. I need an option to auto-save these in draft.
+10. Once i finalize i will click schedule a contract to be sent (create a new draft contract in the settings -> Contract template named monthly contract)
+11. The contract will have a link with consolidated dates where the event is booked and the musician has an option to choose the date they are not available and accept for the rest of the days. 
+12. The value of the contract will be the "Monthly Performance" in the event category and default for 4 hours per event. So the pricing per day will be calculated on this basis (Hourly rates based on the Event category of the musician X number of hours)
+13. I also need an option to edit the musicians in-between as they may fall sick or they cancel due to some emergency, we need an option to cancel that day of the contract and invite someone else for that. In this scenario I only need to send the contract for the newly invited people not everyone as that might duplicate. 
+
+Can you recommend the best practices for this module along with an ideal dynamic plan to implement in phases?
