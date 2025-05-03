@@ -67,12 +67,43 @@ function ContractsTable({ eventId }: ContractsTableProps) {
   // Mutation to resend a contract
   const resendContractMutation = useMutation({
     mutationFn: async (contractId: number) => {
-      const res = await apiRequest(
-        `/api/contracts/${contractId}/resend`,
-        'POST'
-      );
-      if (!res.ok) throw new Error("Failed to resend contract");
-      return res.json();
+      try {
+        console.log(`Resending contract with ID: ${contractId}`);
+        const response = await fetch(`/api/contracts/${contractId}/resend`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log("Resend contract response status:", response.status, response.statusText);
+        
+        if (!response.ok) {
+          try {
+            const errorText = await response.text();
+            console.log("Error response text:", errorText);
+            
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+              throw new Error(errorData.details || errorData.message || `Failed to resend contract (${response.status})`);
+            } catch (parseError) {
+              console.error("Failed to parse error response:", parseError);
+              throw new Error(`Failed to resend contract: Server error (${response.status})`);
+            }
+          } catch (e) {
+            console.error("Error handling contract resend response:", e);
+            throw new Error(`Failed to resend contract: ${e.message}`);
+          }
+        }
+        
+        const responseData = await response.json();
+        console.log("Successful contract resend response:", responseData);
+        return responseData;
+      } catch (err) {
+        console.error("Contract resend request error:", err);
+        throw err;
+      }
     },
     onSuccess: () => {
       toast({
@@ -95,35 +126,36 @@ function ContractsTable({ eventId }: ContractsTableProps) {
     mutationFn: async (contractId: number) => {
       try {
         console.log(`Cancelling contract with ID: ${contractId}`);
-        const res = await apiRequest(
-          `/api/contracts/${contractId}/cancel`,
-          'POST'
-        );
+        const response = await fetch(`/api/contracts/${contractId}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
-        console.log("Cancel contract response status:", res.status, res.statusText);
+        console.log("Cancel contract response status:", response.status, response.statusText);
         
-        if (!res.ok) {
-          // Try to get more detailed error information from the response
+        if (!response.ok) {
           try {
-            const responseText = await res.text();
-            console.log("Error response text:", responseText);
+            // Use the fetch Response directly which properly supports text()
+            const errorText = await response.text();
+            console.log("Error response text:", errorText);
             
             let errorData;
             try {
-              errorData = JSON.parse(responseText);
+              errorData = JSON.parse(errorText);
+              throw new Error(errorData.details || errorData.message || `Failed to cancel contract (${response.status})`);
             } catch (parseError) {
               console.error("Failed to parse error response:", parseError);
-              throw new Error(`Failed to cancel contract: Invalid response format (${res.status})`);
+              throw new Error(`Failed to cancel contract: Server error (${response.status})`);
             }
-            
-            throw new Error(errorData.details || errorData.message || `Failed to cancel contract (${res.status})`);
           } catch (e) {
             console.error("Error handling contract cancellation response:", e);
             throw new Error(`Failed to cancel contract: ${e.message}`);
           }
         }
         
-        const responseData = await res.json();
+        const responseData = await response.json();
         console.log("Successful contract cancellation response:", responseData);
         return responseData;
       } catch (err) {
