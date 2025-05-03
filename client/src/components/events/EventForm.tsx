@@ -385,36 +385,42 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   };
 
-  // Rather than using useCallback with dependencies that might change,
-  // we'll use a simple function that directly references the latest state
-  const toggleMusicianSelection = (musicianId: number, date: Date) => {
-    if (!date || !musicianId) return; // Make sure we have valid inputs
-    
-    // Use a consistent date string format
+  // Using memoized functions with empty dependencies to prevent recreations
+  const handleAddMusicianToDate = useCallback((musicianId: number, date: Date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
+    const isAvailable = isMusicianAvailableForDate(musicianId, date);
     
-    // We need to extract current state to check if musician is assigned
-    const isCurrentlyAssigned = musicianAssignments[dateKey]?.includes(musicianId) || false;
-    
-    // Check if musician is available for this specific date
-    if (!isCurrentlyAssigned) {
-      const isAvailable = isMusicianAvailableForDate(musicianId, date);
-      
-      // Don't allow assigning unavailable musicians
-      if (!isAvailable) {
-        toast({
-          title: "Musician unavailable",
-          description: "This musician is not available on this date. Please choose another musician or date.",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (!isAvailable) {
+      toast({
+        title: "Musician unavailable",
+        description: "This musician is not available on this date. Please choose another musician or date.",
+        variant: "destructive",
+      });
+      return;
     }
     
-    // Create a new assignments object
-    const newAssignments = {...musicianAssignments};
+    setMusicianAssignments(prev => {
+      // Create a deep copy to avoid mutation
+      const newAssignments = JSON.parse(JSON.stringify(prev));
+      
+      // Add musician to this date
+      if (!newAssignments[dateKey]) {
+        newAssignments[dateKey] = [musicianId];
+      } else if (!newAssignments[dateKey].includes(musicianId)) {
+        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
+      }
+      
+      return newAssignments;
+    });
+  }, []); // Empty dependency array
+  
+  const handleRemoveMusicianFromDate = useCallback((musicianId: number, date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
     
-    if (isCurrentlyAssigned) {
+    setMusicianAssignments(prev => {
+      // Create a deep copy to avoid mutation
+      const newAssignments = JSON.parse(JSON.stringify(prev));
+      
       // Remove musician from this date
       if (newAssignments[dateKey]) {
         newAssignments[dateKey] = newAssignments[dateKey].filter(id => id !== musicianId);
@@ -422,18 +428,24 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
           delete newAssignments[dateKey];
         }
       }
-    } else {
-      // Add musician to this date
-      if (!newAssignments[dateKey]) {
-        newAssignments[dateKey] = [musicianId];
-      } else {
-        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
-      }
-    }
+      
+      return newAssignments;
+    });
+  }, []); // Empty dependency array
+  
+  // Create a stable wrapper function that doesn't recreate on each render
+  const toggleMusicianSelection = useCallback((musicianId: number, date: Date) => {
+    if (!date || !musicianId) return;
     
-    // Update the state directly
-    setMusicianAssignments(newAssignments);
-  };
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const isCurrentlyAssigned = musicianAssignments[dateKey]?.includes(musicianId) || false;
+    
+    if (isCurrentlyAssigned) {
+      handleRemoveMusicianFromDate(musicianId, date);
+    } else {
+      handleAddMusicianToDate(musicianId, date);
+    }
+  }, [musicianAssignments, handleAddMusicianToDate, handleRemoveMusicianFromDate]);
 
   function onSubmit(values: EventFormValues) {
     // Validate if there are any musician assignments
@@ -810,13 +822,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                     ? 'border-yellow-400 bg-yellow-50/10'
                                     : ''
                               }`}
-                              onClick={() => {
-                                // Only handle clicks if there's an active date
-                                if (activeDate) {
-                                  // Use our optimized toggleMusicianSelection function
-                                  toggleMusicianSelection(musician.id, activeDate);
-                                }
-                              }}
+                              // Remove onClick handler from the card itself
                             >
                               <CardContent className="p-4">
                                 <div className="flex items-center gap-4">
@@ -873,26 +879,33 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                       </div>
                                     </div>
                                   </div>
-                                  <div 
-                                    className="cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      e.preventDefault(); // Prevent form submission
-                                      
-                                      // Use the optimized toggleMusicianSelection function
-                                      if (activeDate) {
-                                        toggleMusicianSelection(musician.id, activeDate);
-                                      }
-                                    }}
-                                  >
-                                    <Checkbox
-                                      id={musicianKey}
-                                      checked={isSelectedForActiveDate || false}
-                                      // Use a disabled checkbox for visual representation only
-                                      // The parent div onClick handler will handle the selection
-                                      disabled={true}
-                                    />
-                                  </div>
+                                  {activeDate && (
+                                    <Button
+                                      type="button"
+                                      variant={isSelectedForActiveDate ? "destructive" : "outline"}
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        
+                                        if (isSelectedForActiveDate) {
+                                          handleRemoveMusicianFromDate(musician.id, activeDate);
+                                        } else {
+                                          if (isMusicianAvailableForDate(musician.id, activeDate)) {
+                                            handleAddMusicianToDate(musician.id, activeDate);
+                                          } else {
+                                            toast({
+                                              title: "Musician unavailable",
+                                              description: "This musician is not available on this date.",
+                                              variant: "destructive",
+                                            });
+                                          }
+                                        }
+                                      }}
+                                    >
+                                      {isSelectedForActiveDate ? "Remove" : "Select"}
+                                    </Button>
+                                  )}
                                 </div>
                                 
                                 {/* Show which dates this musician is assigned to */}
@@ -928,8 +941,18 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                             e.preventDefault(); // Prevent form submission
                                             e.stopPropagation(); // Prevent event bubbling
                                             
-                                            // Use our optimized toggleMusicianSelection function
-                                            toggleMusicianSelection(musician.id, date);
+                                            // Use direct add/remove functions
+                                            if (isAssignedToDate) {
+                                              handleRemoveMusicianFromDate(musician.id, date);
+                                            } else if (isAvailableForDate) {
+                                              handleAddMusicianToDate(musician.id, date);
+                                            } else {
+                                              toast({
+                                                title: "Musician unavailable",
+                                                description: "This musician is not available on this date.",
+                                                variant: "destructive",
+                                              });
+                                            }
                                           }}
                                         >
                                           {format(date, "MMM d")}
