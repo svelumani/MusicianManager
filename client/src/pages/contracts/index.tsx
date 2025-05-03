@@ -97,6 +97,8 @@ export default function ContractsPage() {
 
   const { data: contracts, isLoading, refetch } = useQuery<ContractLink[]>({
     queryKey: ["/api/contracts"],
+    // This ensures the data is fresh after mutations
+    staleTime: 0,
   });
   
   // Mutation for resending a contract

@@ -524,6 +524,9 @@ export function useCancelContract() {
         queryClient.invalidateQueries({ queryKey: ["/api/status"] });
         queryClient.invalidateQueries({ queryKey: ["/api/status/history"] });
         
+        // Force an immediate refetch of the contracts to update the UI right away
+        queryClient.refetchQueries({ queryKey: ["/api/contracts"] });
+        
         return { 
           ...contractStatusResult, 
           musicianStatus: musicianStatusResult 
