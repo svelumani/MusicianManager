@@ -63,10 +63,9 @@ async function updateDayRates() {
     // Update each entry
     for (const rate of missingDayRates) {
       // Get the event category title
-      // Direct query instead of using db.query which might not be properly set up
       const categoryResult = await db.select()
-        .from(db.schema.eventCategories)
-        .where(eq(db.schema.eventCategories.id, rate.eventCategoryId))
+        .from(eventCategories)
+        .where(eq(eventCategories.id, rate.eventCategoryId))
         .limit(1);
       
       const categoryTitle = categoryResult[0]?.title || 'Other';
