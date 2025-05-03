@@ -681,7 +681,8 @@ export class DatabaseStorage implements IStorage {
     
     // Create activity log
     await this.createActivity({
-      type: 'musician',
+      entityType: 'musician',
+      entityId: newMusician.id,
       action: 'create',
       userId: 1, // Default admin user
       details: `Added new musician: ${newMusician.name}`
@@ -699,7 +700,8 @@ export class DatabaseStorage implements IStorage {
     // Create activity log
     if (updated) {
       await this.createActivity({
-        type: 'musician',
+        entityType: 'musician',
+        entityId: updated.id,
         action: 'update',
         userId: 1, // Default admin user
         details: `Updated musician: ${updated.name}`
@@ -719,7 +721,8 @@ export class DatabaseStorage implements IStorage {
     // Create activity log
     if (result.rowCount > 0 && musician) {
       await this.createActivity({
-        type: 'musician',
+        entityType: 'musician',
+        entityId: musician.id,
         action: 'delete',
         userId: 1, // Default admin user
         details: `Deleted musician: ${musician.name}`
@@ -1012,6 +1015,12 @@ export class DatabaseStorage implements IStorage {
         
         for (const musicianId of musicianIds) {
           try {
+            // Get musician details
+            const musician = await this.getMusician(musicianId);
+            if (!musician) {
+              throw new Error(`Musician with ID ${musicianId} not found`);
+            }
+            
             // Create invitation record first
             const [invitation] = await db.insert(invitations)
               .values({
@@ -1019,7 +1028,10 @@ export class DatabaseStorage implements IStorage {
                 musicianId: musicianId,
                 status: 'confirmed',
                 invitedAt: new Date(),
-                respondedAt: new Date()
+                respondedAt: new Date(),
+                email: musician.email,
+                messageSubject: `Invitation to ${newEvent.name}`,
+                messageBody: `You are invited to perform at ${newEvent.name}.`
               })
               .returning();
             
@@ -1078,6 +1090,12 @@ export class DatabaseStorage implements IStorage {
           
           for (const musicianId of musicianIds) {
             try {
+              // Get musician details
+              const musician = await this.getMusician(musicianId);
+              if (!musician) {
+                throw new Error(`Musician with ID ${musicianId} not found`);
+              }
+              
               // Create invitation record first
               const [invitation] = await db.insert(invitations)
                 .values({
@@ -1085,7 +1103,10 @@ export class DatabaseStorage implements IStorage {
                   musicianId: musicianId,
                   status: 'confirmed',
                   invitedAt: new Date(),
-                  respondedAt: new Date()
+                  respondedAt: new Date(),
+                  email: musician.email,
+                  messageSubject: `Invitation to event ID ${id}`,
+                  messageBody: `You are invited to perform at this event.`
                 })
                 .returning();
               
