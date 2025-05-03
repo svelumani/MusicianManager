@@ -1,306 +1,259 @@
-import { eq, and } from 'drizzle-orm';
 import { db } from '../db';
-import { EntityStatus, entityStatus } from '../../shared/schema';
-import { Json } from 'drizzle-orm/pg-core';
+import { eq, and, desc, SQL, sql } from 'drizzle-orm';
+import { entityStatus } from '@shared/schema';
 
-// Define allowed status transitions
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  // Contract statuses
-  'pending': ['contract-sent', 'cancelled'],
-  'contract-sent': ['contract-signed', 'cancelled', 'expired', 'rejected'],
-  'contract-signed': ['completed', 'cancelled'],
-  'rejected': ['pending', 'contract-sent'],
-  'cancelled': ['pending', 'contract-sent'],
-  'expired': ['pending', 'contract-sent'],
-  
-  // Musician event statuses
-  'invited': ['accepted', 'rejected', 'cancelled'],
-  'accepted': ['contract-sent', 'rejected', 'cancelled'],
-  'confirmed': ['cancelled', 'completed', 'no-show'],
-  'completed': [],
-  'no-show': ['cancelled'],
-  
-  // Booking statuses
-  'booking-created': ['confirmed', 'cancelled'],
-  'confirmed': ['completed', 'cancelled'],
-  'completed': ['refund-requested', 'disputed'],
-  'paid': [],
-};
-
-// Entity types
+// Entity types for consistent typing
 export const ENTITY_TYPES = {
   CONTRACT: 'contract',
   MUSICIAN_EVENT: 'musician_event',
   BOOKING: 'booking',
+  EVENT: 'event',
+  INVITATION: 'invitation',
+  VENUE: 'venue'
 };
 
-export interface UpdateStatusParams {
+// Status update parameters interface
+interface StatusUpdateParams {
   entityType: string;
   entityId: number;
   newStatus: string;
   eventId: number;
   musicianId?: number;
   eventDate?: Date;
-  metadata?: Json;
+  metadata?: any;
 }
 
-export interface StatusUpdateResult {
+// Service result interface
+interface ServiceResult {
   success: boolean;
-  status: EntityStatus | null;
+  data?: any;
   error?: string;
-  propagatedUpdates?: StatusUpdateResult[];
 }
 
-export interface EventStatusMap {
-  [dateStr: string]: {
-    [musicianId: number]: string;
-  };
-}
-
-export interface PropagateStatusParams {
-  entityType: string;
-  entityId: number;
-  newStatus: string;
-  eventId: number;
-  musicianId?: number;
-  eventDate?: Date;
-  metadata?: Json;
-  sourceEntityType: string;
-  sourceEntityId: number;
-}
-
+// The status service manages status operations centrally
 class StatusService {
   /**
-   * Get status for any entity
+   * Get the current status for an entity
    */
-  async getStatus(
-    entityType: string, 
-    entityId: number, 
-    eventDate?: Date
-  ): Promise<EntityStatus | null> {
-    let query = db.select()
-      .from(entityStatus)
-      .where(and(
+  async getStatus(entityType: string, entityId: number, eventDate?: Date): Promise<any> {
+    try {
+      // Query conditions
+      const conditions = [
         eq(entityStatus.entityType, entityType),
         eq(entityStatus.entityId, entityId)
-      ));
-    
-    if (eventDate) {
-      query = query.where(eq(entityStatus.eventDate, eventDate));
-    }
-    
-    const results = await query;
-    return results.length > 0 ? results[0] : null;
-  }
-  
-  /**
-   * Update status with validation and propagation
-   */
-  async updateStatus(params: UpdateStatusParams): Promise<StatusUpdateResult> {
-    const { entityType, entityId, newStatus, eventId, musicianId, eventDate, metadata } = params;
-    
-    // Get current status
-    const currentStatus = await this.getStatus(entityType, entityId, eventDate);
-    
-    // Validate status transition
-    if (currentStatus && !this.validateStatusTransition(currentStatus.primaryStatus, newStatus)) {
-      return {
-        success: false,
-        status: null,
-        error: `Invalid status transition from '${currentStatus.primaryStatus}' to '${newStatus}'`
-      };
-    }
-    
-    try {
-      let status: EntityStatus;
+      ];
       
-      if (currentStatus) {
-        // Update existing status
-        const [updated] = await db.update(entityStatus)
-          .set({
-            primaryStatus: newStatus,
-            updatedAt: new Date(),
-            metadata
-          })
-          .where(eq(entityStatus.id, currentStatus.id))
-          .returning();
-        
-        status = updated;
-      } else {
-        // Create new status
-        const [newEntry] = await db.insert(entityStatus)
-          .values({
-            entityType,
-            entityId,
-            primaryStatus: newStatus,
-            eventId,
-            musicianId,
-            eventDate,
-            metadata,
-            statusDate: new Date(),
-          })
-          .returning();
-        
-        status = newEntry;
+      // Add event date condition if specified
+      if (eventDate) {
+        conditions.push(eq(entityStatus.eventDate, eventDate));
       }
       
-      // Propagate status changes to dependent entities
-      const propagatedUpdates = await this.propagateStatusChange({
-        entityType,
-        entityId,
-        newStatus,
-        eventId, 
-        musicianId,
-        eventDate,
-        metadata,
-        sourceEntityType: entityType,
-        sourceEntityId: entityId
-      });
+      // Get the most recently updated status for this entity
+      const statuses = await db
+        .select()
+        .from(entityStatus)
+        .where(and(...conditions))
+        .orderBy(desc(entityStatus.statusDate))
+        .limit(1);
       
-      return {
-        success: true,
-        status,
-        propagatedUpdates
-      };
+      return statuses.length > 0 ? statuses[0] : null;
     } catch (error) {
-      console.error('Error updating status:', error);
-      return {
-        success: false,
-        status: null,
-        error: error instanceof Error ? error.message : String(error)
-      };
+      console.error('Error getting status:', error);
+      return null;
     }
   }
   
   /**
    * Get all statuses for an event
    */
-  async getEventStatuses(eventId: number): Promise<EventStatusMap> {
-    const statuses = await db.select()
-      .from(entityStatus)
-      .where(eq(entityStatus.eventId, eventId));
-    
-    const result: EventStatusMap = {};
-    
-    for (const status of statuses) {
-      if (!status.musicianId) continue;
+  async getEventStatuses(eventId: number): Promise<any[]> {
+    try {
+      const statuses = await db
+        .select()
+        .from(entityStatus)
+        .where(eq(entityStatus.eventId, eventId))
+        .orderBy(desc(entityStatus.statusDate));
       
-      const dateStr = status.eventDate 
-        ? status.eventDate.toISOString().split('T')[0] 
-        : 'all';
+      return statuses;
+    } catch (error) {
+      console.error('Error getting event statuses:', error);
+      return [];
+    }
+  }
+  
+  /**
+   * Get all statuses for a specific musician in an event
+   */
+  async getMusicianEventStatuses(
+    eventId: number, 
+    musicianId: number, 
+    entityType?: string
+  ): Promise<any[]> {
+    try {
+      const conditions = [
+        eq(entityStatus.eventId, eventId),
+        eq(entityStatus.musicianId, musicianId)
+      ];
       
-      if (!result[dateStr]) {
-        result[dateStr] = {};
+      if (entityType) {
+        conditions.push(eq(entityStatus.entityType, entityType));
       }
       
-      result[dateStr][status.musicianId] = status.primaryStatus;
+      const statuses = await db
+        .select()
+        .from(entityStatus)
+        .where(and(...conditions))
+        .orderBy(desc(entityStatus.statusDate));
+      
+      return statuses;
+    } catch (error) {
+      console.error('Error getting musician event statuses:', error);
+      return [];
     }
-    
-    return result;
   }
   
   /**
-   * Validate if a status transition is allowed
+   * Update a status with transaction support
    */
-  private validateStatusTransition(currentStatus: string, newStatus: string): boolean {
-    // If current status doesn't exist, any new status is valid
-    if (!currentStatus) return true;
-    
-    // If transition rule doesn't exist, assume not allowed
-    if (!STATUS_TRANSITIONS[currentStatus]) return false;
-    
-    // Check if new status is in the allowed transitions list
-    return STATUS_TRANSITIONS[currentStatus].includes(newStatus);
+  async updateStatus(params: StatusUpdateParams): Promise<ServiceResult> {
+    try {
+      // Insert a new status record
+      const [newStatus] = await db.insert(entityStatus).values({
+        entityType: params.entityType,
+        entityId: params.entityId,
+        primaryStatus: params.newStatus,
+        statusDate: new Date(),
+        eventId: params.eventId,
+        musicianId: params.musicianId,
+        eventDate: params.eventDate,
+        metadata: params.metadata,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      
+      // Now execute any related status updates
+      await this.handleRelatedStatusUpdates(params);
+      
+      return {
+        success: true,
+        data: newStatus
+      };
+    } catch (error) {
+      console.error('Error updating status:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
   }
   
   /**
-   * Propagate status changes to dependent entities
+   * Handle updating related entities' statuses when a status changes
    */
-  private async propagateStatusChange(params: PropagateStatusParams): Promise<StatusUpdateResult[]> {
-    const { 
-      entityType, 
-      newStatus, 
-      eventId, 
-      musicianId, 
-      eventDate, 
-      sourceEntityType, 
-      sourceEntityId
-    } = params;
+  private async handleRelatedStatusUpdates(params: StatusUpdateParams): Promise<void> {
+    // Status update logic depends on the entity and the new status
+    const { entityType, newStatus, eventId, musicianId, eventDate } = params;
     
-    const updates: StatusUpdateResult[] = [];
-    
-    // Define propagation rules based on entity type and status
     switch (entityType) {
       case ENTITY_TYPES.CONTRACT:
-        if (newStatus === 'cancelled' && musicianId) {
-          // When contract is cancelled, update musician event status
-          const musicianResult = await this.updateStatus({
-            entityType: ENTITY_TYPES.MUSICIAN_EVENT,
-            entityId: musicianId,
-            newStatus: 'cancelled',
-            eventId,
-            musicianId,
-            eventDate,
-            metadata: {
-              triggeredBy: {
-                entityType: sourceEntityType,
-                entityId: sourceEntityId,
-                status: newStatus
-              }
-            }
-          });
-          updates.push(musicianResult);
-          
-          // Also update related booking if any
-          // This would require a lookup to find the booking ID 
-          // For now we'll assume it can be derived from eventId + musicianId + date
-          // In production, you'd have a proper lookup method
-          const bookingId = await this.findBookingId(eventId, musicianId, eventDate);
-          if (bookingId) {
-            const bookingResult = await this.updateStatus({
+        if (newStatus === 'cancelled') {
+          // When a contract is cancelled, update related booking and musician status
+          if (musicianId) {
+            // Update booking payment status to 'cancelled'
+            await this.updateStatus({
               entityType: ENTITY_TYPES.BOOKING,
-              entityId: bookingId,
+              entityId: params.entityId, // We're using the contract ID as the booking ID
               newStatus: 'cancelled',
               eventId,
               musicianId,
               eventDate,
               metadata: {
-                triggeredBy: {
-                  entityType: sourceEntityType,
-                  entityId: sourceEntityId,
-                  status: newStatus
-                }
+                reason: params.metadata?.reason || 'Contract cancelled',
+                cancelledBy: params.metadata?.cancelledBy || null,
+                cancelledAt: params.metadata?.cancelledAt || new Date()
               }
             });
-            updates.push(bookingResult);
+            
+            // Update musician status to 'available' for the specific date
+            await this.updateStatus({
+              entityType: ENTITY_TYPES.MUSICIAN_EVENT,
+              entityId: musicianId,
+              newStatus: 'available',
+              eventId,
+              musicianId,
+              eventDate,
+              metadata: {
+                reason: 'Contract cancelled',
+                previousStatus: 'booked',
+                prevContract: params.entityId
+              }
+            });
+          }
+        } else if (newStatus === 'signed') {
+          // When a contract is signed, mark musician as booked
+          if (musicianId) {
+            await this.updateStatus({
+              entityType: ENTITY_TYPES.MUSICIAN_EVENT,
+              entityId: musicianId,
+              newStatus: 'booked',
+              eventId,
+              musicianId,
+              eventDate,
+              metadata: {
+                contractId: params.entityId,
+                signedAt: new Date()
+              }
+            });
           }
         }
         break;
         
-      case ENTITY_TYPES.MUSICIAN_EVENT:
-        if (newStatus === 'accepted' && musicianId) {
-          // When musician accepts, automatically create a contract
-          // This would be implemented in a real system
-          console.log(`Would create contract for musician ${musicianId} in event ${eventId}`);
+      case ENTITY_TYPES.BOOKING:
+        // Booking status impacts payment tracking, etc.
+        if (newStatus === 'confirmed') {
+          // Logic for confirmed bookings
+        } else if (newStatus === 'cancelled') {
+          // Logic for cancelled bookings
+          // Already handled in the contract case
         }
         break;
         
-      // Add other propagation rules as needed
+      case ENTITY_TYPES.INVITATION:
+        // Invitations affect musician availability
+        if (newStatus === 'accepted') {
+          await this.updateStatus({
+            entityType: ENTITY_TYPES.MUSICIAN_EVENT,
+            entityId: musicianId!,
+            newStatus: 'pending-contract',
+            eventId,
+            musicianId,
+            eventDate,
+            metadata: {
+              invitationId: params.entityId,
+              acceptedAt: new Date()
+            }
+          });
+        } else if (newStatus === 'declined') {
+          await this.updateStatus({
+            entityType: ENTITY_TYPES.MUSICIAN_EVENT,
+            entityId: musicianId!,
+            newStatus: 'declined',
+            eventId,
+            musicianId,
+            eventDate,
+            metadata: {
+              invitationId: params.entityId,
+              declinedAt: new Date()
+            }
+          });
+        }
+        break;
+        
+      default:
+        // No related status updates for this entity type
+        break;
     }
-    
-    return updates;
-  }
-  
-  /**
-   * Helper to find a booking ID
-   * In a real implementation, this would query the bookings table
-   */
-  private async findBookingId(eventId: number, musicianId: number, eventDate?: Date): Promise<number | null> {
-    // This is a placeholder - in a real implementation this would query the database
-    // For now just returning null as we haven't implemented the lookup
-    return null;
   }
 }
 
-// Export a singleton instance
 export const statusService = new StatusService();

@@ -3524,60 +3524,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contract not found" });
       }
       
-      // Update the contract status to cancelled
-      console.log(`Updating contract ${contractId} status to cancelled`);
+      // Import the status service
+      const { statusService, ENTITY_TYPES } = await import('./services/status');
+      
+      console.log(`Using status service to cancel contract ${contractId}`);
+      
+      // Use centralized status service to manage the cancellation
+      const statusResult = await statusService.updateStatus({
+        entityType: ENTITY_TYPES.CONTRACT,
+        entityId: contractId,
+        newStatus: 'cancelled',
+        eventId: contract.eventId,
+        musicianId: contract.musicianId,
+        eventDate: contract.eventDate,
+        metadata: {
+          reason: req.body.reason || 'User initiated cancellation',
+          cancelledBy: (req.user as any)?.id || null,
+          cancelledAt: new Date(),
+          bookingId: contract.bookingId
+        }
+      });
+      
+      // Check the result of the operation
+      if (!statusResult.success) {
+        console.error("Failed to cancel contract:", statusResult.error);
+        return res.status(400).json({
+          message: "Failed to cancel contract",
+          error: statusResult.error
+        });
+      }
+      
+      // Update the contract status directly as a backup/legacy support
+      // This can be removed once all systems fully use the status service
       let updatedContract;
       try {
         updatedContract = await storage.updateContractLink(contractId, {
           status: 'cancelled',
           updatedAt: new Date()
         });
-        console.log(`Contract status updated successfully for ID: ${contractId}`);
+        console.log(`Contract record also updated directly for ID: ${contractId}`);
       } catch (updateError) {
-        console.error(`Error updating contract ${contractId} status:`, updateError);
-        throw new Error(`Failed to update contract status: ${updateError.message}`);
-      }
-      
-      // If there's a booking associated with this contract, update it
-      if (contract.bookingId) {
-        console.log(`Updating booking ${contract.bookingId} for contract ${contractId}`);
-        try {
-          // Update booking with appropriate fields (not status as it doesn't exist)
-          await storage.updateBooking(contract.bookingId, {
-            paymentStatus: 'cancelled'
-          });
-          console.log(`Booking ${contract.bookingId} updated successfully`);
-        } catch (bookingError) {
-          console.error(`Error updating booking ${contract.bookingId}:`, bookingError);
-          // Continue execution even if booking update fails
-          console.log("Continuing despite booking update error");
-        }
-      }
-      
-      // Update musician status in event
-      if (contract.eventId && contract.musicianId && contract.eventDate) {
-        try {
-          // Convert eventDate to ISO string format for the date-specific status update
-          const dateStr = new Date(contract.eventDate).toISOString();
-          console.log(`Updating musician ${contract.musicianId} status for event ${contract.eventId} on date ${dateStr}`);
-          
-          // Update the musician's status for this event and date using the proper date-specific method
-          await storage.updateMusicianEventStatusForDate(
-            contract.eventId,
-            contract.musicianId,
-            'cancelled',
-            dateStr
-          );
-          console.log(`Musician status updated successfully`);
-        } catch (statusError) {
-          console.error(`Error updating musician status:`, statusError);
-          // Continue execution even if status update fails
-          console.log("Continuing despite status update error");
-        }
+        console.error(`Warning: Direct contract update failed, but status service succeeded:`, updateError);
+        // We'll continue as the status service handled the main update
       }
       
       console.log(`Contract cancellation completed successfully for ID: ${contractId}`);
-      res.json({ message: "Contract cancelled successfully", contract: updatedContract });
+      res.json({ 
+        message: "Contract cancelled successfully", 
+        contract: updatedContract || contract,
+        statusResult: statusResult.data
+      });
     } catch (error) {
       console.error("Contract cancellation error:", error);
       // Return more detailed error information for debugging
