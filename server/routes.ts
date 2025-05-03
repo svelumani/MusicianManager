@@ -3553,8 +3553,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ message: "Contract cancelled successfully", contract: updatedContract });
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error cancelling contract" });
+      console.error("Contract cancellation error:", error);
+      // Return more detailed error information for debugging
+      res.status(500).json({ 
+        message: "Error cancelling contract",
+        details: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
