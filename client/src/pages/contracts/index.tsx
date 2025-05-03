@@ -121,17 +121,40 @@ export default function ContractsPage() {
   // Mutation for canceling a contract
   const cancelContractMutation = useMutation({
     mutationFn: async (contractId: number) => {
-      const res = await apiRequest(`/api/contracts/${contractId}/cancel`, "POST");
-      if (!res.ok) {
-        // Try to get more detailed error information from the response
-        try {
-          const errorData = await res.json();
-          throw new Error(errorData.details || errorData.message || "Failed to cancel contract");
-        } catch (e) {
-          throw new Error("Failed to cancel contract");
+      try {
+        console.log(`Cancelling contract with ID: ${contractId}`);
+        const res = await apiRequest(`/api/contracts/${contractId}/cancel`, "POST");
+        
+        console.log("Cancel contract response status:", res.status, res.statusText);
+        
+        if (!res.ok) {
+          // Try to get more detailed error information from the response
+          try {
+            const responseText = await res.text();
+            console.log("Error response text:", responseText);
+            
+            let errorData;
+            try {
+              errorData = JSON.parse(responseText);
+            } catch (parseError) {
+              console.error("Failed to parse error response:", parseError);
+              throw new Error(`Failed to cancel contract: Invalid response format (${res.status})`);
+            }
+            
+            throw new Error(errorData.details || errorData.message || `Failed to cancel contract (${res.status})`);
+          } catch (e) {
+            console.error("Error handling contract cancellation response:", e);
+            throw new Error(`Failed to cancel contract: ${e.message}`);
+          }
         }
+        
+        const responseData = await res.json();
+        console.log("Successful contract cancellation response:", responseData);
+        return responseData;
+      } catch (err) {
+        console.error("Contract cancellation request error:", err);
+        throw err;
       }
-      return res.json();
     },
     onSuccess: () => {
       toast({
