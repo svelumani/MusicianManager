@@ -77,7 +77,10 @@ export class DatabaseStorage implements IStorage {
         assignedMusicians[dateStr] = [];
       }
       
-      assignedMusicians[dateStr].push(booking.musicianId);
+      // Only add musician ID if it's not already in the array for this date
+      if (!assignedMusicians[dateStr].includes(booking.musicianId)) {
+        assignedMusicians[dateStr].push(booking.musicianId);
+      }
     }
     
     return assignedMusicians;
@@ -1083,12 +1086,43 @@ export class DatabaseStorage implements IStorage {
         // Remove existing bookings for this event to avoid duplicates
         await db.delete(bookings).where(eq(bookings.eventId, id));
         
-        // Add new bookings
+        // Normalize date formats and deduplicate musician IDs before creating bookings
+        const normalizedAssignments: Record<string, number[]> = {};
+        
+        // Process and normalize each date entry
         for (const dateStr of Object.keys(musicianAssignments)) {
+          // Parse and format the date consistently
           const date = new Date(dateStr);
-          const musicianIds = musicianAssignments[dateStr];
+          if (isNaN(date.getTime())) {
+            console.warn(`Invalid date format in assignments: ${dateStr}, skipping`);
+            continue;
+          }
           
+          // Format date as YYYY-MM-DD for consistent keys
+          const normalizedDateStr = format(date, 'yyyy-MM-dd');
+          
+          // Get the musician IDs for this date, ensure they're unique
+          const musicianIds = Array.from(new Set(musicianAssignments[dateStr]));
+          
+          // Store with normalized date
+          if (!normalizedAssignments[normalizedDateStr]) {
+            normalizedAssignments[normalizedDateStr] = [];
+          }
+          
+          // Add unique musician IDs to this date
           for (const musicianId of musicianIds) {
+            if (!normalizedAssignments[normalizedDateStr].includes(musicianId)) {
+              normalizedAssignments[normalizedDateStr].push(musicianId);
+            }
+          }
+        }
+        
+        // Add new bookings using normalized assignments
+        for (const normalizedDateStr of Object.keys(normalizedAssignments)) {
+          const date = new Date(normalizedDateStr);
+          const uniqueMusicianIds = normalizedAssignments[normalizedDateStr];
+          
+          for (const musicianId of uniqueMusicianIds) {
             try {
               // Get musician details
               const musician = await this.getMusician(musicianId);
@@ -1120,7 +1154,7 @@ export class DatabaseStorage implements IStorage {
                   paymentStatus: 'pending'
                 });
               
-              console.log(`Created booking for updated event ${id}, musician ${musicianId}, date ${dateStr}`);
+              console.log(`Created booking for updated event ${id}, musician ${musicianId}, date ${normalizedDateStr}`);
             } catch (error) {
               console.error(`Failed to create booking for updated event ${id}, musician ${musicianId}:`, error);
             }
