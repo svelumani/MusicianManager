@@ -15,6 +15,8 @@ import {
 import FileContract from "@/components/icons/FileContract";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import StatusBadge from "@/components/StatusBadge";
+import { useCancelContract, useUpdateStatus } from "@/hooks/use-status";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -154,64 +156,8 @@ export default function ContractsPage() {
     }
   });
   
-  // Mutation for canceling a contract
-  const cancelContractMutation = useMutation({
-    mutationFn: async (contractId: number) => {
-      try {
-        console.log(`Cancelling contract with ID: ${contractId}`);
-        const response = await fetch(`/api/contracts/${contractId}/cancel`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        console.log("Cancel contract response status:", response.status, response.statusText);
-        
-        if (!response.ok) {
-          try {
-            // Use the fetch Response directly which properly supports text()
-            const errorText = await response.text();
-            console.log("Error response text:", errorText);
-            
-            let errorData;
-            try {
-              errorData = JSON.parse(errorText);
-              throw new Error(errorData.details || errorData.message || `Failed to cancel contract (${response.status})`);
-            } catch (parseError) {
-              console.error("Failed to parse error response:", parseError);
-              throw new Error(`Failed to cancel contract: Server error (${response.status})`);
-            }
-          } catch (e) {
-            console.error("Error handling contract cancellation response:", e);
-            throw new Error(`Failed to cancel contract: ${e.message}`);
-          }
-        }
-        
-        const responseData = await response.json();
-        console.log("Successful contract cancellation response:", responseData);
-        return responseData;
-      } catch (err) {
-        console.error("Contract cancellation request error:", err);
-        throw err;
-      }
-    },
-    onSuccess: () => {
-      toast({
-        title: "Contract Cancelled",
-        description: "The contract has been cancelled successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts"] });
-    },
-    onError: (error: Error) => {
-      console.error("Contract cancellation error:", error);
-      toast({
-        title: "Failed to Cancel Contract",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  });
+  // Use the new status hook for canceling contracts
+  const cancelContractMutation = useCancelContract();
 
   const { data: musicians } = useQuery<Musician[]>({
     queryKey: ["/api/musicians"],
@@ -425,7 +371,13 @@ export default function ContractsPage() {
                           "Not specified"
                         )}
                       </TableCell>
-                      <TableCell>{getStatusBadge(contract.status)}</TableCell>
+                      <TableCell>
+                        <StatusBadge 
+                          status={contract.status} 
+                          entityType="contract"
+                          timestamp={contract.updatedAt}
+                        />
+                      </TableCell>
                       <TableCell>{format(new Date(contract.createdAt), "MMM d, yyyy")}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -454,7 +406,12 @@ export default function ContractsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => cancelContractMutation.mutate(contract.id)}
+                              onClick={() => cancelContractMutation.mutate({
+                                contractId: contract.id,
+                                eventId: contract.eventId,
+                                musicianId: contract.musicianId,
+                                eventDate: contract.eventDate
+                              })}
                               disabled={cancelContractMutation.isPending}
                               title="Cancel Contract"
                             >
