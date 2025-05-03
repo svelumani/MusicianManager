@@ -3652,17 +3652,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let updatedContract;
       try {
         updatedContract = await storage.updateContractLink(contractId, {
-          status: 'cancelled',
-          updatedAt: new Date()
+          status: 'cancelled'
+          // Removed updatedAt as it's not in the schema and causing errors
         });
         console.log(`Contract record also updated directly for ID: ${contractId}`);
         
         // Also update the musician's status in the event - for backward compatibility
-        const localEventDate = eventDate; // Store eventDate in local variable to avoid confusion
         if (contract.eventId && contract.musicianId) {
           try {
-            // First try to use the provided event date
-            let effectiveEventDate = localEventDate;
+            // First try to use the provided event date from request
+            let effectiveEventDate = req.body.eventDate ? new Date(req.body.eventDate) : null;
             
             // If no event date was provided in the request, try to use the contract's event date
             if (!effectiveEventDate && contract.eventDate) {
