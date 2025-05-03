@@ -150,7 +150,18 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Handle musician assignment
   const handleMusicianAssigned = () => {
+    // Invalidate the query cache first
     queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', planner?.id, plannerSlots] });
+    
+    // Then manually trigger refetches to ensure fresh data
+    setTimeout(() => {
+      refetchAssignments().then(() => {
+        toast({
+          title: "Success",
+          description: "Musician assignments updated in grid view",
+        });
+      });
+    }, 300);
   };
 
   // Refresh data

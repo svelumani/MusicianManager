@@ -281,11 +281,12 @@ const InlineMusicianSelect = ({
                 className="w-full mt-3" 
                 variant="default"
                 onClick={() => {
+                  // Call the assignment handler and then close
                   onMusicianAssigned && onMusicianAssigned();
-                  toast({
-                    title: "Success",
-                    description: "Assignments confirmed and updated in the planner",
-                  });
+                  
+                  // Visual feedback is now provided by the PlannerGrid component
+                  
+                  // Close the popover
                   onClose();
                 }}
               >
