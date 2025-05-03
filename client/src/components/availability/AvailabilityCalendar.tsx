@@ -566,33 +566,7 @@ export function AvailabilityCalendar({ musicianId }: AvailabilityCalendarProps) 
                 )}
               </div>
               
-              <h4 className="text-sm font-medium mb-2">Contract Status</h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-                <div className="flex items-center">
-                  <div className="h-1.5 w-6 rounded-sm bg-green-500 mr-2"></div>
-                  <span className="text-sm">Contract Signed</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-1.5 w-6 rounded-sm bg-blue-500 mr-2"></div>
-                  <span className="text-sm">Contract Sent</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-1.5 w-6 rounded-sm bg-blue-300 mr-2"></div>
-                  <span className="text-sm">Accepted</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-1.5 w-6 rounded-sm bg-yellow-300 mr-2"></div>
-                  <span className="text-sm">Pending</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-1.5 w-6 rounded-sm bg-red-400 mr-2"></div>
-                  <span className="text-sm">Rejected/Cancelled</span>
-                </div>
-                <div className="flex items-center">
-                  <div className="h-1.5 w-6 rounded-sm bg-gray-300 mr-2"></div>
-                  <span className="text-sm">Other</span>
-                </div>
-              </div>
+
             </div>
             
             {multiSelectMode && (
