@@ -326,11 +326,75 @@ const InlineMusicianSelect = ({
               <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
                 {currentAssignments.map((assignment: any) => (
                   <div key={assignment.id} className="flex items-center justify-between p-2 rounded bg-gray-50">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col flex-grow">
                       <span className="font-medium">{getMusicianName(assignment.musicianId)}</span>
-                      <span className="text-xs text-gray-500">
-                        ${assignment.actualFee} • {getMusicianCategory(assignment.musicianId)}
-                      </span>
+                      
+                      {editingFeeId === assignment.id ? (
+                        <div className="flex items-center mt-1">
+                          <span className="text-xs font-medium mr-1">$</span>
+                          <Input
+                            type="number"
+                            value={editingFeeValue}
+                            onChange={(e) => setEditingFeeValue(e.target.value)}
+                            className="h-6 text-xs w-16"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                updateAssignmentFeeMutation.mutate({
+                                  id: assignment.id,
+                                  actualFee: parseInt(editingFeeValue)
+                                });
+                              } else if (e.key === 'Escape') {
+                                setEditingFeeId(null);
+                              }
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1 ml-1"
+                            onClick={() => {
+                              updateAssignmentFeeMutation.mutate({
+                                id: assignment.id,
+                                actualFee: parseInt(editingFeeValue)
+                              });
+                            }}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1"
+                            onClick={() => setEditingFeeId(null)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center">
+                          <span className="text-xs text-gray-500 cursor-pointer flex items-center" 
+                            onClick={() => {
+                              setEditingFeeId(assignment.id);
+                              setEditingFeeValue(assignment.actualFee.toString());
+                            }}>
+                            <DollarSign className="h-3 w-3 mr-0.5" /> 
+                            {assignment.actualFee} • {getMusicianCategory(assignment.musicianId)}
+                            <Edit className="h-3 w-3 ml-1 opacity-50" />
+                          </span>
+                          
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertCircle className="h-3 w-3 ml-1 text-yellow-500 cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Custom fee overrides hourly rate</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      )}
                     </div>
                     <Button 
                       variant="ghost" 
