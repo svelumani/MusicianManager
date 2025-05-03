@@ -66,12 +66,29 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
-    queryKey: ['/api/planner-assignments', planner?.id, plannerSlots],
+    queryKey: ['/api/planner-assignments', planner?.id, plannerSlots ? plannerSlots.map((s: any) => s.id).join('-') : ''],
     queryFn: () => {
-      if (!plannerSlots || plannerSlots.length === 0) return [];
+      if (!plannerSlots || plannerSlots.length === 0) {
+        console.log("No planner slots available, skipping assignment fetch");
+        return [];
+      }
+      
+      // Use a cleaner approach to build the query with all slot IDs
       const slotIds = plannerSlots.map((slot: any) => slot.id);
-      const query = slotIds.map((id: number) => `slotId=${id}`).join('&');
-      return apiRequest(`/api/planner-assignments?${query}`);
+      console.log("Fetching assignments for slots:", slotIds);
+      
+      // Build individual queries for each slot to avoid URL length issues
+      const promises = slotIds.map((id: number) => 
+        apiRequest(`/api/planner-assignments?slotId=${id}`)
+      );
+      
+      // Combine all results from the individual requests
+      return Promise.all(promises).then(results => {
+        // Flatten the array of arrays
+        const combined = results.flat();
+        console.log("Combined assignments:", combined.length);
+        return combined;
+      });
     },
     enabled: !!plannerSlots && plannerSlots.length > 0,
   });
@@ -150,18 +167,25 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Handle musician assignment
   const handleMusicianAssigned = () => {
-    // Invalidate the query cache first
-    queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', planner?.id, plannerSlots] });
-    
-    // Then manually trigger refetches to ensure fresh data
-    setTimeout(() => {
-      refetchAssignments().then(() => {
-        toast({
-          title: "Success",
-          description: "Musician assignments updated in grid view",
-        });
+    // First, make sure the slots are refreshed
+    refetchSlots().then(updatedSlots => {
+      // Now use the updated slots info to refresh assignments
+      // Invalidate the query cache first
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/planner-assignments', planner?.id] 
       });
-    }, 300);
+      
+      // Then manually trigger refetches to ensure fresh data
+      setTimeout(() => {
+        console.log("Refreshing assignments after musician assignment");
+        refetchAssignments().then(() => {
+          toast({
+            title: "Success",
+            description: "Musician assignments updated in grid view",
+          });
+        });
+      }, 500); // Longer delay to ensure backend processing completes
+    });
   };
 
   // Refresh data
