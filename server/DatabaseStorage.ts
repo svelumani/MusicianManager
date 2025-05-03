@@ -2139,21 +2139,7 @@ export class DatabaseStorage implements IStorage {
     return link;
   }
   
-  async createAvailabilityShareLink(musicianId: number, expiresAt?: Date): Promise<AvailabilityShareLink> {
-    // Generate a unique token
-    const token = crypto.randomBytes(16).toString('hex');
-    
-    const [newLink] = await db.insert(availabilityShareLinks)
-      .values({
-        musicianId,
-        token,
-        expiresAt,
-        createdAt: new Date()
-      })
-      .returning();
-    
-    return newLink;
-  }
+  // This method has been replaced by the createAvailabilityShareLink method below
   
   async deleteAvailabilityShareLink(id: number): Promise<boolean> {
     const result = await db.delete(availabilityShareLinks)
@@ -2565,8 +2551,14 @@ export class DatabaseStorage implements IStorage {
       data.token = crypto.randomBytes(32).toString('hex');
     }
     
+    // Convert expiresAt to ISO string if it's a Date object
+    const values = {
+      ...data,
+      expiresAt: data.expiresAt ? new Date(data.expiresAt).toISOString() : undefined
+    };
+    
     const [shareLink] = await db.insert(availabilityShareLinks)
-      .values(data)
+      .values(values)
       .returning();
     
     return shareLink;
