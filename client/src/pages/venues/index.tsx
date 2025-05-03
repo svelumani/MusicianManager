@@ -5,22 +5,88 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Building, Search, Plus, Star } from "lucide-react";
+import { Building, Search, Plus, Star, ArrowUpDown, Edit } from "lucide-react";
 import type { Venue } from "@shared/schema";
+
+type SortField = 'name' | 'location' | 'capacity' | 'rating' | 'hourlyRate';
 
 export default function VenuesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [, navigate] = useLocation();
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   const { data: venues, isLoading } = useQuery<Venue[]>({
     queryKey: ["/api/venues"],
   });
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if clicking the same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new field and default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return <ArrowUpDown className={`ml-1 h-4 w-4 ${sortDirection === 'desc' ? 'transform rotate-180' : ''}`} />;
+  };
+
+  // First filter venues based on search query
   const filteredVenues = venues?.filter(venue => 
     venue.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     venue.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
     venue.address.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  // Then sort the filtered venues
+  const sortedVenues = filteredVenues ? [...filteredVenues].sort((a, b) => {
+    if (sortField === 'name') {
+      return sortDirection === 'asc' 
+        ? a.name.localeCompare(b.name)
+        : b.name.localeCompare(a.name);
+    } 
+    else if (sortField === 'location') {
+      return sortDirection === 'asc'
+        ? a.location.localeCompare(b.location)
+        : b.location.localeCompare(a.location);
+    }
+    else if (sortField === 'capacity') {
+      // Handle null capacities - sort them last
+      if (a.capacity === null && b.capacity === null) return 0;
+      if (a.capacity === null) return sortDirection === 'asc' ? 1 : -1;
+      if (b.capacity === null) return sortDirection === 'asc' ? -1 : 1;
+      
+      return sortDirection === 'asc'
+        ? a.capacity - b.capacity
+        : b.capacity - a.capacity;
+    }
+    else if (sortField === 'rating') {
+      // Handle null ratings - sort them last
+      if (a.rating === null && b.rating === null) return 0;
+      if (a.rating === null) return sortDirection === 'asc' ? 1 : -1;
+      if (b.rating === null) return sortDirection === 'asc' ? -1 : 1;
+      
+      return sortDirection === 'asc'
+        ? a.rating - b.rating
+        : b.rating - a.rating;
+    }
+    else if (sortField === 'hourlyRate') {
+      // Handle null hourly rates - sort them last
+      if (a.hourlyRate === null && b.hourlyRate === null) return 0;
+      if (a.hourlyRate === null) return sortDirection === 'asc' ? 1 : -1;
+      if (b.hourlyRate === null) return sortDirection === 'asc' ? -1 : 1;
+      
+      return sortDirection === 'asc'
+        ? a.hourlyRate - b.hourlyRate
+        : b.hourlyRate - a.hourlyRate;
+    }
+    return 0;
+  }) : [];
 
   const handleViewVenue = (id: number) => {
     navigate(`/venues/${id}`);
@@ -63,16 +129,51 @@ export default function VenuesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Capacity</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead>Hourly Rate</TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('name')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Name {getSortIcon('name')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('location')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Location {getSortIcon('location')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('capacity')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Capacity {getSortIcon('capacity')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('rating')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Rating {getSortIcon('rating')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('hourlyRate')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Hourly Rate {getSortIcon('hourlyRate')}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredVenues.map((venue) => (
+                  {sortedVenues.map((venue) => (
                     <TableRow key={venue.id}>
                       <TableCell className="font-medium">{venue.name}</TableCell>
                       <TableCell>{venue.location}</TableCell>
@@ -85,9 +186,18 @@ export default function VenuesPage() {
                       </TableCell>
                       <TableCell>${venue.hourlyRate ? venue.hourlyRate.toFixed(2) : 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewVenue(venue.id)}>
-                          View
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewVenue(venue.id)}>
+                            View
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => navigate(`/venues/${venue.id}/edit`)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" /> Edit
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
