@@ -3531,8 +3531,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If there's a booking associated with this contract, update it
       if (contract.bookingId) {
+        // Update booking with appropriate fields (not status as it doesn't exist)
         await storage.updateBooking(contract.bookingId, {
-          status: 'cancelled'
+          paymentStatus: 'cancelled'
         });
       }
       
@@ -3708,7 +3709,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.updateBooking(contract.bookingId, {
             contractSigned: true,
             contractSignedAt: new Date(),
-            status: 'confirmed'
+            paymentStatus: 'confirmed'
           });
           
           // Update the musician's status in the event to "contract-signed" ONLY for the specific date
@@ -3743,7 +3744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             contractSentAt: contract.createdAt,
             contractSigned: true,
             contractSignedAt: new Date(),
-            status: 'confirmed',
+            paymentStatus: 'confirmed',
             amount: contract.amount,
             advancePayment: null,
             balancePayment: null,
@@ -3789,7 +3790,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Update booking status if it exists
         if (contract.bookingId) {
           await storage.updateBooking(contract.bookingId, {
-            status: 'cancelled',
+            paymentStatus: 'cancelled',
+            contractSigned: false,
             notes: response || 'Contract declined'
           });
         }
