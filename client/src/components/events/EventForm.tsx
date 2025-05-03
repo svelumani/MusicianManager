@@ -385,60 +385,55 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   };
 
-  // Simplified, single source of truth function to handle musician selection/deselection for a specific date
-  const toggleMusicianSelection = useCallback((musicianId: number, date: Date) => {
+  // Rather than using useCallback with dependencies that might change,
+  // we'll use a simple function that directly references the latest state
+  const toggleMusicianSelection = (musicianId: number, date: Date) => {
     if (!date || !musicianId) return; // Make sure we have valid inputs
     
     // Use a consistent date string format
     const dateKey = format(date, 'yyyy-MM-dd');
     
-    // Use functional state update - this allows us to access the latest state
-    // without including musicianAssignments in the dependency array
-    setMusicianAssignments(prevAssignments => {
-      // Check if musician is already assigned to this date - using current state
-      const isCurrentlyAssigned = prevAssignments[dateKey]?.includes(musicianId) || false;
+    // We need to extract current state to check if musician is assigned
+    const isCurrentlyAssigned = musicianAssignments[dateKey]?.includes(musicianId) || false;
+    
+    // Check if musician is available for this specific date
+    if (!isCurrentlyAssigned) {
+      const isAvailable = isMusicianAvailableForDate(musicianId, date);
       
-      // Check if musician is available for this specific date (only if not already assigned)
-      if (!isCurrentlyAssigned) {
-        const isAvailable = isMusicianAvailableForDate(musicianId, date);
-        
-        // Don't allow assigning unavailable musicians
-        if (!isAvailable) {
-          toast({
-            title: "Musician unavailable",
-            description: "This musician is not available on this date. Please choose another musician or date.",
-            variant: "destructive",
-          });
-          // Return unchanged state
-          return prevAssignments;
+      // Don't allow assigning unavailable musicians
+      if (!isAvailable) {
+        toast({
+          title: "Musician unavailable",
+          description: "This musician is not available on this date. Please choose another musician or date.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    // Create a new assignments object
+    const newAssignments = {...musicianAssignments};
+    
+    if (isCurrentlyAssigned) {
+      // Remove musician from this date
+      if (newAssignments[dateKey]) {
+        newAssignments[dateKey] = newAssignments[dateKey].filter(id => id !== musicianId);
+        if (newAssignments[dateKey].length === 0) {
+          delete newAssignments[dateKey];
         }
       }
-      
-      // Create a deep copy of the current assignments
-      const newAssignments = {...prevAssignments};
-      
-      // Handle toggling based on current state
-      if (isCurrentlyAssigned) {
-        // Musician is already assigned, remove them
-        if (newAssignments[dateKey]) {
-          newAssignments[dateKey] = newAssignments[dateKey].filter(id => id !== musicianId);
-          // If no musicians left for this date, remove the date entirely
-          if (newAssignments[dateKey].length === 0) {
-            delete newAssignments[dateKey];
-          }
-        }
+    } else {
+      // Add musician to this date
+      if (!newAssignments[dateKey]) {
+        newAssignments[dateKey] = [musicianId];
       } else {
-        // Musician is not assigned, add them
-        if (!newAssignments[dateKey]) {
-          newAssignments[dateKey] = [musicianId];
-        } else {
-          newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
-        }
+        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
       }
-      
-      return newAssignments;
-    });
-  }, [isMusicianAvailableForDate, toast]);
+    }
+    
+    // Update the state directly
+    setMusicianAssignments(newAssignments);
+  };
 
   function onSubmit(values: EventFormValues) {
     // Validate if there are any musician assignments
