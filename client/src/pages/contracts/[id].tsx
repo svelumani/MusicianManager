@@ -211,6 +211,13 @@ export default function ContractDetailPage() {
                         <div className="text-xs text-muted-foreground mt-2">
                           Signed on {format(new Date(contract.signedAt || contract.updatedAt), "MMMM d, yyyy")}
                         </div>
+                        
+                        {/* Display IP address and additional metadata if available */}
+                        {contractStatus?.metadata?.ipAddress && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            IP Address: {contractStatus.metadata.ipAddress}
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="text-sm text-muted-foreground italic">
