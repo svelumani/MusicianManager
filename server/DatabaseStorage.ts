@@ -2,7 +2,7 @@ import {
   users, venues, categories, musicianCategories, venueCategories, eventCategories,
   musicians, musicianPayRates, availability, events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
-  settings, emailTemplates, musicianTypes, invitations, availabilityShareLinks, contractLinks,
+  settings, emailTemplates, musicianTypes, invitations, availabilityShareLinks, contractLinks, contractTemplates,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type MusicianCategory, type InsertMusicianCategory,
@@ -22,7 +22,8 @@ import {
   type MusicianType, type InsertMusicianType,
   type PerformanceRating, type InsertPerformanceRating,
   type AvailabilityShareLink, type InsertAvailabilityShareLink,
-  type ContractLink, type InsertContractLink
+  type ContractLink, type InsertContractLink,
+  type ContractTemplate, type InsertContractTemplate
 } from "@shared/schema";
 import { IStorage } from "./storage";
 import { db } from "./db";
