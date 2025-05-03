@@ -361,12 +361,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     // Calculate hours for the performance (default to 2 if not specified)
     const hours = slot.duration || 2;
     
-    // TEMPORARY FIX: Hardcode to Corporate Events (ID 2) per client request
-    const eventCategoryId = 2; // Hardcoded to Corporate Events
+    // TEMPORARY FIX: Hardcode to Club Performance (ID 3) per client request
+    const eventCategoryId = 3; // Hardcoded to Club Performance
     
     // Get category name for logging/debugging
     const eventCategory = eventCategories?.find((cat: any) => cat.id === eventCategoryId);
-    const categoryName = "Corporate Events"; // Hardcoded name
+    const categoryName = "Club Performance"; // Hardcoded name
     
     console.log(`⚠️ Calculating fee for Assignment ${assignment.id} - Musician ${musician.name} for event category ${categoryName} (${eventCategoryId})`);
     
@@ -601,7 +601,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                 <div className="space-y-1">
                                   {slot && (
                                     <div className="text-xs font-semibold border-b pb-1 pt-0 mb-1 text-blue-700">
-                                      Corporate Events
+                                      Club Performance
                                       {slot.duration && <span className="float-right">{slot.duration}h</span>}
                                     </div>
                                   )}
@@ -612,25 +612,25 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                     
                                     // Get hourly rate information for tooltip
                                     const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
-                                    // TEMPORARY FIX: Hardcode to Corporate Events (ID 2) per client request
-                                    const eventCategoryId = 2; // Hardcoded to Corporate Events
+                                    // TEMPORARY FIX: Hardcode to Club Performance (ID 3) per client request
+                                    const eventCategoryId = 3; // Hardcoded to Club Performance
                                     const hours = slot?.duration || 2;
                                     let hourlyRate = 0;
                                     let rateSource = "unknown";
                                     
                                     // Hardcoded name
-                                    const categoryName = "Corporate Events";
+                                    const categoryName = "Club Performance";
                                     
                                     if (musician && payRates && Array.isArray(payRates)) {
                                       // Find all rates for this musician to debug
                                       const allRatesForMusician = payRates.filter((rate: PayRate) => rate.musicianId === musician.id);
                                       console.log(`Found ${allRatesForMusician.length} pay rates for ${musician.name}:`);
                                       
-                                      // Debug corporate event rates
-                                      const corpRates = payRates.filter((rate: PayRate) => rate.categoryId === 2);
-                                      console.log(`Found ${corpRates.length} Corporate Events rates`);
+                                      // Debug club performance rates
+                                      const clubRates = payRates.filter((rate: PayRate) => rate.categoryId === 3);
+                                      console.log(`Found ${clubRates.length} Club Performance rates`);
                                       
-                                      // Look for exact match for Corporate Events category
+                                      // Look for exact match for Club Performance category
                                       const matchingPayRate = payRates.find((rate: PayRate) => 
                                         rate.musicianId === musician.id && 
                                         rate.categoryId === eventCategoryId
@@ -638,12 +638,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                       
                                       if (matchingPayRate) {
                                         hourlyRate = matchingPayRate.hourlyRate;
-                                        rateSource = `Corporate rate`;
-                                        console.log(`✓ Found Corporate rate: $${hourlyRate}/hr for ${musician.name}`);
+                                        rateSource = `Club rate`;
+                                        console.log(`✓ Found Club rate: $${hourlyRate}/hr for ${musician.name}`);
                                       } else if (musician.payRate) {
                                         hourlyRate = musician.payRate;
                                         rateSource = "default rate";
-                                        console.log(`⚠ No corporate rate found. Using default: $${hourlyRate}/hr`);
+                                        console.log(`⚠ No club rate found. Using default: $${hourlyRate}/hr`);
                                       } else if (musician.categoryId) {
                                         hourlyRate = getCategoryDefaultRate(musician.categoryId);
                                         rateSource = getMusicianCategory(musician.id) + " default";
