@@ -887,14 +887,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shareLink = await storage.createAvailabilityShareLink({
         musicianId: parseInt(musicianId),
         token,
-        expiryDate,
-        createdAt: new Date()
+        expiresAt: expiryDate
       });
       
       res.json({
         id: shareLink.id,
         shareLink: `${req.protocol}://${req.get('host')}/availability/${token}`,
-        expiryDate: shareLink.expiryDate,
+        expiresAt: shareLink.expiresAt,
         createdAt: shareLink.createdAt
       });
     } catch (error) {
@@ -921,9 +920,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formattedLinks = shareLinks.map(link => ({
         id: link.id,
         shareLink: `${req.protocol}://${req.get('host')}/availability/${link.token}`,
-        expiryDate: link.expiryDate,
+        expiresAt: link.expiresAt,
         createdAt: link.createdAt,
-        isExpired: new Date() > new Date(link.expiryDate)
+        isExpired: link.expiresAt ? new Date() > new Date(link.expiresAt) : false
       }));
       
       res.json(formattedLinks);
@@ -975,7 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if the link has expired
-      if (new Date() > new Date(shareLink.expiryDate)) {
+      if (shareLink.expiresAt && new Date() > new Date(shareLink.expiresAt)) {
         return res.status(401).json({ message: "Share link has expired" });
       }
       
@@ -1034,7 +1033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if the link has expired
-      if (new Date() > new Date(shareLink.expiryDate)) {
+      if (shareLink.expiresAt && new Date() > new Date(shareLink.expiresAt)) {
         return res.status(401).json({ message: "Share link has expired" });
       }
       
