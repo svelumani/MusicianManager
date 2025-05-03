@@ -860,7 +860,7 @@ export class DatabaseStorage implements IStorage {
       const startDate = startOfMonth(new Date(year, month - 1));
       const endDate = endOfMonth(startDate);
       
-      // Get all bookings for this musician in the month using a simpler query first
+      // First check if there are any bookings for this musician in this month
       const bookingsInMonth = await db.select({
         bookingId: bookings.id,
         bookingDate: bookings.date,
@@ -875,73 +875,95 @@ export class DatabaseStorage implements IStorage {
       ))
       .orderBy(bookings.date);
       
+      if (bookingsInMonth.length === 0) {
+        console.log(`No bookings found for musician ${musicianId} in ${month}/${year}`);
+        return [];
+      }
+      
       // Now enhance the data with additional information
       const enhancedEvents = await Promise.all(bookingsInMonth.map(async (booking) => {
-        // Get the event
-        const [event] = await db.select()
-          .from(events)
-          .where(eq(events.id, booking.eventId));
-        
-        if (!event) {
-          return {
-            date: booking.bookingDate,
-            status: booking.bookingStatus,
-            eventTitle: "Unknown Event",
-            eventId: booking.eventId,
-            venueName: "Unknown Venue",
-            contractStatus: "none"
-          };
-        }
-        
-        // Get venue information
-        let venueName = "Unknown Venue";
-        if (event.venueId) {
-          const [venue] = await db.select()
-            .from(venues)
-            .where(eq(venues.id, event.venueId));
-          
-          if (venue) {
-            venueName = venue.name;
-          }
-        }
-        
-        // Get contract information for this event/musician/date
-        let contractStatus = "none";
         try {
-          const contractLinks = await db.select()
+          // Get the event
+          const [event] = await db.select()
+            .from(events)
+            .where(eq(events.id, booking.eventId));
+          
+          if (!event) {
+            return {
+              date: booking.bookingDate,
+              status: booking.bookingStatus,
+              eventTitle: "Unknown Event",
+              eventId: booking.eventId,
+              venueName: "Unknown Venue",
+              contractStatus: "none"
+            };
+          }
+          
+          // Get venue information
+          let venueName = "Unknown Venue";
+          if (event.venueId) {
+            try {
+              const [venue] = await db.select()
+                .from(venues)
+                .where(eq(venues.id, event.venueId));
+              
+              if (venue) {
+                venueName = venue.name;
+              }
+            } catch (venueErr) {
+              console.warn(`Error fetching venue info: ${venueErr}`);
+            }
+          }
+          
+          // Get contract information for this event/musician/date
+          let contractStatus = "none";
+          try {
+            // Safely query contract links
+            const contractLinksData = await db.select({
+              id: contractLinks.id,
+              status: contractLinks.status,
+              eventDate: contractLinks.eventDate
+            })
             .from(contractLinks)
             .where(and(
               eq(contractLinks.eventId, booking.eventId),
               eq(contractLinks.musicianId, musicianId)
             ));
             
-          // Find contract for specific date if possible
-          const dateSpecificContract = contractLinks.find(c => {
-            if (!c.eventDate) return false;
-            return format(c.eventDate, 'yyyy-MM-dd') === format(booking.bookingDate, 'yyyy-MM-dd');
-          });
-          
-          // Or use any contract for this event/musician
-          const contract = dateSpecificContract || contractLinks[0];
-          
-          if (contract) {
-            contractStatus = contract.status;
+            if (contractLinksData && contractLinksData.length > 0) {
+              // Find contract for specific date if possible
+              const dateSpecificContract = contractLinksData.find(c => {
+                if (!c.eventDate) return false;
+                return format(c.eventDate, 'yyyy-MM-dd') === format(booking.bookingDate, 'yyyy-MM-dd');
+              });
+              
+              // Or use any contract for this event/musician
+              const contract = dateSpecificContract || contractLinksData[0];
+              
+              if (contract) {
+                contractStatus = contract.status;
+              }
+            }
+          } catch (contractErr) {
+            console.warn(`Error fetching contract status: ${contractErr}`);
           }
-        } catch (err) {
-          console.warn(`Error fetching contract status: ${err}`);
+          
+          return {
+            date: booking.bookingDate,
+            status: booking.bookingStatus,
+            eventTitle: event.name || 'Unnamed Event',
+            eventId: booking.eventId,
+            venueName: venueName,
+            contractStatus: contractStatus
+          };
+        } catch (itemErr) {
+          console.warn(`Error processing booking ${booking.bookingId}: ${itemErr}`);
+          return null;
         }
-        
-        return {
-          date: booking.bookingDate,
-          status: booking.bookingStatus,
-          eventTitle: event.name,
-          eventId: booking.eventId,
-          venueName: venueName,
-          contractStatus: contractStatus
-        };
       }));
       
-      return enhancedEvents;
+      // Filter out any null values from failed processing
+      return enhancedEvents.filter(Boolean);
     } catch (error) {
       console.error("Error fetching musician event dates:", error);
       return [];
