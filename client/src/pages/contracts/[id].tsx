@@ -203,16 +203,29 @@ export default function ContractDetailPage() {
                   
                   <div className="border rounded-md p-4">
                     <h4 className="text-sm font-medium mb-1">Musician</h4>
-                    {contract.signature ? (
+                    {/* Check both contract signature and status data */}
+                    {(contract.signature || (contractStatus && contractStatus.status === 'contract-signed')) ? (
                       <>
                         <div className="font-medium italic text-primary">
-                          {contract.signature}
+                          {/* Use signature from either source */}
+                          {contract.signature || 
+                           (contractStatus?.metadata?.signedBy && `${contractStatus.metadata.signedBy}`) || 
+                           musician?.name || 
+                           "Musician"}
                         </div>
                         <div className="text-xs text-muted-foreground mt-2">
-                          Signed on {format(new Date(contract.signedAt || contract.updatedAt), "MMMM d, yyyy")}
+                          Signed on {format(
+                            new Date(
+                              contractStatus?.metadata?.signedAt || 
+                              contract.signedAt || 
+                              contractStatus?.statusDate || 
+                              contract.updatedAt
+                            ), 
+                            "MMMM d, yyyy"
+                          )}
                         </div>
                         
-                        {/* Display IP address and additional metadata if available */}
+                        {/* Display IP address if available */}
                         {contractStatus?.metadata?.ipAddress && (
                           <div className="text-xs text-muted-foreground mt-1">
                             IP Address: {contractStatus.metadata.ipAddress}
@@ -289,15 +302,28 @@ export default function ContractDetailPage() {
                       
                       <div>
                         <p className="font-medium mb-2">PERFORMER:</p>
-                        {contract.signature ? (
+                        {(contract.signature || (contractStatus && contractStatus.status === 'contract-signed')) ? (
                           <div className="border-b h-8 mb-2 flex items-end">
-                            <span className="font-medium italic text-primary">{contract.signature}</span>
+                            <span className="font-medium italic text-primary">
+                            {contract.signature || 
+                             (contractStatus?.metadata?.signedBy && `${contractStatus.metadata.signedBy}`) || 
+                             musician?.name || 
+                             "Musician"}
+                            </span>
                           </div>
                         ) : (
                           <div className="border-b border-dashed h-8 mb-2"></div>
                         )}
                         <p className="text-sm">
-                          Date: {contract.signedAt ? format(new Date(contract.signedAt), "MM/dd/yyyy") : "________________"}
+                          Date: {(contract.signedAt || 
+                                  (contractStatus && contractStatus.status === 'contract-signed')) ? 
+                                format(new Date(
+                                  contractStatus?.metadata?.signedAt || 
+                                  contract.signedAt || 
+                                  contractStatus?.statusDate || 
+                                  contract.updatedAt
+                                ), "MM/dd/yyyy") : 
+                                "________________"}
                         </p>
                       </div>
                     </div>
