@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
@@ -9,13 +9,14 @@ import {
   Filter,
   MailPlus,
   XCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  Info
 } from "lucide-react";
 import FileContract from "@/components/icons/FileContract";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -36,6 +37,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import type { ContractLink, Event, Musician } from "@shared/schema";
 
@@ -60,10 +74,23 @@ const getStatusBadge = (status: string) => {
   );
 };
 
+// Status definition for the legend
+const contractStatuses = [
+  { id: "pending", label: "Pending", color: "bg-yellow-100 text-yellow-800", description: "Contract is created but not yet sent to musician" },
+  { id: "contract-sent", label: "Contract Sent", color: "bg-blue-100 text-blue-800", description: "Contract has been sent to musician, awaiting response" },
+  { id: "contract-signed", label: "Contract Signed", color: "bg-green-100 text-green-800", description: "Musician has signed the contract" },
+  { id: "accepted", label: "Accepted", color: "bg-green-100 text-green-800", description: "Contract has been accepted by musician" },
+  { id: "rejected", label: "Rejected", color: "bg-red-100 text-red-800", description: "Contract has been rejected by musician" },
+  { id: "cancelled", label: "Cancelled", color: "bg-red-100 text-red-800", description: "Contract has been cancelled" },
+  { id: "expired", label: "Expired", color: "bg-gray-100 text-gray-800", description: "Contract link has expired" }
+];
+
 export default function ContractsPage() {
   const [, navigate] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [eventFilter, setEventFilter] = useState<number | null>(null);
+  const [showLegend, setShowLegend] = useState(true);
   const { toast } = useToast();
 
   const { data: contracts, isLoading, refetch } = useQuery<ContractLink[]>({
@@ -132,7 +159,14 @@ export default function ContractsPage() {
     return event ? event.name : "Unknown Event";
   };
 
-  // Filter contracts based on search and status filter
+  // Get unique event list for filter dropdown
+  const eventOptions = events ? 
+    [...new Set(contracts?.map(c => c.eventId))]
+      .map(eventId => events.find(e => e.id === eventId))
+      .filter(Boolean) as Event[]
+    : [];
+
+  // Filter contracts based on search, status filter, and event filter
   const filteredContracts = contracts?.filter(contract => {
     const musicianName = getMusicianName(contract.musicianId);
     const eventName = getEventName(contract.eventId);
@@ -146,7 +180,11 @@ export default function ContractsPage() {
       statusFilter === null || 
       contract.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    const matchesEvent =
+      eventFilter === null ||
+      contract.eventId === eventFilter;
+    
+    return matchesSearch && matchesStatus && matchesEvent;
   });
 
   // Sort contracts by created date (newest first)
@@ -185,10 +223,51 @@ export default function ContractsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium">Contract Management</CardTitle>
+          <CardDescription>
+            Manage musician contracts, view status, and track signatures
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mb-4 flex items-center justify-between">
-            <div className="relative w-full max-w-sm">
+          {/* Status Legend */}
+          {showLegend && (
+            <div className="mb-6 p-4 bg-muted/50 rounded-lg border">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium flex items-center">
+                  <Info className="h-4 w-4 mr-1" /> 
+                  Contract Status Legend
+                </h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowLegend(false)}
+                  className="h-6 w-6 p-0"
+                >
+                  <XCircle className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                {contractStatuses.map(status => (
+                  <div key={status.id} className="flex items-center">
+                    <Badge className={`${status.color} mr-2`}>{status.label}</Badge>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-[200px] text-xs">{status.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filters */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-2">
+            <div className="relative w-full">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search contracts by musician or event..."
@@ -197,11 +276,26 @@ export default function ContractsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            
+            <Select value={eventFilter?.toString() || ""} onValueChange={(value) => setEventFilter(value ? parseInt(value) : null)}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="All Events" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Events</SelectItem>
+                {eventOptions.map(event => (
+                  <SelectItem key={event.id} value={event.id.toString()}>
+                    {event.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-2">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <Filter className="h-4 w-4 mr-2" />
-                  {statusFilter ? statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1) : "All Statuses"}
+                  {statusFilter ? statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1).replace('-', ' ') : "All Statuses"}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
@@ -210,27 +304,11 @@ export default function ContractsPage() {
                 <DropdownMenuItem onClick={() => setStatusFilter(null)}>
                   All Statuses
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("pending")}>
-                  Pending
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("accepted")}>
-                  Accepted
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("rejected")}>
-                  Rejected
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("expired")}>
-                  Expired
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("cancelled")}>
-                  Contract Cancelled
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("contract-sent")}>
-                  Contract Sent
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setStatusFilter("contract-signed")}>
-                  Contract Signed
-                </DropdownMenuItem>
+                {contractStatuses.map(status => (
+                  <DropdownMenuItem key={status.id} onClick={() => setStatusFilter(status.id)}>
+                    <Badge className={`${status.color} mr-2`}>{status.label}</Badge>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -320,11 +398,23 @@ export default function ContractsPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FileContract className="h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-1">No contracts found</h3>
-              <p className="text-muted-foreground mb-4 max-w-sm">
-                {searchQuery || statusFilter 
+              <p className="text-muted-foreground mb-4 max-w-md">
+                {searchQuery || statusFilter || eventFilter 
                   ? "Try adjusting your search or filter criteria."
-                  : "There are no contracts in the system yet. Contracts will appear when musicians receive and respond to them."}
+                  : "There are no contracts in the system yet. Contracts will appear here when musicians receive and respond to event invitations."}
               </p>
+              
+              {!showLegend && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowLegend(true)}
+                  className="flex items-center"
+                >
+                  <Info className="h-4 w-4 mr-2" />
+                  Show contract status guide
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
