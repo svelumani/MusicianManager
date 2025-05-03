@@ -52,11 +52,8 @@ export default function EditVenuePage({ id }: { id: number }) {
 
   const updateMutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      const res = await apiRequest(`/api/venues/${id}`, "PUT", values);
-      if (!res.ok) {
-        throw new Error("Failed to update venue");
-      }
-      return res;
+      // apiRequest returns the parsed JSON response, not the raw Response object
+      return await apiRequest(`/api/venues/${id}`, "PUT", values);
     },
     onSuccess: () => {
       toast({
