@@ -111,8 +111,9 @@ export const musicians = pgTable("musicians", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
-  typeId: integer("type_id").notNull(), // Foreign key to musician_types
-  categoryId: integer("category_id").notNull(), // Foreign key to musician_categories
+  typeId: integer("type_id").notNull(), // Legacy foreign key to musician_types (keeping for backward compatibility)
+  categoryId: integer("category_id").notNull(), // Legacy foreign key to musician_categories (keeping for backward compatibility)
+  categoryIds: integer("category_ids").array(), // Multiple categories a musician can perform as
   instruments: text("instruments").array(),
   profileImage: text("profile_image"),
   bio: text("bio"),
@@ -125,6 +126,7 @@ export const insertMusicianSchema = createInsertSchema(musicians).pick({
   phone: true,
   typeId: true,
   categoryId: true,
+  categoryIds: true, // Added categoryIds array
   instruments: true,
   profileImage: true,
   bio: true,
