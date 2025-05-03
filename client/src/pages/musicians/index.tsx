@@ -6,12 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Music, Search, Plus, Star } from "lucide-react";
+import { Music, Search, Plus, Star, ArrowUpDown } from "lucide-react";
 import type { Musician, Category, MusicianType } from "@shared/schema";
+
+type SortField = 'name' | 'type' | 'category' | 'email' | 'rating';
 
 export default function MusiciansPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [, navigate] = useLocation();
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   const { data: musicians, isLoading: isLoadingMusicians } = useQuery<Musician[]>({
     queryKey: ["/api/musicians"],
@@ -35,11 +39,67 @@ export default function MusiciansPage() {
     return type ? type.title : "Unknown";
   };
 
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if clicking the same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new field and default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return <ArrowUpDown className={`ml-1 h-4 w-4 ${sortDirection === 'desc' ? 'transform rotate-180' : ''}`} />;
+  };
+
+  // First filter musicians based on search query
   const filteredMusicians = musicians?.filter(musician => 
     musician.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     getMusicianTypeName(musician.typeId).toLowerCase().includes(searchQuery.toLowerCase()) ||
     getCategoryName(musician.categoryId).toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Then sort the filtered musicians
+  const sortedMusicians = filteredMusicians ? [...filteredMusicians].sort((a, b) => {
+    if (sortField === 'name') {
+      return sortDirection === 'asc' 
+        ? a.name.localeCompare(b.name)
+        : b.name.localeCompare(a.name);
+    } 
+    else if (sortField === 'type') {
+      const typeA = getMusicianTypeName(a.typeId);
+      const typeB = getMusicianTypeName(b.typeId);
+      return sortDirection === 'asc'
+        ? typeA.localeCompare(typeB)
+        : typeB.localeCompare(typeA);
+    }
+    else if (sortField === 'category') {
+      const categoryA = getCategoryName(a.categoryId);
+      const categoryB = getCategoryName(b.categoryId);
+      return sortDirection === 'asc'
+        ? categoryA.localeCompare(categoryB)
+        : categoryB.localeCompare(categoryA);
+    }
+    else if (sortField === 'email') {
+      return sortDirection === 'asc'
+        ? a.email.localeCompare(b.email)
+        : b.email.localeCompare(a.email);
+    }
+    else if (sortField === 'rating') {
+      // Handle null ratings - sort them last
+      if (a.rating === null && b.rating === null) return 0;
+      if (a.rating === null) return sortDirection === 'asc' ? 1 : -1;
+      if (b.rating === null) return sortDirection === 'asc' ? -1 : 1;
+      
+      return sortDirection === 'asc'
+        ? a.rating - b.rating
+        : b.rating - a.rating;
+    }
+    return 0;
+  }) : [];
 
   const handleViewMusician = (id: number) => {
     navigate(`/musicians/${id}`);
@@ -82,17 +142,52 @@ export default function MusiciansPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Contact</TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('name')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Name {getSortIcon('name')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('type')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Type {getSortIcon('type')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('category')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Category {getSortIcon('category')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('email')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Contact {getSortIcon('email')}
+                      </div>
+                    </TableHead>
                     <TableHead>Pay Rate</TableHead>
-                    <TableHead>Rating</TableHead>
+                    <TableHead 
+                      onClick={() => handleSort('rating')}
+                      className="cursor-pointer hover:bg-gray-50"
+                    >
+                      <div className="flex items-center">
+                        Rating {getSortIcon('rating')}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredMusicians.map((musician) => (
+                  {sortedMusicians.map((musician) => (
                     <TableRow key={musician.id}>
                       <TableCell>
                         <div className="flex items-center">
