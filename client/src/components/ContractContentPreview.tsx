@@ -48,7 +48,7 @@ export default function ContractContentPreview({ contractId, token }: ContractCo
   
   return (
     <ScrollArea className="border rounded-md h-[500px] p-4">
-      <div className="p-6 bg-white whitespace-pre-line">
+      <div className="p-6 bg-white prose prose-sm max-w-none">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {contractContent.content}
         </ReactMarkdown>
