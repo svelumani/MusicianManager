@@ -1208,12 +1208,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!musician) {
             console.error(`Error: Musician with ID ${musicianId} not found`);
           } else {
-            // First, check if there's already an active contract for this musician/event combination
-            const existingContracts = await storage.getContractLinks({
-              eventId,
-              musicianId,
-              status: ['pending', 'accepted'] // Only consider active contracts
-            });
+            // First, check if there's already an active contract for this musician/event/date combination
+            // Parse the date string to a Date object if provided
+            const eventDate = dateStr ? new Date(dateStr) : undefined;
+            
+            // Get contracts specific to this date if provided
+            const existingContracts = await storage.getContractLinksByEventAndDate(eventId, eventDate)
+              .then(contracts => contracts.filter(c => 
+                c.musicianId === musicianId && 
+                ['pending', 'accepted'].includes(c.status)
+              ));
             
             // Only create a new contract if there are no active contracts
             if (!existingContracts || existingContracts.length === 0) {

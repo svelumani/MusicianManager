@@ -4004,6 +4004,13 @@ Musician: ________________________ Date: ______________`,
     return this.getContractLinks({ eventId });
   }
   
+  async getContractLinksByEventAndDate(eventId: number, date?: Date): Promise<ContractLink[]> {
+    if (!date) {
+      return this.getContractLinksByEvent(eventId);
+    }
+    return this.getContractLinks({ eventId, eventDate: date });
+  }
+  
   async getContractLinksByMusician(musicianId: number): Promise<ContractLink[]> {
     return this.getContractLinks({ musicianId });
   }
