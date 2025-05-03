@@ -180,9 +180,12 @@ export function useEntityStatus(
                 }
               }
               
-              if (event && event.musicianStatuses && musicianId !== undefined) {
-                // Look for status in musicianStatuses, ensure musicianId is a valid index
-                const status = event.musicianStatuses[musicianId as keyof typeof event.musicianStatuses];
+              if (event && event.musicianStatuses && typeof musicianId === 'number') {
+                // Look for status in musicianStatuses using string conversion for object indexing
+                const musicianIdKey = musicianId.toString();
+                const status = musicianIdKey in event.musicianStatuses 
+                  ? event.musicianStatuses[musicianIdKey] 
+                  : undefined;
                 if (status) {
                   legacyStatusData = {
                     id: 0,
