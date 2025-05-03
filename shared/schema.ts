@@ -674,6 +674,25 @@ export const insertPerformanceRatingSchema = createInsertSchema(performanceRatin
 export type PerformanceRating = typeof performanceRatings.$inferSelect;
 export type InsertPerformanceRating = z.infer<typeof insertPerformanceRatingSchema>;
 
+// Availability Share Links table - for sharing availability calendar with external users
+export const availabilityShareLinks = pgTable("availability_share_links", {
+  id: serial("id").primaryKey(),
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  token: text("token").notNull().unique(), // Unique token for accessing the calendar
+  expiresAt: timestamp("expires_at"), // When the link expires (null = never)
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastAccessedAt: timestamp("last_accessed_at"), // When the link was last accessed
+});
+
+export const insertAvailabilityShareLinkSchema = createInsertSchema(availabilityShareLinks).pick({
+  musicianId: true,
+  token: true,
+  expiresAt: true,
+});
+
+export type AvailabilityShareLink = typeof availabilityShareLinks.$inferSelect;
+export type InsertAvailabilityShareLink = z.infer<typeof insertAvailabilityShareLinkSchema>;
+
 // Improvement Plans for musicians
 export const improvementPlans = pgTable("improvement_plans", {
   id: serial("id").primaryKey(),

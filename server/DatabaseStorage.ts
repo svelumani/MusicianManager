@@ -2,7 +2,7 @@ import {
   users, venues, categories, musicianCategories, venueCategories, eventCategories,
   musicians, musicianPayRates, availability, events, bookings, payments, collections, expenses, 
   activities, monthlyPlanners, plannerSlots, plannerAssignments, monthlyInvoices,
-  settings, emailTemplates, musicianTypes, invitations,
+  settings, emailTemplates, musicianTypes, invitations, availabilityShareLinks,
   type User, type InsertUser, type Venue, 
   type InsertVenue, type Category, type InsertCategory, 
   type MusicianCategory, type InsertMusicianCategory,
@@ -20,7 +20,8 @@ import {
   type Settings, type InsertSettings,
   type EmailTemplate, type InsertEmailTemplate,
   type MusicianType, type InsertMusicianType,
-  type PerformanceRating, type InsertPerformanceRating
+  type PerformanceRating, type InsertPerformanceRating,
+  type AvailabilityShareLink, type InsertAvailabilityShareLink
 } from "@shared/schema";
 import { IStorage } from "./storage";
 import { db } from "./db";
@@ -2533,5 +2534,57 @@ export class DatabaseStorage implements IStorage {
         like(musicians.biography, `%${query}%`),
         like(musicians.specializations, `%${query}%`)
       ));
+  }
+
+  // Availability Share Links
+  async getAvailabilityShareLinks(musicianId: number): Promise<AvailabilityShareLink[]> {
+    return await db.select()
+      .from(availabilityShareLinks)
+      .where(eq(availabilityShareLinks.musicianId, musicianId))
+      .orderBy(desc(availabilityShareLinks.createdAt));
+  }
+
+  async getAvailabilityShareLinkByToken(token: string): Promise<AvailabilityShareLink | undefined> {
+    const [shareLink] = await db.select()
+      .from(availabilityShareLinks)
+      .where(eq(availabilityShareLinks.token, token));
+    
+    // Update the last accessed timestamp if found
+    if (shareLink) {
+      await db.update(availabilityShareLinks)
+        .set({ lastAccessedAt: new Date() })
+        .where(eq(availabilityShareLinks.id, shareLink.id));
+    }
+    
+    return shareLink;
+  }
+
+  async createAvailabilityShareLink(data: InsertAvailabilityShareLink): Promise<AvailabilityShareLink> {
+    // Generate a random token if not provided
+    if (!data.token) {
+      data.token = crypto.randomBytes(32).toString('hex');
+    }
+    
+    const [shareLink] = await db.insert(availabilityShareLinks)
+      .values(data)
+      .returning();
+    
+    return shareLink;
+  }
+
+  async updateAvailabilityShareLink(id: number, data: Partial<InsertAvailabilityShareLink>): Promise<AvailabilityShareLink | undefined> {
+    const [updated] = await db.update(availabilityShareLinks)
+      .set(data)
+      .where(eq(availabilityShareLinks.id, id))
+      .returning();
+    
+    return updated;
+  }
+
+  async deleteAvailabilityShareLink(id: number): Promise<boolean> {
+    const result = await db.delete(availabilityShareLinks)
+      .where(eq(availabilityShareLinks.id, id));
+    
+    return result.rowCount > 0;
   }
 }
