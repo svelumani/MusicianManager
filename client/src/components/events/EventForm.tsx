@@ -151,7 +151,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   // Create a single query for date-specific musician availability
   // We'll use this for checking individual date availability
   const { data: dateAvailabilityData = {}, isLoading: isLoadingDateAvailability } = useQuery<Record<string, number[]>>({
-    queryKey: ["/api/musicians/date-availability", { dates: selectedDates.map(d => d.toISOString()) }],
+    queryKey: ["/api/musicians/date-availability", { dates: selectedDates.map(d => format(d, 'yyyy-MM-dd')) }],
     enabled: selectedDates.length > 0,
     queryFn: async () => {
       // Create an object to store available musician ids by date
@@ -164,18 +164,21 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       
       // For each date, fetch available musicians
       await Promise.all(selectedDates.map(async (date) => {
-        const dateStr = date.toISOString();
+        // Use consistent yyyy-MM-dd format for all date keys
+        const normalizedDateStr = format(date, 'yyyy-MM-dd');
         try {
-          const response = await fetch(`/api/musicians?date=${encodeURIComponent(dateStr)}`, {
+          // We'll still use ISO string for the API call
+          const isoDateStr = date.toISOString();
+          const response = await fetch(`/api/musicians?date=${encodeURIComponent(isoDateStr)}`, {
             credentials: 'include'
           });
           if (response.ok) {
             const musicians = await response.json();
-            console.log(`Available musicians for date ${dateStr}:`, musicians);
-            dateAvailability[dateStr] = musicians.map((m: Musician) => m.id);
+            // Store musician IDs using the normalized date string
+            dateAvailability[normalizedDateStr] = musicians.map((m: Musician) => m.id);
           }
         } catch (error) {
-          console.error("Error fetching available musicians for date:", dateStr, error);
+          console.error("Error fetching available musicians for date:", normalizedDateStr, error);
         }
       }));
       
@@ -422,31 +425,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       return;
     }
     
-    // Normalize all date keys in musicianAssignments to ensure consistent format
-    const normalizedAssignments: Record<string, number[]> = {};
-    
-    // Process musicianAssignments to ensure consistent date format (YYYY-MM-DD)
-    for (const dateKey of Object.keys(musicianAssignments)) {
-      try {
-        // Try to parse the date
-        const date = new Date(dateKey);
-        if (!isNaN(date.getTime())) {
-          // Format date consistently as YYYY-MM-DD
-          const normalizedDateStr = format(date, 'yyyy-MM-dd');
-          
-          // Ensure we're not adding empty arrays
-          if (Array.isArray(musicianAssignments[dateKey]) && musicianAssignments[dateKey].length > 0) {
-            normalizedAssignments[normalizedDateStr] = [...musicianAssignments[dateKey]];
-          }
-        } else {
-          console.warn(`Skipping invalid date key: ${dateKey}`);
-        }
-      } catch (error) {
-        console.error(`Error processing assignment date ${dateKey}:`, error);
-      }
-    }
-    
-    console.log("Final normalized musician assignments:", normalizedAssignments);
+    // We've made sure all keys in musicianAssignments are already yyyy-MM-dd format
+    // so there's no need to normalize them again
     
     // Create a new object with the formatted values to match our EventApiValues type
     const formattedValues: EventApiValues = {
@@ -458,7 +438,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
       notes: values.notes,
       eventDates: values.eventDates.map(date => format(date, 'yyyy-MM-dd')), // Use consistent date format
       musicianIds: selectedMusicians.length > 0 ? selectedMusicians : undefined,
-      musicianAssignments: Object.keys(normalizedAssignments).length > 0 ? normalizedAssignments : undefined,
+      musicianAssignments: Object.keys(musicianAssignments).length > 0 ? musicianAssignments : undefined,
     };
     
     console.log("Submitting form data:", formattedValues);
@@ -794,9 +774,45 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                     ? 'border-yellow-400 bg-yellow-50/10'
                                     : ''
                               }`}
-                              onClick={(e) => {
-                                e.preventDefault(); // Prevent form submission
-                                if (activeDate) toggleMusicianSelection(musician.id, activeDate);
+                              onClick={() => {
+                                // Only handle clicks if there's an active date
+                                if (activeDate) {
+                                  // Convert to string to avoid reference issues
+                                  const normDate = format(activeDate, 'yyyy-MM-dd');
+                                  const activeSelection = !!musicianAssignments[normDate]?.includes(musician.id);
+                                  
+                                  // Don't call if user tries to select an unavailable musician
+                                  const isAvailable = isMusicianAvailableForDate(musician.id, activeDate);
+                                  
+                                  if (!isAvailable && !activeSelection) {
+                                    toast({
+                                      title: "Musician unavailable",
+                                      description: "This musician is not available on this date. Please choose another musician or date.",
+                                      variant: "destructive",
+                                    });
+                                    return;
+                                  }
+                                  
+                                  // Create a deep copy of the current state
+                                  const newAssignments = {...musicianAssignments};
+                                  
+                                  // Toggle the selection
+                                  if (!newAssignments[normDate]) {
+                                    newAssignments[normDate] = [musician.id];
+                                  } else if (activeSelection) {
+                                    // Remove musician if already selected
+                                    newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musician.id);
+                                    if (newAssignments[normDate].length === 0) {
+                                      delete newAssignments[normDate];
+                                    }
+                                  } else {
+                                    // Add musician if not selected
+                                    newAssignments[normDate] = [...newAssignments[normDate], musician.id];
+                                  }
+                                  
+                                  // Update state directly
+                                  setMusicianAssignments(newAssignments);
+                                }
                               }}
                             >
                               <CardContent className="p-4">
@@ -866,8 +882,9 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                     <Checkbox
                                       id={musicianKey}
                                       checked={isSelectedForActiveDate || false}
-                                      // Don't use onCheckedChange as it conflicts with the parent div's onClick
-                                      // This ensures the checkbox appearance updates with state changes
+                                      // Use a disabled checkbox for visual representation only
+                                      // The parent div onClick handler will handle the selection
+                                      disabled={true}
                                     />
                                   </div>
                                 </div>
@@ -904,7 +921,41 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                           onClick={(e) => {
                                             e.preventDefault(); // Prevent form submission
                                             e.stopPropagation(); // Prevent event bubbling
-                                            toggleMusicianSelection(musician.id, date);
+                                            
+                                            // Use the same direct state management approach for consistency
+                                            const normDate = format(date, 'yyyy-MM-dd');
+                                            const isAssigned = musicianAssignments[normDate]?.includes(musician.id) || false;
+                                            
+                                            // Don't allow selecting unavailable musicians
+                                            const isAvailable = isMusicianAvailableForDate(musician.id, date);
+                                            if (!isAvailable && !isAssigned) {
+                                              toast({
+                                                title: "Musician unavailable",
+                                                description: "This musician is not available on this date.",
+                                                variant: "destructive",
+                                              });
+                                              return;
+                                            }
+                                            
+                                            // Create a deep copy of the current assignments
+                                            const newAssignments = {...musicianAssignments};
+                                            
+                                            // Toggle selection directly
+                                            if (!newAssignments[normDate]) {
+                                              newAssignments[normDate] = [musician.id];
+                                            } else if (isAssigned) {
+                                              // Remove musician if already selected
+                                              newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musician.id);
+                                              if (newAssignments[normDate].length === 0) {
+                                                delete newAssignments[normDate];
+                                              }
+                                            } else {
+                                              // Add musician if not selected
+                                              newAssignments[normDate] = [...newAssignments[normDate], musician.id];
+                                            }
+                                            
+                                            // Update state with new assignments
+                                            setMusicianAssignments(newAssignments);
                                           }}
                                         >
                                           {format(date, "MMM d")}
