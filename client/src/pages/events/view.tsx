@@ -283,22 +283,18 @@ export default function ViewEventPage() {
     queryKey: ["/api/musician-categories"],
   });
   
-  // Function to fetch musician pay rates for each musician
-  const getMusicianRates = (musicianId: number) => {
-    const { data: payRates } = useQuery({
-      queryKey: ["/api/musician-pay-rates", { musicianId }],
-      queryFn: async () => {
-        const response = await fetch(`/api/musician-pay-rates?musicianId=${musicianId}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch musician pay rates");
-        }
-        return response.json();
-      },
-      enabled: !!musicianId,
-    });
-    
-    return payRates;
-  };
+  // Fetch musician pay rates for all assigned musicians
+  const { data: musicianPayRates = [] } = useQuery({
+    queryKey: ["/api/musician-pay-rates"],
+    queryFn: async () => {
+      const response = await fetch('/api/musician-pay-rates');
+      if (!response.ok) {
+        throw new Error("Failed to fetch musician pay rates");
+      }
+      return response.json();
+    },
+    enabled: !!musicians && musicians.length > 0,
+  });
   
   // Mutation to update musician status
   const updateMusicianStatusMutation = useMutation({
@@ -681,14 +677,40 @@ export default function ViewEventPage() {
                                       {getStatusBadge("pending")} {/* Default to pending status */}
                                     </TableCell>
                                     <TableCell>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => navigate(`/events/rate-musician/${eventId}/${musicianId}?date=${dateStr}`)}
-                                      >
-                                        <DollarSign className="h-4 w-4 mr-1" />
-                                        Set Rate
-                                      </Button>
+                                      {(() => {
+                                        // Find a matching rate for this musician and event
+                                        const musicianRates = musicianPayRates.filter((rate: any) => 
+                                          rate.musicianId === musicianId && 
+                                          (!event.musicianCategoryIds || event.musicianCategoryIds.includes(rate.eventCategoryId))
+                                        );
+                                        
+                                        if (musicianRates && musicianRates.length > 0) {
+                                          const rate = musicianRates[0];
+                                          return (
+                                            <div className="flex items-center">
+                                              <span className="font-medium mr-2">${rate.hourlyRate ? rate.hourlyRate.toFixed(2) : '0.00'}/hr</span>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => navigate(`/events/rate-musician/${eventId}/${musicianId}?date=${dateStr}`)}
+                                              >
+                                                <Edit className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                          );
+                                        }
+                                        
+                                        return (
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => navigate(`/events/rate-musician/${eventId}/${musicianId}?date=${dateStr}`)}
+                                          >
+                                            <DollarSign className="h-4 w-4 mr-1" />
+                                            Set Rate
+                                          </Button>
+                                        );
+                                      })()}
                                     </TableCell>
                                     <TableCell>
                                       <div className="flex gap-2 justify-end">
