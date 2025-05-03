@@ -26,6 +26,15 @@ import { useToast } from "@/hooks/use-toast";
 
 import type { ContractLink, Event, Musician } from "@shared/schema";
 
+// Signature metadata interface
+interface SignatureMetadata {
+  signedAt: string;
+  signedBy: string;
+  signatureValue: string;
+  signatureType: string;
+  ipAddress: string;
+}
+
 // Helper function to get contract status badge
 const getStatusBadge = (status: string) => {
   const statusMap: Record<string, { color: string; label: string }> = {
@@ -52,7 +61,7 @@ export default function ContractViewPage() {
   const { toast } = useToast();
   const [shareURL, setShareURL] = useState("");
 
-  const { data: contract, isLoading: isLoadingContract } = useQuery<ContractLink>({
+  const { data: contract, isLoading: isLoadingContract } = useQuery<ContractLink & { signatureMetadata?: SignatureMetadata | null }>({
     queryKey: [`/api/contracts/${contractId}`],
   });
 
@@ -260,6 +269,45 @@ export default function ContractViewPage() {
                         <p className="font-medium italic text-primary">{contract.musicianSignature || musician?.name}</p>
                       </div>
                     </div>
+                  </dd>
+                </div>
+              )}
+              
+              {/* Signature Metadata Information */}
+              {contract.signatureMetadata && (
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground">Signature Details</dt>
+                  <dd className="mt-2 border rounded-md p-3 bg-gray-50">
+                    <dl className="space-y-2 text-sm">
+                      <div className="grid grid-cols-3">
+                        <dt className="col-span-1 font-medium">Signed by:</dt>
+                        <dd className="col-span-2">{contract.signatureMetadata.signedBy}</dd>
+                      </div>
+                      
+                      <div className="grid grid-cols-3">
+                        <dt className="col-span-1 font-medium">Signed at:</dt>
+                        <dd className="col-span-2">
+                          {new Date(contract.signatureMetadata.signedAt).toLocaleString()}
+                        </dd>
+                      </div>
+                      
+                      <div className="grid grid-cols-3">
+                        <dt className="col-span-1 font-medium">IP Address:</dt>
+                        <dd className="col-span-2">{contract.signatureMetadata.ipAddress}</dd>
+                      </div>
+                      
+                      <div className="grid grid-cols-3">
+                        <dt className="col-span-1 font-medium">Signature Type:</dt>
+                        <dd className="col-span-2 capitalize">{contract.signatureMetadata.signatureType}</dd>
+                      </div>
+                      
+                      <div>
+                        <dt className="font-medium mb-1">Signature Value:</dt>
+                        <dd className="border-t pt-1 italic font-medium">
+                          {contract.signatureMetadata.signatureValue}
+                        </dd>
+                      </div>
+                    </dl>
                   </dd>
                 </div>
               )}

@@ -79,6 +79,64 @@ export class StatusService {
   }
 
   /**
+   * Get all statuses for an entity
+   * This is different from getEntityStatusHistory as it allows filtering by other parameters
+   */
+  async getEntityStatuses(entityType: string, entityId: number, eventId?: number, musicianId?: number, eventDate?: Date) {
+    try {
+      // Build the query conditions
+      let conditions = [
+        eq(entityStatus.entityType, entityType),
+        eq(entityStatus.entityId, entityId)
+      ];
+      
+      // Add optional conditions if parameters are provided
+      if (eventId) {
+        conditions.push(eq(entityStatus.eventId, eventId));
+      }
+      
+      // Add musician condition if provided
+      if (musicianId) {
+        conditions.push(eq(entityStatus.musicianId, musicianId));
+      }
+      
+      // Add event date condition if provided
+      if (eventDate) {
+        conditions.push(eq(entityStatus.eventDate, eventDate));
+      }
+      
+      // Build the query with all conditions
+      const query = and(...conditions);
+      
+      // Get all matching statuses
+      const statuses = await db
+        .select({
+          id: entityStatus.id,
+          entityType: entityStatus.entityType,
+          entityId: entityStatus.entityId,
+          status: entityStatus.primaryStatus, // Use primaryStatus field but alias as status
+          customStatus: entityStatus.customStatus,
+          eventId: entityStatus.eventId,
+          musicianId: entityStatus.musicianId,
+          eventDate: entityStatus.eventDate,
+          statusDate: entityStatus.statusDate,
+          metadata: entityStatus.metadata,
+          createdAt: entityStatus.createdAt,
+          updatedAt: entityStatus.updatedAt
+        })
+        .from(entityStatus)
+        .where(query)
+        .orderBy(desc(entityStatus.updatedAt));
+      
+      return statuses;
+    } catch (error) {
+      console.error('Error getting entity statuses:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to get statuses for ${entityType} #${entityId}: ${errorMessage}`);
+    }
+  }
+
+  /**
    * Get status history for an entity
    */
   async getEntityStatusHistory(entityType: string, entityId: number, eventId?: number, limit: number = 50) {
