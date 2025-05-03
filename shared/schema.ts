@@ -1,6 +1,7 @@
-import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, jsonb, many } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // Define JSON type for TypeScript
 export type Json = any;
@@ -648,6 +649,7 @@ export const contractTemplates = pgTable("contract_templates", {
   description: text("description"),
   content: text("content").notNull(),
   isDefault: boolean("is_default").default(false),
+  isMonthly: boolean("is_monthly").default(false), // Flag to indicate if this is a monthly contract template
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
   createdBy: integer("created_by"), // User ID
@@ -659,6 +661,7 @@ export const insertContractTemplateSchema = createInsertSchema(contractTemplates
   description: true,
   content: true,
   isDefault: true,
+  isMonthly: true,
   createdBy: true,
   variables: true,
 });
@@ -807,3 +810,129 @@ export const insertEntityStatusSchema = createInsertSchema(entityStatus).pick({
 
 export type EntityStatus = typeof entityStatus.$inferSelect;
 export type InsertEntityStatus = z.infer<typeof insertEntityStatusSchema>;
+
+// Monthly Contracts Schema
+export const monthlyContracts = pgTable("monthly_contracts", {
+  id: serial("id").primaryKey(),
+  plannerId: integer("planner_id").notNull(), // Foreign key to monthly_planners
+  templateId: integer("template_id").notNull(), // Foreign key to contract_templates
+  name: text("name").notNull(),
+  month: integer("month").notNull(),
+  year: integer("year").notNull(),
+  status: text("status").notNull().default("draft"), // draft, sent, completed
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+  createdBy: integer("created_by"), // User ID
+  sentAt: timestamp("sent_at"),
+  expiresAt: timestamp("expires_at"),
+  generalNotes: text("general_notes"), // Notes applicable to all musicians
+});
+
+export const insertMonthlyContractSchema = createInsertSchema(monthlyContracts).pick({
+  plannerId: true,
+  templateId: true,
+  name: true,
+  month: true,
+  year: true,
+  status: true,
+  createdBy: true,
+  expiresAt: true,
+  generalNotes: true,
+});
+
+export type MonthlyContract = typeof monthlyContracts.$inferSelect;
+export type InsertMonthlyContract = z.infer<typeof insertMonthlyContractSchema>;
+
+// Monthly Contract Musicians table (musicians included in a monthly contract)
+export const monthlyContractMusicians = pgTable("monthly_contract_musicians", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull(), // Foreign key to monthly_contracts
+  musicianId: integer("musician_id").notNull(), // Foreign key to musicians
+  status: text("status").notNull().default("pending"), // pending, accepted, rejected, partial
+  token: text("token").notNull().unique(), // Unique token for musician to access contract
+  respondedAt: timestamp("responded_at"),
+  notes: text("notes"), // Admin notes about this musician's contract
+  musicianNotes: text("musician_notes"), // Notes from the musician
+  companySignature: text("company_signature"), // Company digital signature
+  musicianSignature: text("musician_signature"), // Musician digital signature
+});
+
+export const insertMonthlyContractMusicianSchema = createInsertSchema(monthlyContractMusicians).pick({
+  contractId: true,
+  musicianId: true,
+  status: true,
+  token: true,
+  notes: true,
+  musicianNotes: true,
+  companySignature: true,
+  musicianSignature: true,
+});
+
+export type MonthlyContractMusician = typeof monthlyContractMusicians.$inferSelect;
+export type InsertMonthlyContractMusician = z.infer<typeof insertMonthlyContractMusicianSchema>;
+
+// Monthly Contract Dates table (individual dates in a monthly contract with responses)
+export const monthlyContractDates = pgTable("monthly_contract_dates", {
+  id: serial("id").primaryKey(),
+  musicianContractId: integer("musician_contract_id").notNull(), // Foreign key to monthly_contract_musicians
+  date: timestamp("date").notNull(),
+  slotId: integer("slot_id"), // Foreign key to planner_slots if available
+  assignmentId: integer("assignment_id"), // Foreign key to planner_assignments if available
+  response: text("response").default("pending"), // accepted, rejected, pending
+  amount: doublePrecision("amount"), // Fee for this date
+  notes: text("notes"), // Notes for this specific date
+});
+
+export const insertMonthlyContractDateSchema = createInsertSchema(monthlyContractDates).pick({
+  musicianContractId: true,
+  date: true,
+  slotId: true,
+  assignmentId: true,
+  response: true,
+  amount: true,
+  notes: true,
+});
+
+export type MonthlyContractDate = typeof monthlyContractDates.$inferSelect;
+export type InsertMonthlyContractDate = z.infer<typeof insertMonthlyContractDateSchema>;
+
+// Define relationships between tables
+
+export const monthlyContractsRelations = relations(monthlyContracts, ({ one, many }) => ({
+  planner: one(monthlyPlanners, {
+    fields: [monthlyContracts.plannerId],
+    references: [monthlyPlanners.id],
+  }),
+  template: one(contractTemplates, {
+    fields: [monthlyContracts.templateId],
+    references: [contractTemplates.id],
+  }),
+  musicians: many(monthlyContractMusicians),
+}));
+
+export const monthlyContractMusiciansRelations = relations(monthlyContractMusicians, ({ one, many }) => ({
+  contract: one(monthlyContracts, {
+    fields: [monthlyContractMusicians.contractId],
+    references: [monthlyContracts.id],
+  }),
+  musician: one(musicians, {
+    fields: [monthlyContractMusicians.musicianId],
+    references: [musicians.id],
+  }),
+  dates: many(monthlyContractDates),
+}));
+
+export const monthlyContractDatesRelations = relations(monthlyContractDates, ({ one }) => ({
+  musicianContract: one(monthlyContractMusicians, {
+    fields: [monthlyContractDates.musicianContractId],
+    references: [monthlyContractMusicians.id],
+  }),
+  slot: one(plannerSlots, {
+    fields: [monthlyContractDates.slotId],
+    references: [plannerSlots.id],
+  }),
+  assignment: one(plannerAssignments, {
+    fields: [monthlyContractDates.assignmentId],
+    references: [plannerAssignments.id],
+  }),
+}));
