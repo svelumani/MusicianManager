@@ -245,102 +245,17 @@ export default function ContractDetailPage() {
             {/* Footer content removed */}
           </Card>
           
-          {/* Contract Content */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Contract Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-white border rounded-md p-6 shadow-sm">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-bold">MUSIC PERFORMANCE AGREEMENT</h2>
-                  <p className="text-sm text-muted-foreground">Contract #{contract.id}</p>
-                </div>
-                
-                <div className="space-y-4">
-                  <p>
-                    <strong>This agreement</strong> is made on {format(new Date(contract.createdAt), "MMMM d, yyyy")} 
-                    between {event?.name || "Event Organizer"} ("Client") and {musician?.name || "Musician"} ("Performer").
-                  </p>
-                  
-                  <div>
-                    <h3 className="font-medium">1. ENGAGEMENT</h3>
-                    <p>Client engages Performer to provide musical entertainment services at:</p>
-                    <p className="mt-2 pl-4">
-                      <strong>Event:</strong> {event?.name || "Loading..."}<br />
-                      <strong>Date:</strong> {contract.eventDate ? format(new Date(contract.eventDate), "MMMM d, yyyy") : "TBD"}<br />
-                      <strong>Location:</strong> {event?.location || "To be determined"}<br />
-                      <strong>Performance Time:</strong> {contract.startTime || "TBD"} to {contract.endTime || "TBD"}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">2. COMPENSATION</h3>
-                    <p>Client agrees to pay Performer the sum of ${contract.amount?.toFixed(2) || "0.00"} 
-                    for the performance described above.</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-medium">3. TERMS & CONDITIONS</h3>
-                    <div className="whitespace-pre-wrap pl-4">
-                      {contract.terms || "Standard terms and conditions apply."}
-                    </div>
-                  </div>
-                  
-                  <div className="pt-6">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="font-medium mb-2">CLIENT:</p>
-                        <div className="border-b h-8 mb-2 flex items-end">
-                          <span className="font-medium italic text-primary">
-                            {contract.companySignature || "VAMP Management"}
-                          </span>
-                        </div>
-                        <p className="text-sm">
-                          Date: {contract.companySignedAt ? format(new Date(contract.companySignedAt), "MM/dd/yyyy") : format(new Date(contract.createdAt), "MM/dd/yyyy")}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <p className="font-medium mb-2">PERFORMER:</p>
-                        {(contract.signature || (contractStatus && contractStatus.status === 'contract-signed')) ? (
-                          <div className="border-b h-8 mb-2 flex items-end">
-                            <span className="font-medium italic text-primary">
-                            {contractStatus?.metadata?.signatureValue || 
-                             contract.signature || 
-                             (contractStatus?.metadata?.signedBy && `${contractStatus.metadata.signedBy}`) || 
-                             musician?.name || 
-                             "Musician"}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="border-b border-dashed h-8 mb-2"></div>
-                        )}
-                        <div className="space-y-1">
-                          <p className="text-sm">
-                            Date: {(contract.signedAt || 
-                                    (contractStatus && contractStatus.status === 'contract-signed')) ? 
-                                  format(new Date(
-                                    contractStatus?.metadata?.signedAt || 
-                                    contract.signedAt || 
-                                    contractStatus?.statusDate || 
-                                    contract.updatedAt
-                                  ), "MM/dd/yyyy") : 
-                                  "________________"}
-                          </p>
-                          {contractStatus?.metadata?.ipAddress && (
-                            <p className="text-xs text-muted-foreground">
-                              IP: {contractStatus.metadata.ipAddress}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Add a button to view the contract in a separate page */}
+          <div className="flex justify-end mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate(`/contracts/${contractId}/view`)}
+              className="flex items-center"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View Full Contract
+            </Button>
+          </div>
         </div>
         
         {/* Right Column - Status History */}
