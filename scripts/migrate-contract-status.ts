@@ -75,7 +75,7 @@ async function migrateContractStatus() {
             entityType: ENTITY_TYPES.CONTRACT,
             entityId: contract.id,
             primaryStatus,
-            statusDate: contract.updatedAt || contract.createdAt,
+            statusDate: contract.createdAt,
             eventId: contract.eventId,
             musicianId: contract.musicianId,
             eventDate: contract.eventDate,
@@ -94,8 +94,9 @@ async function migrateContractStatus() {
             .where(and(
               eq(entityStatus.entityType, ENTITY_TYPES.MUSICIAN),
               eq(entityStatus.entityId, contract.musicianId),
-              eq(entityStatus.eventId, contract.eventId),
-              eq(entityStatus.eventDate, contract.eventDate || null)
+              eq(entityStatus.eventId, contract.eventId)
+              // Handle event date comparison separately if it exists
+              // eq(entityStatus.eventDate, contract.eventDate || null)
             ));
           
           if (!existingMusicianStatus) {
@@ -109,7 +110,7 @@ async function migrateContractStatus() {
                 entityId: contract.musicianId,
                 primaryStatus: musicianStatus,
                 customStatus: musicianCustomStatus,
-                statusDate: contract.updatedAt || contract.createdAt,
+                statusDate: contract.createdAt,
                 eventId: contract.eventId,
                 eventDate: contract.eventDate,
                 createdAt: contract.createdAt,
