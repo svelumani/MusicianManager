@@ -230,25 +230,15 @@ function ContractsTable({ eventId }: ContractsTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  {(() => {
-                    switch (contract.status?.toLowerCase()) {
-                      case "confirmed":
-                        return <Badge className="bg-green-600">Confirmed</Badge>;
-                      case "accepted":
-                        return <Badge className="bg-green-500">Accepted</Badge>;
-                      case "rejected":
-                        return <Badge variant="destructive">Rejected</Badge>;
-                      case "cancelled":
-                        return <Badge variant="destructive">Contract Cancelled</Badge>;
-                      case "contract-sent":
-                        return <Badge className="bg-indigo-500">Contract Sent</Badge>;
-                      case "contract-signed":
-                        return <Badge className="bg-emerald-600">Contract Signed</Badge>;
-                      case "pending":
-                      default:
-                        return <Badge variant="outline">Pending</Badge>;
-                    }
-                  })()}
+                  <StatusBadge 
+                    status={contract.status}
+                    entityType="contract"
+                    entityId={contract.id}
+                    eventId={eventId}
+                    musicianId={contract.musicianId}
+                    eventDate={contract.eventDate}
+                    useCentralizedSystem={true}
+                  />
                 </TableCell>
                 <TableCell>
                   {contract.eventDate ? format(new Date(contract.eventDate), "MMM d, yyyy") : "Not specified"}
@@ -558,7 +548,7 @@ export default function ViewEventPage() {
                 <span>{formattedStartDate}</span>
               )}
             </div>
-            {getStatusBadge(event.status)}
+            {getStatusBadge(event.status, "event", event.id)}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -594,7 +584,7 @@ export default function ViewEventPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Status</p>
-                    <div className="text-lg">{getStatusBadge(event.status)}</div>
+                    <div className="text-lg">{getStatusBadge(event.status, "event", event.id)}</div>
                   </div>
                 </div>
 
