@@ -31,12 +31,14 @@ import {
 import { apiRequest } from "@/lib/queryClient";
 
 // Extended event type to include musician assignments, statuses and payment-related fields
-interface EventWithAssignments extends EventType {
+interface EventWithAssignments extends Omit<EventType, 'paymentModel' | 'musicianCategoryIds'> {
   musicianAssignments?: Record<string, number[]>;
   musicianStatuses?: Record<string, Record<number, string>>;
-  paymentModel?: string; // hourly, daily, or event-based
-  hoursCount?: number;   // number of hours for hourly payment model
-  daysCount?: number;    // number of days for daily payment model
+  paymentModel: string | null; // hourly, daily, or event-based
+  hoursCount: number | null;   // number of hours for hourly payment model
+  daysCount: number | null;    // number of days for daily payment model
+  eventCategoryId: number;     // Event category ID for rate calculation
+  musicianCategoryIds: number[] | null; // Array of musician category IDs
 }
 
 // Contracts Table Component
@@ -758,15 +760,20 @@ export default function ViewEventPage() {
                                         // We'll build our list of preferred rates based on event categories
                                         let preferredRates = [];
                                         
-                                        // First try to match using event's regular categoryIds
-                                        if (event.categoryIds && event.categoryIds.length > 0) {
+                                        // First try to match using event's regular categoryIds (legacy support)
+                                        // Not needed anymore with new eventCategoryId property
+                                        
+                                        // Then try to match based on event category
+                                        if (preferredRates.length === 0 && event.eventCategoryId) {
+                                          console.log("Trying to match based on event category:", event.eventCategoryId);
                                           preferredRates = allMusicianRates.filter((rate: any) =>
-                                            event.categoryIds.includes(rate.eventCategoryId)
+                                            rate.eventCategoryId === event.eventCategoryId
                                           );
                                         }
                                         
-                                        // If no matches found, try using the musician category IDs
+                                        // If no matches found, try using the musician category IDs as a fallback
                                         if (preferredRates.length === 0 && event.musicianCategoryIds && event.musicianCategoryIds.length > 0) {
+                                          console.log("Trying to match based on musician categories:", event.musicianCategoryIds);
                                           preferredRates = allMusicianRates.filter((rate: any) =>
                                             event.musicianCategoryIds.includes(rate.eventCategoryId)
                                           );
@@ -778,10 +785,20 @@ export default function ViewEventPage() {
                                         console.log("Using musician rates:", musicianRates);
                                         
                                         if (musicianRates && musicianRates.length > 0) {
-                                          // Try to find the best rate that matches this event type
+                                          // Try to find the best rate that matches this event category
                                           
                                           // This is the rate we'll display - start with null, we'll fill it in below
                                           let categoryMatchRate = null;
+                                          
+                                          // Find a rate that matches the event's category
+                                          if (event.eventCategoryId) {
+                                            // First try exact match with event category
+                                            categoryMatchRate = musicianRates.find((rate: any) => 
+                                              rate.eventCategoryId === event.eventCategoryId
+                                            );
+                                            
+                                            console.log("Found category match rate for event category", event.eventCategoryId, ":", categoryMatchRate);
+                                          }
                                           
                                           // If no category match, just use the first rate
                                           const rate = categoryMatchRate || musicianRates[0];
