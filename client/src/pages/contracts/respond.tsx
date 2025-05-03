@@ -466,6 +466,7 @@ export default function ContractResponsePage() {
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     By typing your name above, you agree this constitutes your electronic signature.
+                    Your IP address will be recorded with your signature for verification purposes.
                   </p>
                 </div>
                 <AlertDialogFooter>

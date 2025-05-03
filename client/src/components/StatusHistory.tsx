@@ -181,6 +181,27 @@ export default function StatusHistory({
                     By: {entry.userName}
                   </div>
                 )}
+                
+                {/* Display signature information for contract-signed status */}
+                {entry.status === 'contract-signed' && entry.metadata && (
+                  <div className="text-xs mt-2 p-2 bg-muted/30 rounded-sm space-y-1">
+                    {entry.metadata.signatureValue && (
+                      <div className="font-medium">
+                        Signature: <span className="italic">{entry.metadata.signatureValue}</span>
+                      </div>
+                    )}
+                    {entry.metadata.signedAt && (
+                      <div className="text-muted-foreground">
+                        Signed: {format(new Date(entry.metadata.signedAt), "MMM d, yyyy h:mm a")}
+                      </div>
+                    )}
+                    {entry.metadata.ipAddress && (
+                      <div className="text-muted-foreground">
+                        IP: {entry.metadata.ipAddress}
+                      </div>
+                    )}
+                  </div>
+                )}
               </TimelineContent>
             </TimelineItem>
           ))}
