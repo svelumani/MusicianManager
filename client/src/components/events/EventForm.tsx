@@ -882,42 +882,9 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                       e.stopPropagation();
                                       e.preventDefault(); // Prevent form submission
                                       
+                                      // Use the optimized toggleMusicianSelection function
                                       if (activeDate) {
-                                        // Convert to string to avoid reference issues
-                                        const normDate = format(activeDate, 'yyyy-MM-dd');
-                                        const activeSelection = !!musicianAssignments[normDate]?.includes(musician.id);
-                                        
-                                        // Don't call if user tries to select an unavailable musician
-                                        const isAvailable = isMusicianAvailableForDate(musician.id, activeDate);
-                                        
-                                        if (!isAvailable && !activeSelection) {
-                                          toast({
-                                            title: "Musician unavailable",
-                                            description: "This musician is not available on this date. Please choose another musician or date.",
-                                            variant: "destructive",
-                                          });
-                                          return;
-                                        }
-                                        
-                                        // Create a deep copy of the current state
-                                        const newAssignments = {...musicianAssignments};
-                                        
-                                        // Toggle the selection
-                                        if (!newAssignments[normDate]) {
-                                          newAssignments[normDate] = [musician.id];
-                                        } else if (activeSelection) {
-                                          // Remove musician if already selected
-                                          newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musician.id);
-                                          if (newAssignments[normDate].length === 0) {
-                                            delete newAssignments[normDate];
-                                          }
-                                        } else {
-                                          // Add musician if not selected
-                                          newAssignments[normDate] = [...newAssignments[normDate], musician.id];
-                                        }
-                                        
-                                        // Update state directly
-                                        setMusicianAssignments(newAssignments);
+                                        toggleMusicianSelection(musician.id, activeDate);
                                       }
                                     }}
                                   >
@@ -964,40 +931,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                             e.preventDefault(); // Prevent form submission
                                             e.stopPropagation(); // Prevent event bubbling
                                             
-                                            // Use the same direct state management approach for consistency
-                                            const normDate = format(date, 'yyyy-MM-dd');
-                                            const isAssigned = musicianAssignments[normDate]?.includes(musician.id) || false;
-                                            
-                                            // Don't allow selecting unavailable musicians
-                                            const isAvailable = isMusicianAvailableForDate(musician.id, date);
-                                            if (!isAvailable && !isAssigned) {
-                                              toast({
-                                                title: "Musician unavailable",
-                                                description: "This musician is not available on this date.",
-                                                variant: "destructive",
-                                              });
-                                              return;
-                                            }
-                                            
-                                            // Create a deep copy of the current assignments
-                                            const newAssignments = {...musicianAssignments};
-                                            
-                                            // Toggle selection directly
-                                            if (!newAssignments[normDate]) {
-                                              newAssignments[normDate] = [musician.id];
-                                            } else if (isAssigned) {
-                                              // Remove musician if already selected
-                                              newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musician.id);
-                                              if (newAssignments[normDate].length === 0) {
-                                                delete newAssignments[normDate];
-                                              }
-                                            } else {
-                                              // Add musician if not selected
-                                              newAssignments[normDate] = [...newAssignments[normDate], musician.id];
-                                            }
-                                            
-                                            // Update state with new assignments
-                                            setMusicianAssignments(newAssignments);
+                                            // Use our optimized toggleMusicianSelection function
+                                            toggleMusicianSelection(musician.id, date);
                                           }}
                                         >
                                           {format(date, "MMM d")}
