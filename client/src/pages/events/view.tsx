@@ -678,29 +678,38 @@ export default function ViewEventPage() {
                                     </TableCell>
                                     <TableCell>
                                       {(() => {
-                                        // Find a matching rate for this musician and event
-                                        const musicianRates = musicianPayRates.filter((rate: any) => 
-                                          rate.musicianId === musicianId && (
-                                            // Match with event's category if available
-                                            (event.musicianCategoryIds && event.musicianCategoryIds.length > 0 && 
-                                             event.musicianCategoryIds.includes(rate.eventCategoryId)) ||
-                                            // If no category match, include all rates for this musician
-                                            (!event.musicianCategoryIds || event.musicianCategoryIds.length === 0)
-                                          )
+                                        // Get ALL rates for this musician 
+                                        const allMusicianRates = musicianPayRates.filter((rate: any) => 
+                                          rate.musicianId === musicianId
                                         );
                                         
                                         // Log for debugging
-                                        console.log("Musician rates for musician", musicianId, ":", musicianRates);
+                                        console.log("All musician rates for musician", musicianId, ":", allMusicianRates);
+                                        
+                                        // If the event has category IDs, try to find a matching rate
+                                        let preferredRates = [];
+                                        if (event.categoryIds && event.categoryIds.length > 0) {
+                                          // Try to match event category
+                                          preferredRates = allMusicianRates.filter((rate: any) =>
+                                            event.categoryIds.includes(rate.eventCategoryId)
+                                          );
+                                        } else if (event.musicianCategoryIds && event.musicianCategoryIds.length > 0) {
+                                          // If no event category, show any rates
+                                          preferredRates = allMusicianRates;
+                                        }
+                                        
+                                        // Use either preferred rates or all musician rates
+                                        const musicianRates = preferredRates.length > 0 ? preferredRates : allMusicianRates;
+                                        
+                                        console.log("Using musician rates:", musicianRates);
                                         
                                         if (musicianRates && musicianRates.length > 0) {
                                           // Try to find the best rate to display
                                           
-                                          // First, try to find a rate that matches one of the event categories
-                                          const categoryMatchRate = event.musicianCategoryIds 
-                                            ? musicianRates.find(rate => 
-                                                event.musicianCategoryIds.includes(rate.eventCategoryId)
-                                              )
-                                            : null;
+                                          // First, try to find a rate that matches any event category
+                                          // Since we're comparing event_category_id with musician_category_ids, they're not
+                                          // directly compatible. So we're just going to pick the first available rate
+                                          const categoryMatchRate = null;
                                           
                                           // If no category match, just use the first rate
                                           const rate = categoryMatchRate || musicianRates[0];
