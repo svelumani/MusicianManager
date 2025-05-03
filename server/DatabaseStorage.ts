@@ -297,7 +297,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(invitations.musicianId, musicianId));
     }
     
-    return await query.orderBy(desc(invitations.sentAt));
+    return await query.orderBy(desc(invitations.invitedAt));
   }
   
   async getInvitationsByEventAndMusician(eventId: number, musicianId: number): Promise<Invitation[]> {
@@ -307,7 +307,7 @@ export class DatabaseStorage implements IStorage {
         eq(invitations.eventId, eventId),
         eq(invitations.musicianId, musicianId)
       ))
-      .orderBy(invitations.date);
+      .orderBy(invitations.invitedAt);
   }
   
   async getInvitation(id: number): Promise<Invitation | undefined> {
@@ -328,7 +328,7 @@ export class DatabaseStorage implements IStorage {
   
   async updateInvitation(id: number, data: Partial<InsertInvitation>): Promise<Invitation | undefined> {
     const [updated] = await db.update(invitations)
-      .set({ ...data, updatedAt: new Date() })
+      .set(data)
       .where(eq(invitations.id, id))
       .returning();
     
