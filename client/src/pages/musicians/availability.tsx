@@ -110,6 +110,8 @@ const BookingHistoryList = ({ musicianId }: { musicianId: number }) => {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<'date' | 'eventId' | 'status'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Get current month and year
   const currentDate = new Date();
@@ -147,6 +149,50 @@ const BookingHistoryList = ({ musicianId }: { musicianId: number }) => {
     fetchBookings();
   }, [musicianId, currentMonth, currentYear]);
 
+  const handleSort = (field: 'date' | 'eventId' | 'status') => {
+    if (sortField === field) {
+      // Toggle direction if clicking the same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new field and default to descending for date, ascending for other fields
+      setSortField(field);
+      setSortDirection(field === 'date' ? 'desc' : 'asc');
+    }
+  };
+
+  const getSortedBookings = () => {
+    if (!bookings.length) return [];
+    
+    return [...bookings].sort((a, b) => {
+      if (sortField === 'date') {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      } 
+      else if (sortField === 'eventId') {
+        return sortDirection === 'asc' 
+          ? a.eventId - b.eventId 
+          : b.eventId - a.eventId;
+      }
+      else if (sortField === 'status') {
+        // Create a numeric value for status sorting (higher = more confirmed)
+        const getStatusWeight = (booking: any) => {
+          if (booking.contractSigned) return 3;
+          if (booking.isAccepted) return 2;
+          return 1; // Pending
+        };
+        
+        const statusA = getStatusWeight(a);
+        const statusB = getStatusWeight(b);
+        
+        return sortDirection === 'asc' 
+          ? statusA - statusB 
+          : statusB - statusA;
+      }
+      return 0;
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[300px]">
@@ -167,26 +213,48 @@ const BookingHistoryList = ({ musicianId }: { musicianId: number }) => {
     );
   }
 
+  const getSortIcon = (field: 'date' | 'eventId' | 'status') => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? '↑' : '↓';
+  };
+
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold mb-4">Recent Bookings</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Recent Bookings</h3>
+      </div>
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Date
+              <th 
+                onClick={() => handleSort('date')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              >
+                <div className="flex items-center gap-1">
+                  Date {getSortIcon('date')}
+                </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Event
+              <th 
+                onClick={() => handleSort('eventId')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              >
+                <div className="flex items-center gap-1">
+                  Event {getSortIcon('eventId')}
+                </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
+              <th 
+                onClick={() => handleSort('status')}
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              >
+                <div className="flex items-center gap-1">
+                  Status {getSortIcon('status')}
+                </div>
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {bookings.map((booking) => (
+            {getSortedBookings().map((booking) => (
               <tr key={booking.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {new Date(booking.date).toLocaleDateString()}
