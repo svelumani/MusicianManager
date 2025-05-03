@@ -181,7 +181,7 @@ export const events = pgTable("events", {
   eventDates: timestamp("event_dates").array(), // Array of dates for multi-day events
   status: text("status").notNull().default("pending"), // pending, confirmed, cancelled
   categoryIds: integer("category_ids").array(), // Foreign keys to event_categories
-  musicianTypeId: integer("musician_type_id"), // Foreign key to musician_types
+  musicianCategoryIds: integer("musician_category_ids").array(), // Foreign keys to musician_categories (replacing type_id)
   totalPayment: doublePrecision("total_payment"), // Total payment amount for the event
   advancePayment: doublePrecision("advance_payment"), // Advance payment received
   secondPayment: doublePrecision("second_payment"), // Second payment received
@@ -200,7 +200,7 @@ export const insertEventSchema = createInsertSchema(events, {
     eventDates: true,
     status: true,
     categoryIds: true,
-    musicianTypeId: true,
+    musicianCategoryIds: true, // Updated to musician category IDs
     totalPayment: true,
     advancePayment: true,
     secondPayment: true,
@@ -211,7 +211,6 @@ export const insertEventSchema = createInsertSchema(events, {
   })
   .extend({
     // Additional fields for our extended functionality
-    musicianTypeIds: z.array(z.number()).optional(),
     musicianIds: z.array(z.number()).optional(),
     // Date-specific musician assignments
     // Format: { "2023-01-01T00:00:00.000Z": [1, 2, 3] }
