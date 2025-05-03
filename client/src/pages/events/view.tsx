@@ -363,6 +363,41 @@ export default function ViewEventPage() {
   // Debug information for musician assignments
   console.log("Event data:", event);
   console.log("Musician assignments:", event.musicianAssignments);
+  
+  // Normalize musician assignments for consistent access
+  const normalizedAssignments: Record<string, number[]> = {};
+  
+  if (event.musicianAssignments && Object.keys(event.musicianAssignments).length > 0) {
+    // Process all date keys to ensure consistent format
+    Object.keys(event.musicianAssignments).forEach((dateKey) => {
+      try {
+        const date = new Date(dateKey);
+        if (!isNaN(date.getTime())) {
+          // Format date consistently
+          const normalizedKey = format(date, 'yyyy-MM-dd');
+          
+          // Ensure we have an array to store the musicians
+          if (!normalizedAssignments[normalizedKey]) {
+            normalizedAssignments[normalizedKey] = [];
+          }
+          
+          // Add unique musician IDs
+          const musicianIds = event.musicianAssignments[dateKey];
+          if (Array.isArray(musicianIds)) {
+            musicianIds.forEach((id) => {
+              if (!normalizedAssignments[normalizedKey].includes(id)) {
+                normalizedAssignments[normalizedKey].push(id);
+              }
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error normalizing date ${dateKey}:`, error);
+      }
+    });
+  }
+  
+  console.log("Normalized assignments:", normalizedAssignments);
 
   // Get status badge styling
   const getStatusBadge = (status: string) => {
@@ -390,15 +425,33 @@ export default function ViewEventPage() {
   };
   
   // Get musician status for a specific date and musician
-  const getMusicianStatus = (dateStr: string, musicianId: number) => {
+  const getMusicianStatus = (dateStr: string | Date, musicianId: number) => {
     if (!event.musicianStatuses) return "pending";
     
-    // Check if we have status for this date
-    const dateStatuses = event.musicianStatuses[dateStr];
-    if (!dateStatuses) return "pending";
+    // Normalize the date if it's a Date object
+    const normalizedDateStr = dateStr instanceof Date 
+      ? format(dateStr, 'yyyy-MM-dd') 
+      : format(new Date(dateStr), 'yyyy-MM-dd');
     
-    // Return the status for this musician or default to pending
-    return dateStatuses[musicianId] || "pending";
+    // Try to find the status using different date formats
+    
+    // First try with the normalized date format
+    if (event.musicianStatuses[normalizedDateStr] && event.musicianStatuses[normalizedDateStr][musicianId]) {
+      return event.musicianStatuses[normalizedDateStr][musicianId];
+    }
+    
+    // Then try with the original date string
+    if (typeof dateStr === 'string' && event.musicianStatuses[dateStr] && event.musicianStatuses[dateStr][musicianId]) {
+      return event.musicianStatuses[dateStr][musicianId];
+    }
+    
+    // Check if we have a global status for this musician (date key = 'all')
+    if (event.musicianStatuses['all'] && event.musicianStatuses['all'][musicianId]) {
+      return event.musicianStatuses['all'][musicianId];
+    }
+    
+    // Default to pending if no status is found
+    return "pending";
   };
 
   return (
@@ -546,38 +599,13 @@ export default function ViewEventPage() {
                   {event.eventDates?.map((dateStr, index) => {
                     const date = new Date(dateStr);
                     
-                    // Normalize the date format to the format used in assignments
+                    // Use the normalized date format consistently (YYYY-MM-DD)
                     const normalizedDateStr = format(date, 'yyyy-MM-dd');
                     
-                    // First check with the normalized format, then try ISO string format, then empty array
-                    let assignedMusicians = [];
+                    // Use the already normalized assignments we created earlier
+                    const assignedMusicians = normalizedAssignments[normalizedDateStr] || [];
                     
-                    // Try all possible date formats that might be in the assignments object
-                    if (event.musicianAssignments?.[normalizedDateStr]) {
-                      // If we have assignments with the normalized format (yyyy-MM-dd)
-                      assignedMusicians = event.musicianAssignments[normalizedDateStr];
-                    } else if (event.musicianAssignments?.[dateStr]) {
-                      // If we have assignments with the ISO format from API
-                      assignedMusicians = event.musicianAssignments[dateStr];
-                    } else {
-                      // Try to find any date key that matches the current date
-                      const dateKeys = Object.keys(event.musicianAssignments || {});
-                      for (const key of dateKeys) {
-                        try {
-                          // Parse the key as a date and compare
-                          const keyDate = new Date(key);
-                          if (format(keyDate, 'yyyy-MM-dd') === normalizedDateStr) {
-                            assignedMusicians = event.musicianAssignments[key];
-                            break;
-                          }
-                        } catch (e) {
-                          // Skip invalid date strings
-                          continue;
-                        }
-                      }
-                    }
-                    
-                    console.log(`Looking for assignments on date ${dateStr}, normalized as ${normalizedDateStr}:`, assignedMusicians);
+                    console.log(`Using assignments for date ${dateStr}, normalized as ${normalizedDateStr}:`, assignedMusicians);
                     
                     return (
                       <div key={index} className="space-y-3">
