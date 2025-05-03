@@ -1329,8 +1329,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(bookings.eventId, eventId),
         eq(bookings.musicianId, musicianId)
-      ))
-      .orderBy(bookings.createdAt);
+      ));
   }
   
   async createBooking(booking: InsertBooking): Promise<Booking> {

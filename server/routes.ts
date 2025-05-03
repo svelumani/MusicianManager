@@ -1212,9 +1212,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Find latest booking for this musician and event
             const bookings = await storage.getBookingsByEventAndMusician(eventId, musicianId);
             let bookingId = 0;
+            let invitationId = 0;
             
             if (bookings && bookings.length > 0) {
               bookingId = bookings[0].id;
+              // If booking exists, it should have an invitation ID
+              invitationId = bookings[0].invitationId;
+            }
+            
+            // If we don't have an invitation ID from booking, try to find one
+            if (invitationId === 0) {
+              // Get invitations for this musician and event
+              const invitations = await storage.getInvitationsByEventAndMusician(eventId, musicianId);
+              if (invitations && invitations.length > 0) {
+                invitationId = invitations[0].id;
+              } else {
+                console.error(`No invitation found for musician ${musicianId} in event ${eventId}`);
+                return; // Can't proceed without an invitation ID
+              }
             }
             
             // Generate a unique token for the contract
@@ -1229,6 +1244,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               bookingId,
               eventId,
               musicianId,
+              invitationId, // Add the invitation ID
               token,
               expiresAt,
               status: 'pending',
