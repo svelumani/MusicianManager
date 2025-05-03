@@ -306,8 +306,8 @@ export default function ContractDetailPage() {
                         {(contract.signature || (contractStatus && contractStatus.status === 'contract-signed')) ? (
                           <div className="border-b h-8 mb-2 flex items-end">
                             <span className="font-medium italic text-primary">
-                            {contract.signature || 
-                             (contractStatus?.metadata?.signatureValue) || 
+                            {contractStatus?.metadata?.signatureValue || 
+                             contract.signature || 
                              (contractStatus?.metadata?.signedBy && `${contractStatus.metadata.signedBy}`) || 
                              musician?.name || 
                              "Musician"}
@@ -316,17 +316,24 @@ export default function ContractDetailPage() {
                         ) : (
                           <div className="border-b border-dashed h-8 mb-2"></div>
                         )}
-                        <p className="text-sm">
-                          Date: {(contract.signedAt || 
-                                  (contractStatus && contractStatus.status === 'contract-signed')) ? 
-                                format(new Date(
-                                  contractStatus?.metadata?.signedAt || 
-                                  contract.signedAt || 
-                                  contractStatus?.statusDate || 
-                                  contract.updatedAt
-                                ), "MM/dd/yyyy") : 
-                                "________________"}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-sm">
+                            Date: {(contract.signedAt || 
+                                    (contractStatus && contractStatus.status === 'contract-signed')) ? 
+                                  format(new Date(
+                                    contractStatus?.metadata?.signedAt || 
+                                    contract.signedAt || 
+                                    contractStatus?.statusDate || 
+                                    contract.updatedAt
+                                  ), "MM/dd/yyyy") : 
+                                  "________________"}
+                          </p>
+                          {contractStatus?.metadata?.ipAddress && (
+                            <p className="text-xs text-muted-foreground">
+                              IP: {contractStatus.metadata.ipAddress}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
