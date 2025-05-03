@@ -674,7 +674,7 @@ export default function ViewEventPage() {
                                       </Badge>
                                     </TableCell>
                                     <TableCell>
-                                      {getStatusBadge("pending")} {/* Default to pending status */}
+                                      {getStatusBadge(getMusicianStatus(date, musicianId))}
                                     </TableCell>
                                     <TableCell>
                                       {(() => {
