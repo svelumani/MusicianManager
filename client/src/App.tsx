@@ -25,6 +25,7 @@ import EventsPage from "@/pages/events/index";
 import AddEventPage from "@/pages/events/add";
 import ViewEventPage from "@/pages/events/view";
 import EditEventPage from "@/pages/events/edit";
+import RateMusicianPage from "@/pages/events/rate-musician";
 // Removed InviteMusicianPage import as we're handling this through the edit page
 import CategoriesPage from "@/pages/categories/index";
 import AddCategoryPage from "@/pages/categories/add";
@@ -132,6 +133,13 @@ function Router() {
         {(params) => (
           <AppLayout>
             <EditEventPage />
+          </AppLayout>
+        )}
+      </Route>
+      <Route path="/events/rate-musician/:eventId/:musicianId">
+        {(params) => (
+          <AppLayout>
+            <RateMusicianPage />
           </AppLayout>
         )}
       </Route>
