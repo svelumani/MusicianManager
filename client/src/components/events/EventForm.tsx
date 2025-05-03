@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
@@ -385,58 +385,58 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     }
   };
 
-  // Handle musician selection/deselection for a specific date
-  const toggleMusicianSelection = (musicianId: number, date: Date = activeDate!) => {
+  // Simplified, single source of truth function to handle musician selection/deselection for a specific date
+  const toggleMusicianSelection = useCallback((musicianId: number, date: Date) => {
     if (!date || !musicianId) return; // Make sure we have valid inputs
-    
-    // Check if musician is available for this specific date
-    const isAvailable = isMusicianAvailableForDate(musicianId, date);
-    
-    // Don't allow assigning unavailable musicians
-    if (!isAvailable) {
-      toast({
-        title: "Musician unavailable",
-        description: "This musician is not available on this date. Please choose another musician or date.",
-        variant: "destructive",
-      });
-      return;
-    }
     
     // Use a consistent date string format
     const dateKey = format(date, 'yyyy-MM-dd');
     
-    // Create a new copy of the musician assignments
-    const newAssignments = {...musicianAssignments};
+    // Check if musician is already assigned to this date
+    const isCurrentlyAssigned = musicianAssignments[dateKey]?.includes(musicianId) || false;
     
-    // Check if we already have assignments for this date
-    if (!newAssignments[dateKey]) {
-      // No existing assignments for this date, create a new array with this musician
-      newAssignments[dateKey] = [musicianId];
-    } else {
-      // Check if this musician is already assigned
-      const index = newAssignments[dateKey].indexOf(musicianId);
-      if (index >= 0) {
-        // Musician is already assigned, remove them
-        const updatedMusicians = [...newAssignments[dateKey]];
-        updatedMusicians.splice(index, 1);
-        
-        // If there are no musicians left, remove the date entry
-        if (updatedMusicians.length === 0) {
-          delete newAssignments[dateKey];
-        } else {
-          newAssignments[dateKey] = updatedMusicians;
-        }
-      } else {
-        // Musician is not assigned, add them
-        newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
+    // Check if musician is available for this specific date (only if not already assigned)
+    if (!isCurrentlyAssigned) {
+      const isAvailable = isMusicianAvailableForDate(musicianId, date);
+      
+      // Don't allow assigning unavailable musicians
+      if (!isAvailable) {
+        toast({
+          title: "Musician unavailable",
+          description: "This musician is not available on this date. Please choose another musician or date.",
+          variant: "destructive",
+        });
+        return;
       }
     }
     
-    console.log(`Toggle musician ${musicianId} for date ${dateKey}`, newAssignments);
-    
-    // Update state with the new assignments
-    setMusicianAssignments(newAssignments);
-  };
+    // Use functional state update to avoid stale state issues
+    setMusicianAssignments(prevAssignments => {
+      // Create a deep copy of the current assignments
+      const newAssignments = {...prevAssignments};
+      
+      // Handle toggling based on current state
+      if (isCurrentlyAssigned) {
+        // Musician is already assigned, remove them
+        if (newAssignments[dateKey]) {
+          newAssignments[dateKey] = newAssignments[dateKey].filter(id => id !== musicianId);
+          // If no musicians left for this date, remove the date entirely
+          if (newAssignments[dateKey].length === 0) {
+            delete newAssignments[dateKey];
+          }
+        }
+      } else {
+        // Musician is not assigned, add them
+        if (!newAssignments[dateKey]) {
+          newAssignments[dateKey] = [musicianId];
+        } else {
+          newAssignments[dateKey] = [...newAssignments[dateKey], musicianId];
+        }
+      }
+      
+      return newAssignments;
+    });
+  }, [musicianAssignments, isMusicianAvailableForDate, toast]);
 
   function onSubmit(values: EventFormValues) {
     // Validate if there are any musician assignments
@@ -816,41 +816,8 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                               onClick={() => {
                                 // Only handle clicks if there's an active date
                                 if (activeDate) {
-                                  // Convert to string to avoid reference issues
-                                  const normDate = format(activeDate, 'yyyy-MM-dd');
-                                  const activeSelection = !!musicianAssignments[normDate]?.includes(musician.id);
-                                  
-                                  // Don't call if user tries to select an unavailable musician
-                                  const isAvailable = isMusicianAvailableForDate(musician.id, activeDate);
-                                  
-                                  if (!isAvailable && !activeSelection) {
-                                    toast({
-                                      title: "Musician unavailable",
-                                      description: "This musician is not available on this date. Please choose another musician or date.",
-                                      variant: "destructive",
-                                    });
-                                    return;
-                                  }
-                                  
-                                  // Create a deep copy of the current state
-                                  const newAssignments = {...musicianAssignments};
-                                  
-                                  // Toggle the selection
-                                  if (!newAssignments[normDate]) {
-                                    newAssignments[normDate] = [musician.id];
-                                  } else if (activeSelection) {
-                                    // Remove musician if already selected
-                                    newAssignments[normDate] = newAssignments[normDate].filter(id => id !== musician.id);
-                                    if (newAssignments[normDate].length === 0) {
-                                      delete newAssignments[normDate];
-                                    }
-                                  } else {
-                                    // Add musician if not selected
-                                    newAssignments[normDate] = [...newAssignments[normDate], musician.id];
-                                  }
-                                  
-                                  // Update state directly
-                                  setMusicianAssignments(newAssignments);
+                                  // Use our optimized toggleMusicianSelection function
+                                  toggleMusicianSelection(musician.id, activeDate);
                                 }
                               }}
                             >
