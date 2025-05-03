@@ -268,8 +268,64 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     
     return assignments.reduce((total: number, assignment: any) => {
       const musician = getMusician(assignment.musicianId);
-      return total + (assignment.actualFee || (musician ? musician.payRate : 0));
+      
+      // Use the assignment's actualFee if available, otherwise use musician's rate or default by category
+      let fee = assignment.actualFee;
+      if (!fee || fee <= 0) {
+        // Try to get musician's pay rate
+        if (musician && musician.payRate > 0) {
+          fee = musician.payRate;
+        } else if (musician && musician.categoryId) {
+          // Fall back to category default rate
+          const categoryId = musician.categoryId;
+          fee = getCategoryDefaultRate(categoryId);
+        } else {
+          // Ultimate fallback
+          fee = 150;
+        }
+      }
+      
+      return total + fee;
     }, 0);
+  };
+  
+  // Get default rate for a category
+  const getCategoryDefaultRate = (categoryId: number): number => {
+    // Default rates by category
+    const defaultRates: {[key: number]: number} = {
+      1: 150, // Vocalist
+      2: 125, // Guitarist 
+      3: 125, // Keyboardist
+      4: 135, // Drummer
+      5: 125, // Bassist
+      // Add more defaults as needed
+    };
+    
+    return defaultRates[categoryId] || 100; // Fallback to 100 if no default for category
+  };
+  
+  // Calculate fee for a single assignment (used in grid display)
+  const calculateFeeForAssignment = (assignment: any): number => {
+    if (!assignment) return 0;
+    
+    // Use the assignment's actualFee if available
+    if (assignment.actualFee && assignment.actualFee > 0) {
+      return assignment.actualFee;
+    }
+    
+    // Try to get musician's pay rate
+    const musician = getMusician(assignment.musicianId);
+    if (musician && musician.payRate && musician.payRate > 0) {
+      return musician.payRate;
+    }
+    
+    // Fall back to category default rate
+    if (musician && musician.categoryId) {
+      return getCategoryDefaultRate(musician.categoryId);
+    }
+    
+    // Ultimate fallback
+    return 150;
   };
 
   // Format amount as currency
@@ -465,16 +521,21 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                                     
                                     return (
                                       <div key={assignment.id} className="flex justify-between text-sm">
-                                        <span className={`font-medium ${!isAvailable ? 'text-red-500' : ''}`}>
-                                          {getMusicianName(assignment.musicianId)}
-                                          {!isAvailable && availabilityView && (
-                                            <span className="text-xs text-red-500 ml-1">
-                                              (unavailable)
-                                            </span>
-                                          )}
-                                        </span>
+                                        <div className="flex flex-col">
+                                          <span className={`font-medium ${!isAvailable ? 'text-red-500' : ''}`}>
+                                            {getMusicianName(assignment.musicianId)}
+                                            {!isAvailable && availabilityView && (
+                                              <span className="text-xs text-red-500 ml-1">
+                                                (unavailable)
+                                              </span>
+                                            )}
+                                          </span>
+                                          <span className="text-xs text-gray-500">
+                                            {getMusicianCategory(assignment.musicianId)}
+                                          </span>
+                                        </div>
                                         <span className="text-gray-600">
-                                          {formatCurrency(assignment.actualFee || (musician ? musician.payRate : 0))}
+                                          {formatCurrency(calculateFeeForAssignment(assignment))}
                                         </span>
                                       </div>
                                     );
