@@ -374,62 +374,45 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     console.log(`Toggle musician ${musicianId} for date ${normalizedDateStr}`);
     
     setMusicianAssignments(prev => {
-      // Clone the assignments object
-      const newAssignments = { ...prev };
+      // Start with a clean slate
+      const newAssignments: Record<string, number[]> = {};
       
-      // Standardize all keys to normalized format and deduplicate musicians
-      const standardizedAssignments: Record<string, number[]> = {};
-      
-      // First, process all existing entries and normalize them
-      Object.keys(newAssignments).forEach(key => {
+      // First, copy all existing assignments with normalized keys
+      for (const [key, musicians] of Object.entries(prev)) {
         try {
-          // Try to parse and normalize the date key
           const keyDate = new Date(key);
           if (!isNaN(keyDate.getTime())) {
-            const keyNormalized = format(keyDate, 'yyyy-MM-dd');
-            if (!standardizedAssignments[keyNormalized]) {
-              standardizedAssignments[keyNormalized] = [];
-            }
-            
-            // Add unique musician IDs
-            if (Array.isArray(newAssignments[key])) {
-              newAssignments[key].forEach((id: number) => {
-                if (!standardizedAssignments[keyNormalized].includes(id)) {
-                  standardizedAssignments[keyNormalized].push(id);
-                }
-              });
-            }
-          } else {
-            console.warn(`Invalid date key found in assignments: ${key}`);
+            const normalizedKey = format(keyDate, 'yyyy-MM-dd');
+            newAssignments[normalizedKey] = [...(musicians || [])];
           }
         } catch (e) {
-          console.error(`Error processing assignment key ${key}:`, e);
+          // Keep non-date keys as is
+          newAssignments[key] = [...(prev[key] || [])];
         }
-      });
+      }
       
-      // Now toggle the specific musician for the target date
-      if (!standardizedAssignments[normalizedDateStr]) {
-        standardizedAssignments[normalizedDateStr] = [musicianId];
+      // Now handle the toggle action
+      if (!newAssignments[normalizedDateStr]) {
+        // Create a new array if none exists
+        newAssignments[normalizedDateStr] = [musicianId];
       } else {
-        // Check if musician is already in the list
-        const index = standardizedAssignments[normalizedDateStr].indexOf(musicianId);
+        const index = newAssignments[normalizedDateStr].indexOf(musicianId);
         if (index >= 0) {
-          // Remove musician
-          standardizedAssignments[normalizedDateStr].splice(index, 1);
-          // If empty, remove the date entry
-          if (standardizedAssignments[normalizedDateStr].length === 0) {
-            delete standardizedAssignments[normalizedDateStr];
+          // Remove if found
+          newAssignments[normalizedDateStr].splice(index, 1);
+          if (newAssignments[normalizedDateStr].length === 0) {
+            delete newAssignments[normalizedDateStr];
           }
         } else {
-          // Add musician
-          standardizedAssignments[normalizedDateStr].push(musicianId);
+          // Add if not found
+          newAssignments[normalizedDateStr].push(musicianId);
         }
       }
       
       // Debug output
-      console.log("Updated musician assignments:", standardizedAssignments);
+      console.log("Updated musician assignments:", newAssignments);
       
-      return standardizedAssignments;
+      return newAssignments;
     });
   };
 
@@ -801,8 +784,18 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                           const isSelectedAnywhere = selectedMusicians.includes(musician.id);
                           
                           // Check if this musician is selected for the currently active date
-                          const isSelectedForActiveDate = activeDate && 
-                            musicianAssignments[activeDate.toISOString()]?.includes(musician.id);
+                          // Using a simpler approach to avoid infinite loops
+                          const isSelectedForActiveDate = activeDate && (() => {
+                            // Try ISO string format first
+                            const isoKey = activeDate.toISOString();
+                            if (musicianAssignments[isoKey]?.includes(musician.id)) {
+                              return true;
+                            }
+                            
+                            // Try normalized date format
+                            const normalizedDateStr = format(activeDate, 'yyyy-MM-dd');
+                            return !!musicianAssignments[normalizedDateStr]?.includes(musician.id);
+                          })();
                           
                           return (
                             <Card 
@@ -897,8 +890,13 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                   <p className="text-xs text-muted-foreground mb-1">Date assignments:</p>
                                   <div className="flex flex-wrap gap-1">
                                     {selectedDates.map((date, idx) => {
-                                      // Check if musician is assigned to this date
-                                      const isAssignedToDate = musicianAssignments[date.toISOString()]?.includes(musician.id) || false;
+                                      // Check if musician is assigned to this date - need to check multiple formats 
+                                      // Using a simpler approach to avoid infinite loops
+                                      const normalizedDateStr = format(date, 'yyyy-MM-dd');
+                                      // Check all possible date representations
+                                      const isAssignedToDate = 
+                                        (musicianAssignments[date.toISOString()]?.includes(musician.id)) || 
+                                        (musicianAssignments[normalizedDateStr]?.includes(musician.id));
                                       
                                       // Check if musician is available for this specific date
                                       const isAvailableForDate = isMusicianAvailableForDate(musician.id, date);
