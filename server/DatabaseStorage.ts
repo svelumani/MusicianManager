@@ -199,12 +199,38 @@ export class DatabaseStorage implements IStorage {
         eq(invitations.musicianId, musicianId)
       ));
     
-    if (invites.length > 0) {
-      // Update existing invitation
+    // Check for date-specific invitation first
+    const dateSpecificInvites = await db.select()
+      .from(invitations)
+      .where(and(
+        eq(invitations.eventId, eventId),
+        eq(invitations.musicianId, musicianId),
+        eq(invitations.date, date)
+      ));
+    
+    if (dateSpecificInvites.length > 0) {
+      // Update existing date-specific invitation
+      console.log(`Updating existing date-specific invitation ${dateSpecificInvites[0].id} with status ${status} for date ${dateStr}`);
       await db.update(invitations)
-        .set({ status })
-        .where(eq(invitations.id, invites[0].id));
+        .set({ status, updatedAt: new Date() })
+        .where(eq(invitations.id, dateSpecificInvites[0].id));
+    } else if (invites.length > 0) {
+      // If no date-specific invitation but we have a general one,
+      // create a new date-specific one based on the general invitation
+      console.log(`Creating new date-specific invitation for existing musician ${musicianId} in event ${eventId} with status ${status} for date ${dateStr}`);
+      await db.insert(invitations).values({
+        eventId,
+        musicianId,
+        invitedAt: new Date(),
+        status,
+        date, // Important! Store the date
+        email: invites[0].email,
+        messageSubject: `Event Invitation for ${dateStr}`,
+        messageBody: `You have been invited to an event on ${dateStr}.`
+      });
     } else {
+      // No invitation exists at all, create a new one with the date
+      console.log(`Creating completely new invitation for musician ${musicianId} in event ${eventId} with status ${status} for date ${dateStr}`);
       // Get musician data for the email
       const musician = await db.select()
         .from(musicians)
@@ -217,9 +243,10 @@ export class DatabaseStorage implements IStorage {
         musicianId,
         invitedAt: new Date(),
         status,
+        date, // Important! Store the date
         email: musician.length > 0 ? musician[0].email : 'no-email@example.com',
-        messageSubject: `Event Invitation`,
-        messageBody: `You have been invited to an event.`
+        messageSubject: `Event Invitation for ${dateStr}`,
+        messageBody: `You have been invited to an event on ${dateStr}.`
       });
     }
     

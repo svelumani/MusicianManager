@@ -444,31 +444,38 @@ export default function ViewEventPage() {
   
   // Get musician status for a specific date and musician
   const getMusicianStatus = (dateStr: string | Date, musicianId: number) => {
-    if (!event.musicianStatuses) return "pending";
+    if (!event.musicianStatuses) {
+      console.log(`No status information available for event ${event.id}`);
+      return "pending";
+    }
     
     // Normalize the date if it's a Date object
     const normalizedDateStr = dateStr instanceof Date 
       ? format(dateStr, 'yyyy-MM-dd') 
       : format(new Date(dateStr), 'yyyy-MM-dd');
     
-    // Try to find the status using different date formats
+    console.log(`Looking for status for musician ${musicianId} on date ${normalizedDateStr}`);
+    console.log(`Available status dates:`, Object.keys(event.musicianStatuses));
     
-    // First try with the normalized date format
+    // First priority: date-specific status with normalized date format
     if (event.musicianStatuses[normalizedDateStr] && event.musicianStatuses[normalizedDateStr][musicianId]) {
+      console.log(`Found date-specific status for ${normalizedDateStr}: ${event.musicianStatuses[normalizedDateStr][musicianId]}`);
       return event.musicianStatuses[normalizedDateStr][musicianId];
     }
     
-    // Then try with the original date string
+    // Second priority: date-specific status with original date string
     if (typeof dateStr === 'string' && event.musicianStatuses[dateStr] && event.musicianStatuses[dateStr][musicianId]) {
+      console.log(`Found date-specific status for original date string ${dateStr}: ${event.musicianStatuses[dateStr][musicianId]}`);
       return event.musicianStatuses[dateStr][musicianId];
     }
     
-    // Check if we have a global status for this musician (date key = 'all')
+    // Third priority: global status (date key = 'all')
     if (event.musicianStatuses['all'] && event.musicianStatuses['all'][musicianId]) {
+      console.log(`Using global status: ${event.musicianStatuses['all'][musicianId]}`);
       return event.musicianStatuses['all'][musicianId];
     }
     
-    // Default to pending if no status is found
+    console.log(`No status found for musician ${musicianId} on date ${normalizedDateStr}, using default 'pending'`);
     return "pending";
   };
 
