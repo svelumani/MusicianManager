@@ -3246,8 +3246,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const event = await storage.getEvent(contract.eventId);
           if (event && event.musicianStatuses) {
             // Check if this musician has a status in the event
-            const allStatuses = event.musicianStatuses.all || {};
-            const musicianStatus = allStatuses[contract.musicianId];
+            // We need to look at the specific date for the contract, not the global 'all' status
+            let musicianStatus;
+            
+            if (contract.eventDate) {
+              // Convert date to YYYY-MM-DD format
+              const dateStr = new Date(contract.eventDate).toISOString().split('T')[0];
+              
+              // First check date-specific status
+              if (event.musicianStatuses[dateStr] && event.musicianStatuses[dateStr][contract.musicianId]) {
+                musicianStatus = event.musicianStatuses[dateStr][contract.musicianId];
+                console.log(`Found date-specific status for contract ${contract.id} on date ${dateStr}: ${musicianStatus}`);
+              } 
+              // Only fall back to global status if no date-specific status exists
+              else if (event.musicianStatuses.all && event.musicianStatuses.all[contract.musicianId]) {
+                musicianStatus = event.musicianStatuses.all[contract.musicianId];
+                console.log(`Using global status for contract ${contract.id}: ${musicianStatus}`);
+              }
+            } else {
+              // If no date on contract, use global status
+              const allStatuses = event.musicianStatuses.all || {};
+              musicianStatus = allStatuses[contract.musicianId];
+              console.log(`No date on contract ${contract.id}, using global status: ${musicianStatus}`);
+            }
             
             // If the event has a status for this musician that's different from the contract's status
             if (musicianStatus && musicianStatus !== contract.status) {
@@ -3419,6 +3440,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Set default expiry date to 7 days from now if not provided
       const expiresAt = req.body.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       
+      // Validate that the contract has an event date - this is required for proper status tracking per date
+      if (!req.body.eventDate) {
+        return res.status(400).json({ 
+          message: "Event date is required when creating a contract to properly track status changes" 
+        });
+      }
+      
+      // Ensure event exists
+      if (req.body.eventId) {
+        const event = await storage.getEvent(req.body.eventId);
+        if (!event) {
+          return res.status(404).json({ message: "Event not found" });
+        }
+        
+        // Validate that the event date is one of the actual event dates
+        if (event.eventDates && event.eventDates.length > 0) {
+          const eventDateStr = new Date(req.body.eventDate).toISOString().split('T')[0];
+          const matchingDate = event.eventDates.find(date => 
+            new Date(date).toISOString().split('T')[0] === eventDateStr
+          );
+          
+          if (!matchingDate) {
+            return res.status(400).json({ 
+              message: "The provided event date does not match any of the event's scheduled dates" 
+            });
+          }
+        }
+      }
+      
       const contractData = insertContractLinkSchema.parse({
         ...req.body,
         token,
@@ -3426,6 +3476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'pending'
       });
       
+      // Create the contract with date-specific information
       const contract = await storage.createContractLink(contractData);
       res.status(201).json(contract);
     } catch (error) {
