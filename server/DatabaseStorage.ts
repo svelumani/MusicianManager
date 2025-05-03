@@ -386,6 +386,26 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
+  async createMusician(musician: InsertMusician): Promise<Musician> {
+    const result = await db.insert(musicians).values(musician).returning();
+    return result[0];
+  }
+  
+  async updateMusician(id: number, data: Partial<InsertMusician>): Promise<Musician | undefined> {
+    const result = await db.update(musicians)
+      .set(data)
+      .where(eq(musicians.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async deleteMusician(id: number): Promise<boolean> {
+    const result = await db.delete(musicians)
+      .where(eq(musicians.id, id))
+      .returning();
+    return result.length > 0;
+  }
+  
   async getCategories(): Promise<Category[]> {
     const result = await db.select().from(musicianCategories).orderBy(musicianCategories.title);
     return result;
@@ -422,6 +442,14 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(activities.timestamp))
       .limit(limit);
     return result;
+  }
+  
+  async createActivity(activity: Partial<InsertActivity>): Promise<Activity> {
+    const result = await db.insert(activities).values({
+      ...activity,
+      timestamp: new Date()
+    }).returning();
+    return result[0];
   }
   
   async getMusicianTypes(): Promise<MusicianType[]> {
