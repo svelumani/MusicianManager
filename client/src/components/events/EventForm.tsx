@@ -587,7 +587,7 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                             />
                           </FormControl>
                           <FormLabel className="font-normal cursor-pointer">
-                            {category.name}
+                            {category.title}
                           </FormLabel>
                         </FormItem>
                       );
