@@ -235,10 +235,30 @@ The VAMP Team`
       } catch (error) {
         console.error("Error fetching musician assignments:", error);
         
-        // Return a usable structure for all error types
+        // Check the error type and message
+        const errorMessage = (error as any)?.message || "Unknown error";
+        console.log("Error details:", { 
+          message: errorMessage,
+          isAxiosError: (error as any)?.isAxiosError,
+          responseStatus: (error as any)?.response?.status,
+          responseData: (error as any)?.response?.data 
+        });
+        
+        // Try to extract structured error data if possible
+        let errorData = null;
+        try {
+          if ((error as any)?.response?.data) {
+            errorData = (error as any).response.data;
+            console.log("Error has structured data:", errorData);
+          }
+        } catch (extractError) {
+          console.error("Failed to extract error data:", extractError);
+        }
+        
+        // Show a toast with appropriate message
         toast({
           title: "Error retrieving musician data",
-          description: "The server encountered an issue. You can continue, but verify the musician list carefully.",
+          description: errorData?._message || "The server encountered an issue. You can continue, but verify the musician list carefully.",
           duration: 7000,
           variant: "destructive"
         });
@@ -246,14 +266,16 @@ The VAMP Team`
         // Empty structure that matches what the component expects
         return {
           _status: "warning",
-          _message: "Error retrieving musician data",
-          // Add a dummy entry to ensure the component doesn't crash
-          999: {
-            musicianId: 999,
-            musicianName: "Please verify musician list",
-            assignments: [],
-            totalFee: 0
-          }
+          _message: errorData?._message || "Error retrieving musician data",
+          // Use the error data's fallback entry if available, otherwise use our own
+          ...(errorData || {
+            999: {
+              musicianId: 999,
+              musicianName: "Error loading musician data",
+              assignments: [],
+              totalFee: 0
+            }
+          })
         };
       }
     },

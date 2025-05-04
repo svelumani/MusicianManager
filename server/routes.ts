@@ -2483,6 +2483,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("\n\n======== STARTING BY-MUSICIAN ENDPOINT ========");
       console.log("[by-musician] Received request with query params:", req.query);
+      console.log("[by-musician] Request headers:", req.headers);
+      
+      // Check if plannerId exists
+      if (!req.query.plannerId) {
+        console.error("[by-musician] No plannerId provided in query params");
+        return res.json({
+          _status: "error",
+          _message: "Missing plannerId parameter",
+          _errorType: "InvalidParameters",
+          999: {
+            musicianId: 999,
+            musicianName: "Error: Missing plannerId",
+            assignments: [],
+            totalFee: 0
+          }
+        });
+      }
       
       // Force convert the plannerId to string first to handle all input types
       const plannerIdInput = req.query.plannerId ? String(req.query.plannerId) : undefined;
