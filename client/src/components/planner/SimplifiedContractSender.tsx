@@ -271,32 +271,62 @@ const SimplifiedContractSender = ({
     onSuccess: (response) => {
       console.log("Contracts sent successfully:", response);
       
-      // Show success toast
-      toast({
-        title: "Success",
-        description: `Sent ${response.sent} contracts to musicians. ${response.failed > 0 ? `Failed: ${response.failed}` : ''} ${response.skipped > 0 ? `Skipped: ${response.skipped}` : ''}`,
-      });
-      
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
-      
-      // Set to complete state
-      setStep("complete");
-      
-      // Close after a delay
-      setTimeout(() => {
-        onClose();
-      }, 2000);
+      // Check if contracts were created but emails not sent (SendGrid issue)
+      if (response.success && response.sent > 0) {
+        // Show success toast with SendGrid warning if necessary
+        if (response.emailSent === false) {
+          toast({
+            title: "Partial Success",
+            description: `Created ${response.sent} contracts but emails could not be sent. SendGrid is not configured properly. Go to Settings to set up email.`,
+            variant: "warning",
+            duration: 6000,
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: `Sent ${response.sent} contracts to musicians. ${response.failed > 0 ? `Failed: ${response.failed}` : ''} ${response.skipped > 0 ? `Skipped: ${response.skipped}` : ''}`,
+          });
+        }
+        
+        // Invalidate relevant queries
+        queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
+        
+        // Set to complete state
+        setStep("complete");
+        
+        // Close after a delay
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        // Handle case where nothing was sent
+        toast({
+          title: "Warning",
+          description: "No contracts were sent. Please check your selection and try again.",
+          variant: "warning"
+        });
+        // Return to musician selection step
+        setStep("musicians");
+      }
     },
     onError: (error: any) => {
       console.error("Error sending contracts:", error);
       
+      // Check if error contains SendGrid configuration message
+      const errorMessage = error.message || "Failed to send contracts. Please try again.";
+      const isSendGridError = errorMessage.includes("SendGrid") || 
+                             error.details?.includes("SendGrid") || 
+                             error.error?.includes("SendGrid");
+      
       // Show error toast
       toast({
-        title: "Error",
-        description: error.message || "Failed to send contracts. Please try again.",
-        variant: "destructive"
+        title: isSendGridError ? "Email Configuration Error" : "Error",
+        description: isSendGridError ? 
+          "Email service (SendGrid) is not properly configured. Contracts were created but emails could not be sent. Go to Settings to set up email." : 
+          errorMessage,
+        variant: "destructive",
+        duration: isSendGridError ? 6000 : 3000,
       });
       
       // Return to musician selection step
