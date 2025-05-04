@@ -17,17 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import PlannerGrid from "@/components/planner/PlannerGrid";
 import MonthSelector from "@/components/planner/MonthSelector";
 
-// Critical debugging function
-const safeJsonParse = (text: string, fallback: any = null) => {
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error("JSON parse failed:", e);
-    console.error("Original text:", text?.slice(0, 100) + (text?.length > 100 ? '...' : ''));
-    return fallback;
-  }
-};
-
 const PlannerPage = () => {
   const { toast } = useToast();
   
@@ -41,217 +30,43 @@ const PlannerPage = () => {
   // Get current month and year from selected month string
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
   const currentYear = parseInt(selectedMonth.split("-")[0]);
-  
-  // Fix rendering issues by tracking loading manually
-  const [isManuallyLoading, setIsManuallyLoading] = useState(true);
-  const [lastLoadAttempt, setLastLoadAttempt] = useState<Date | null>(null);
-  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
 
-  // Reset loading state after specified time to prevent infinite loading
-  useEffect(() => {
-    if (isManuallyLoading && lastLoadAttempt) {
-      const timeElapsed = Date.now() - lastLoadAttempt.getTime();
-      // If loading for more than 8 seconds, force reset the loading state
-      if (timeElapsed > 8000) {
-        console.log("Forcing loading state reset due to timeout");
-        setIsManuallyLoading(false);
-        setConsecutiveErrors(prev => prev + 1);
-      }
-    }
-  }, [isManuallyLoading, lastLoadAttempt]);
-
-  // Automatic restart after multiple errors
-  useEffect(() => {
-    if (consecutiveErrors >= 3) {
-      console.log("Too many consecutive errors, refreshing data");
-      // Reset error counter
-      setConsecutiveErrors(0);
-      // Force hard refresh of data - important for recovering from stale states
-      setTimeout(() => {
-        queryClient.invalidateQueries({queryKey: ['/api/planners']});
-        queryClient.invalidateQueries({queryKey: ['/api/venues']});
-        queryClient.invalidateQueries({queryKey: ['/api/categories']});
-      }, 500);
-    }
-  }, [consecutiveErrors]);
-
-  // Query to get monthly planner with better debug logging and error handling
+  // Query to get monthly planner
   const {
     data: planner,
     isLoading: isPlannerLoading,
     error: plannerError,
-    refetch: refetchPlanner,
   } = useQuery({
     queryKey: ['/api/planners/month', currentMonth, 'year', currentYear],
     queryFn: async ({ queryKey }) => {
       try {
-        // Track load attempt for safety timeout
-        setLastLoadAttempt(new Date());
-        setIsManuallyLoading(true);
-        console.log(`Fetching planner for month ${currentMonth} year ${currentYear}`);
-        
-        // Use fetch directly with credentials to handle auth properly
-        const response = await fetch(`/api/planners/month/${currentMonth}/year/${currentYear}`, {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          }
-        });
-
-        console.log(`Planner API response status: ${response.status}`);
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to planner. Please log in.");
-          setIsManuallyLoading(false);
-          setConsecutiveErrors(0); // Reset errors on auth issues
-          return null;
-        }
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            console.log("Planner not found for this month");
-            setIsManuallyLoading(false);
-            setConsecutiveErrors(0); // Reset errors on expected 404
-            return null;
-          }
-          
-          // For other errors, log them
-          const errorText = await response.text();
-          console.error(`Error ${response.status}: ${errorText}`);
-          setIsManuallyLoading(false);
-          setConsecutiveErrors(prev => prev + 1);
-          return null;
-        }
-
-        try {
-          // First get response as text
-          const responseText = await response.text();
-          console.log(`Raw planner response length: ${responseText.length} chars`);
-          
-          // Then try to parse it safely
-          const result = safeJsonParse(responseText);
-          console.log("Planner result:", result);
-          
-          // If planner exists but is empty or invalid, log it clearly
-          if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
-            console.error("Planner data is empty or invalid:", result);
-            setIsManuallyLoading(false);
-            setConsecutiveErrors(prev => prev + 1);
-            return null;
-          }
-          
-          // Check essential fields to verify planner is valid
-          if (!result.id || !result.month || !result.year) {
-            console.error("Planner data is missing required fields:", result);
-            setIsManuallyLoading(false);
-            setConsecutiveErrors(prev => prev + 1);
-            return null;
-          }
-          
-          // Success! Reset error count
-          setConsecutiveErrors(0);
-          
-          return result;
-        } catch (e) {
-          console.warn("Error processing planner response", e);
-          setIsManuallyLoading(false);
-          setConsecutiveErrors(prev => prev + 1);
-          return null;
-        }
+        const result = await apiRequest(`/api/planners/month/${currentMonth}/year/${currentYear}`);
+        console.log("Planner result:", result);
+        return result;
       } catch (error) {
-        console.error("Planner fetch error:", error);
-        setIsManuallyLoading(false);
-        setConsecutiveErrors(prev => prev + 1);
+        console.log("Planner error:", error);
+        // If planner doesn't exist for this month, the error is expected
         return null;
       }
     },
-    retry: 2,
-    retryDelay: 1000,
-    refetchOnWindowFocus: false,
-    refetchInterval: consecutiveErrors > 1 ? 5000 : false, // Auto-refetch if we've had multiple errors
   });
 
-  // Query to get venues with improved error handling
+  // Query to get venues with proper typing
   const {
     data: venues,
     isLoading: isVenuesLoading,
   } = useQuery<any[]>({
     queryKey: ['/api/venues'],
-    queryFn: async () => {
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch('/api/venues', {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to venues. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching venues: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const data = await response.json();
-          return Array.isArray(data) ? data : [];
-        } catch (e) {
-          console.warn("Invalid JSON in venues response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching venues:", error);
-        return [];
-      }
-    }
+    select: (data) => Array.isArray(data) ? data : [],
   });
   
-  // Query to get categories with improved error handling
+  // Query to get categories with proper typing
   const {
     data: categories,
     isLoading: isCategoriesLoading,
   } = useQuery<any[]>({
     queryKey: ['/api/categories'],
-    queryFn: async () => {
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch('/api/categories', {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to categories. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching categories: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const data = await response.json();
-          return Array.isArray(data) ? data : [];
-        } catch (e) {
-          console.warn("Invalid JSON in categories response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching categories:", error);
-        return [];
-      }
-    }
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
   // Create a new monthly planner
@@ -299,33 +114,12 @@ const PlannerPage = () => {
     const [year, month] = selectedMonth.split("-").map(Number);
     setSelectedDate(new Date(year, month - 1, 1));
   }, [selectedMonth]);
-  
-  // Turn off loading state when all required data is loaded
-  useEffect(() => {
-    if (!isPlannerLoading && !isVenuesLoading && !isCategoriesLoading && planner) {
-      console.log("All planner data loaded successfully, turning off manual loading state");
-      setIsManuallyLoading(false);
-    }
-  }, [isPlannerLoading, isVenuesLoading, isCategoriesLoading, planner]);
 
   // If planner, venues, or categories are loading, show skeleton
-  if (isPlannerLoading || isVenuesLoading || isCategoriesLoading || isManuallyLoading) {
+  if (isPlannerLoading || isVenuesLoading || isCategoriesLoading) {
     return (
       <div className="container mx-auto py-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Monthly Planner</h1>
-          <div className="flex items-center gap-4">
-            <MonthSelector value={selectedMonth} onChange={setSelectedMonth} disabled={true} />
-          </div>
-        </div>
         <div className="space-y-4">
-          <div className="flex items-center justify-center p-4 text-sm text-blue-700 border border-blue-200 bg-blue-50 rounded-md mb-4">
-            <svg className="animate-spin h-5 w-5 mr-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Loading planner data for {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}...</span>
-          </div>
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-96 w-full" />
         </div>

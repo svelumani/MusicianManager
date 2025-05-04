@@ -2057,60 +2057,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planners/month/:month/year/:year", isAuthenticated, async (req, res) => {
     try {
-      console.log(`[planner] Fetching monthly planner for ${req.params.month}/${req.params.year}`);
       const { month, year } = req.params;
-      const monthInt = parseInt(month);
-      const yearInt = parseInt(year);
-      
-      // Validate inputs
-      if (isNaN(monthInt) || isNaN(yearInt) || monthInt < 1 || monthInt > 12) {
-        console.error(`[planner] Invalid month/year parameters: ${month}/${year}`);
-        return res.status(400).json({ 
-          message: "Invalid month/year parameters",
-          error: "BAD_REQUEST" 
-        });
+      const planner = await storage.getMonthlyPlannerByMonth(parseInt(month), parseInt(year));
+      if (!planner) {
+        return res.status(404).json({ message: "Planner not found for specified month/year" });
       }
-      
-      // Try to get existing planner
-      const planner = await storage.getMonthlyPlannerByMonth(monthInt, yearInt);
-      
-      if (planner) {
-        console.log(`[planner] Found existing planner for ${month}/${year} with ID ${planner.id}`);
-        return res.json(planner);
-      }
-      
-      // Auto-create planner if not found
-      console.log(`[planner] No planner found for ${month}/${year}, creating one automatically`);
-      
-      try {
-        // Generate a name for the planner
-        const monthName = new Date(yearInt, monthInt - 1).toLocaleString('default', { month: 'long' });
-        const plannerName = `${monthName} ${yearInt} Planner`;
-        
-        const newPlanner = await storage.createMonthlyPlanner({
-          name: plannerName,
-          month: monthInt,
-          year: yearInt,
-          status: 'draft',
-          description: `Automatically created planner for ${monthName} ${yearInt}`
-        });
-        
-        console.log(`[planner] Successfully created planner with ID ${newPlanner.id}`);
-        res.json(newPlanner);
-      } catch (createError) {
-        console.error('[planner] Error creating planner:', createError);
-        // If we can't create one, return 404 as before
-        res.status(404).json({ 
-          message: "Planner not found and could not be created automatically",
-          error: "NOT_FOUND"
-        });
-      }
+      res.json(planner);
     } catch (error) {
-      console.error('[planner] Unexpected error:', error);
-      res.status(500).json({ 
-        message: "Error fetching or creating planner",
-        error: "SERVER_ERROR" 
-      });
+      console.error(error);
+      res.status(500).json({ message: "Error fetching planner by month/year" });
     }
   });
 
@@ -2854,33 +2809,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const slotId = req.query.slotId ? parseInt(req.query.slotId as string) : undefined;
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
-      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
-      
-      if (plannerId) {
-        // Get all assignments for slots that belong to this planner
-        try {
-          // First, get all slots for this planner
-          const plannerSlots = await storage.getPlannerSlots(plannerId);
-          if (!plannerSlots || plannerSlots.length === 0) {
-            return res.json([]);
-          }
-          
-          // Then get all assignments for these slots
-          const slotIds = plannerSlots.map(slot => slot.id);
-          const allAssignments = await Promise.all(
-            slotIds.map(id => storage.getPlannerAssignments(id))
-          );
-          
-          // Flatten the array of arrays
-          const assignments = allAssignments.flat();
-          return res.json(assignments);
-        } catch (plannerError) {
-          console.error("Error fetching planner assignments by plannerId:", plannerError);
-          return res.status(500).json({ message: "Error fetching planner assignments by planner ID" });
-        }
-      }
-      
-      // Original functionality for slotId and musicianId filters
       const assignments = await storage.getPlannerAssignments(slotId, musicianId);
       res.json(assignments);
     } catch (error) {

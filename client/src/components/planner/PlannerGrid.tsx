@@ -22,19 +22,14 @@ interface PlannerGridProps {
   selectedMonth: string;
 }
 
-// All status colors set to white - removed color coding per user request
 const STATUS_COLORS = {
   open: "bg-white",
-  draft: "bg-white",
-  "contract-sent": "bg-white",
-  "contract-signed": "bg-white", 
-  "signed": "bg-white",
-  "accepted": "bg-white",
-  "rejected": "bg-white",
-  "pending": "bg-white",
-  "needs-clarification": "bg-white",
-  "overseas-performer": "bg-white",
-  "finalized": "bg-white"
+  draft: "bg-gray-100",
+  "contract-sent": "bg-blue-100",
+  "contract-signed": "bg-green-100",
+  "needs-clarification": "bg-yellow-100",
+  "overseas-performer": "bg-purple-100",
+  "finalized": "bg-green-50"
 };
 
 const AUTO_SAVE_INTERVAL = 60000; // 1 minute
@@ -54,299 +49,101 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const monthEnd = endOfMonth(monthStart);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Query to get planner slots with improved error handling
+  // Query to get planner slots
   const {
     data: plannerSlots,
     isLoading: isSlotsLoading,
     refetch: refetchSlots
   } = useQuery({
     queryKey: ['/api/planner-slots', planner?.id],
-    queryFn: async () => {
-      if (!planner?.id) {
-        console.warn("No planner ID available for fetching slots");
-        return [];
-      }
-
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch(`/api/planner-slots?plannerId=${planner.id}`, {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to planner slots. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching planner slots: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const slots = await response.json();
-          console.log(`Fetched ${slots.length} planner slots for planner ${planner.id}`);
-          return slots;
-        } catch (e) {
-          console.warn("Invalid JSON in planner slots response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching planner slots:", error);
-        // Return an empty array rather than failing
-        return [];
-      }
-    },
+    queryFn: () => apiRequest(`/api/planner-slots?plannerId=${planner.id}`),
     enabled: !!planner?.id,
   });
 
-  // Query to get planner assignments with improved error handling
+  // Query to get planner assignments - simplified with a single queryKey
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
     // Use a simpler queryKey that's easier to invalidate
-    queryKey: ['plannerAssignments', planner?.id], // Removed timestamp to prevent excessive refreshing
-    queryFn: async () => {
-      if (!planner?.id) {
-        console.log("No planner ID available, skipping assignment fetch");
+    queryKey: ['plannerAssignments', planner?.id],
+    queryFn: () => {
+      if (!plannerSlots || plannerSlots.length === 0) {
+        console.log("No planner slots available, skipping assignment fetch");
         return [];
       }
       
-      try {
-        // Fetch ALL assignments for this planner in a single request
-        console.log(`Fetching all assignments for planner ID ${planner.id} at once`);
-        
-        // Use direct fetch with better auth handling
-        const response = await fetch(`/api/planner-assignments?plannerId=${planner.id}`, {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (response.status === 401) {
-          console.warn("Unauthorized access to assignments. Please log in.");
-          return [];
-        }
-        
-        if (!response.ok) {
-          console.error(`Error ${response.status} fetching planner assignments`);
-          return [];
-        }
-        
-        try {
-          const assignments = await response.json();
-          
-          console.log(`Successfully fetched ${assignments.length} assignments in one request`);
-          
-          // Log some assignment status information (for debugging only)
-          if (assignments.length > 0) {
-            try {
-              const statuses = assignments.map((a: any) => a.status).filter(Boolean);
-              const uniqueStatuses = Array.from(new Set(statuses));
-              console.log("Assignment statuses found:", uniqueStatuses);
-            } catch (error) {
-              console.error("Error processing status information:", error);
-            }
-          }
-          
-          return assignments;
-        } catch (e) {
-          console.warn("Invalid JSON in assignments response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching assignments:", error);
-        return [];
-      }
+      // Use a cleaner approach to build the query with all slot IDs
+      const slotIds = plannerSlots.map((slot: any) => slot.id);
+      console.log("Fetching assignments for slots:", slotIds);
+      
+      // Build individual queries for each slot to avoid URL length issues
+      const promises = slotIds.map((id: number) => 
+        apiRequest(`/api/planner-assignments?slotId=${id}`)
+      );
+      
+      // Combine all results from the individual requests
+      return Promise.all(promises).then(results => {
+        // Flatten the array of arrays
+        const combined = results.flat();
+        console.log("Combined assignments:", combined.length);
+        return combined;
+      });
     },
-    enabled: !!planner?.id,
-    // Set reasonable stale time to prevent excessive refreshing
-    staleTime: 30000, // 30 seconds
-    refetchOnMount: true,
-    refetchOnWindowFocus: false
+    enabled: !!plannerSlots && plannerSlots.length > 0,
+    // Stale time set to 0 to ensure fresh data on every render
+    staleTime: 0
   });
 
-  // Query to get musicians with improved error handling
+  // Query to get musicians with proper typing
   const {
     data: musicians,
     isLoading: isMusiciansLoading,
   } = useQuery<any[]>({
     queryKey: ['/api/musicians'],
-    queryFn: async () => {
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch('/api/musicians', {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to musicians. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching musicians: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const data = await response.json();
-          return Array.isArray(data) ? data : [];
-        } catch (e) {
-          console.warn("Invalid JSON in musicians response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching musicians:", error);
-        return [];
-      }
-    }
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
-  // Query to get musician availability data with improved error handling
+  // Query to get musician availability data
   const {
     data: availabilityData,
     isLoading: isAvailabilityLoading,
   } = useQuery({
     queryKey: ['/api/availability', year, month],
-    queryFn: async () => {
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch(`/api/availability?year=${year}&month=${month}`, {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to availability data. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching availability: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const data = await response.json();
-          return data;
-        } catch (e) {
-          console.warn("Invalid JSON in availability response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching availability:", error);
-        return [];
-      }
-    },
+    queryFn: () => apiRequest(`/api/availability?year=${year}&month=${month}`),
     enabled: availabilityView && !!musicians && musicians.length > 0,
   });
   
-  // Query to get musician pay rates with improved error handling
+  // Query to get musician pay rates for proper pricing calculations
   const {
     data: payRates,
     isLoading: isPayRatesLoading,
   } = useQuery({
     queryKey: ['/api/musician-pay-rates'],
     queryFn: async () => {
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch('/api/musician-pay-rates', {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to pay rates. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching pay rates: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const rates = await response.json();
-          
-          // Debug: Log James Wilson's rates for Club Performance
-          const jamesRates = rates.filter((r: any) => r.musicianId === 7);
-          const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
-          const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
-          
-          console.log("DEBUG - All pay rates count:", rates.length);
-          console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
-          console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
-          console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
-          
-          return rates;
-        } catch (e) {
-          console.warn("Invalid JSON in pay rates response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching pay rates:", error);
-        return [];
-      }
+      const rates = await apiRequest('/api/musician-pay-rates');
+      // Debug: Log James Wilson's rates for Club Performance
+      const jamesRates = rates.filter((r: any) => r.musicianId === 7);
+      const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
+      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
+      
+      console.log("DEBUG - All pay rates count:", rates.length);
+      console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
+      console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
+      console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
+      
+      return rates;
     }
   });
   
-  // Query to get event categories with improved error handling
+  // Query to get event categories for proper pricing calculations
   const {
     data: eventCategories,
     isLoading: isEventCategoriesLoading,
   } = useQuery({
     queryKey: ['/api/event-categories'],
-    queryFn: async () => {
-      try {
-        // Use direct fetch to handle auth errors better
-        const response = await fetch('/api/event-categories', {
-          credentials: 'include',
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (response.status === 401) {
-          console.warn("Unauthorized access to event categories. Please log in.");
-          return [];
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error ${response.status} fetching event categories: ${errorText}`);
-          return [];
-        }
-
-        try {
-          const data = await response.json();
-          return data;
-        } catch (e) {
-          console.warn("Invalid JSON in event categories response");
-          return [];
-        }
-      } catch (error) {
-        console.error("Error fetching event categories:", error);
-        return [];
-      }
-    }
+    queryFn: () => apiRequest('/api/event-categories'),
   });
 
   // Update planner status mutation
@@ -463,28 +260,19 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     [key: string]: any;
   }
   
-  // Get slot by date and venue with additional error handling
+  // Get slot by date and venue
   const getSlotByDateAndVenue = (date: Date, venueId: number): Slot | null => {
-    // Handle case when plannerSlots is undefined or not an array
-    if (!plannerSlots || !Array.isArray(plannerSlots)) {
-      console.warn("No planner slots available or plannerSlots is not an array");
-      return null;
-    }
+    if (!plannerSlots) return null;
     
-    try {
-      return plannerSlots.find((slot: Slot) => {
-        const slotDate = new Date(slot.date);
-        return (
-          slotDate.getDate() === date.getDate() &&
-          slotDate.getMonth() === date.getMonth() &&
-          slotDate.getFullYear() === date.getFullYear() &&
-          slot.venueId === venueId
-        );
-      }) || null;
-    } catch (error) {
-      console.error("Error finding slot by date and venue:", error);
-      return null;
-    }
+    return plannerSlots.find((slot: Slot) => {
+      const slotDate = new Date(slot.date);
+      return (
+        slotDate.getDate() === date.getDate() &&
+        slotDate.getMonth() === date.getMonth() &&
+        slotDate.getFullYear() === date.getFullYear() &&
+        slot.venueId === venueId
+      );
+    }) || null;
   };
 
   // Handle cell click to show the inline musician select
@@ -641,25 +429,11 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     }).format(amount);
   };
 
-  // Simple slot status handler without color coding
+  // Get slot status className
   const getSlotStatusClass = (slot: any) => {
-    // Display slot status in console for debugging
-    if (slot && typeof slot === 'object') {
-      const slotId = slot.id || 'unknown';
-      const slotStatus = typeof slot.status === 'string' ? slot.status : 'unknown';
-      console.log("Slot status:", slotStatus, "Slot ID:", slotId);
-    }
-    
-    // Always return white background regardless of status
-    return "bg-white";
+    if (!slot) return "";
+    return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS] || "bg-white";
   };
-  
-  // Watch for slots & assignments changes to apply correct status colors
-  useEffect(() => {
-    if (plannerSlots && plannerSlots.length > 0 && plannerAssignments) {
-      console.log("PlannerGrid: Slots and assignments updated, refreshing status colors");
-    }
-  }, [plannerSlots, plannerAssignments]);
 
   // Check if musician is available on a given date
   const isMusicianAvailable = useCallback((musicianId: number, date: Date) => {
@@ -685,44 +459,18 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Determine cell background based on availability
   const getCellAvailabilityClass = (date: Date, assignments: any[]) => {
-    // Always return empty string to remove color coding based on availability
-    return "";
+    if (!availabilityView || assignments.length === 0) return "";
+    
+    // Check if any assigned musician is unavailable
+    const hasUnavailableMusician = assignments.some(
+      (assignment) => !isMusicianAvailable(assignment.musicianId, date)
+    );
+    
+    return hasUnavailableMusician ? "bg-red-50" : "bg-green-50";
   };
 
-  // Double-check that all necessary data is present before trying to render
-  // This prevents the most common rendering errors
-  const dataIsComplete = () => {
-    // Check if we have all necessary data to render
-    const hasPlanner = planner && planner.id;
-    const hasVenues = venues && Array.isArray(venues) && venues.length > 0;
-    const hasSlots = plannerSlots && Array.isArray(plannerSlots);
-    const hasMusicians = musicians && Array.isArray(musicians) && musicians.length > 0;
-    const hasCategories = categories && Array.isArray(categories);
-    
-    // Log any specific missing data for debugging
-    if (!hasPlanner) console.warn("Planner data is missing");
-    if (!hasVenues) console.warn("Venues data is missing");
-    if (!hasSlots) console.warn("Slots data is missing");
-    if (!hasMusicians) console.warn("Musicians data is missing");
-    if (!hasCategories) console.warn("Categories data is missing");
-    
-    return hasPlanner && hasVenues && hasSlots && hasMusicians && hasCategories;
-  };
-  
-  // Only show loading when essential data is loading OR data is incomplete
-  if (isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading || !dataIsComplete()) {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-center p-4 text-sm text-blue-700 border border-blue-200 bg-blue-50 rounded-md mb-4">
-          <svg className="animate-spin h-5 w-5 mr-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span>Loading planner grid data...</span>
-        </div>
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
+  if (isSlotsLoading || isAssignmentsLoading || isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading) {
+    return <Skeleton className="h-96 w-full" />;
   }
 
   // Format month name for the planner title
