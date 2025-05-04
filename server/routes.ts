@@ -2486,7 +2486,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Force convert the plannerId to string first to handle all input types
       const plannerIdInput = req.query.plannerId ? String(req.query.plannerId) : undefined;
-      const plannerId = plannerIdInput ? parseInt(plannerIdInput) : undefined;
+      
+      // There may be non-numeric characters in the query parameter (like "undefined", "null", etc.)
+      // So we need to parse it carefully and handle invalid inputs gracefully
+      let plannerId = undefined;
+      try {
+        plannerId = plannerIdInput ? parseInt(plannerIdInput) : undefined;
+        // Additional validation to ensure the parsed value is a valid number
+        if (plannerId && (isNaN(plannerId) || !Number.isFinite(plannerId) || plannerId <= 0)) {
+          plannerId = undefined;
+        }
+      } catch (parseError) {
+        console.error(`[by-musician] Error parsing plannerId: ${parseError}`);
+        plannerId = undefined;
+      }
       
       console.log(`[by-musician] Parsed plannerId: ${plannerId}, raw value: ${plannerIdInput}, type: ${typeof req.query.plannerId}`);
       
@@ -2498,6 +2511,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           _status: "error",
           _message: "Invalid planner ID provided",
           _details: `Provided value: '${req.query.plannerId}' is not a valid number`,
+          _errorType: "InvalidPlannerID",
           // Add a dummy entry to ensure the client doesn't crash
           999: {
             musicianId: 999,
