@@ -30,7 +30,7 @@ import {
   type MonthlyContractDate, type InsertMonthlyContractDate
 } from "@shared/schema";
 import { IStorage } from "./storage";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, desc, sql, gte, lte, isNull, like, or, inArray, not, count, asc, max, min, sum } from "drizzle-orm";
 import crypto from 'crypto';
 import { format, startOfMonth, endOfMonth, addMonths, parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
