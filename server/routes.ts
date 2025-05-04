@@ -2560,8 +2560,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const now = new Date();
           
           // Create invitation with required fields
+          // For monthly contracts, we'll use a special system event (ID: 99999)
+          // This is a placeholder event created specifically for monthly contracts
           const invitation = await storage.createInvitation({
-            eventId: 0, // We'll use a placeholder since this is a monthly contract
+            eventId: 99999, // Special system event for monthly contracts
             musicianId: parseInt(musicianId),
             invitedAt: now,
             email: musician.email,
