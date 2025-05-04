@@ -926,12 +926,4 @@ export const monthlyContractDatesRelations = relations(monthlyContractDates, ({ 
     fields: [monthlyContractDates.musicianContractId],
     references: [monthlyContractMusicians.id],
   }),
-  slot: one(plannerSlots, {
-    fields: [monthlyContractDates.slotId],
-    references: [plannerSlots.id],
-  }),
-  assignment: one(plannerAssignments, {
-    fields: [monthlyContractDates.assignmentId],
-    references: [plannerAssignments.id],
-  }),
 }));

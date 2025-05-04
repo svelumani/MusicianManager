@@ -5091,18 +5091,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Monthly contract musician not found" });
       }
       
+      console.log("Received date data:", req.body);
+      console.log("Musician contract ID:", musicianContractId);
+      
+      // Parse the date data
       const dateData = insertMonthlyContractDateSchema.parse({
         ...req.body,
         musicianContractId
       });
       
+      console.log("Parsed date data:", dateData);
+      
+      // Add the date to the contract
       const contractDate = await storage.createMonthlyContractDate(dateData);
       res.status(201).json(contractDate);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid contract date data", errors: error.errors });
       }
-      console.error(error);
+      console.error("Error adding date to contract:", error);
       res.status(500).json({ message: "Error adding date to monthly contract" });
     }
   });
