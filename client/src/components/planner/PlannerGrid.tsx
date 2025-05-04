@@ -103,7 +103,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     enabled: !!planner?.id,
   });
 
-  // Query to get planner assignments - simplified with a single queryKey
+  // Query to get planner assignments with improved error handling
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
@@ -123,33 +123,60 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       
       try {
         // Build individual queries for each slot to avoid URL length issues
-        const promises = slotIds.map((id: number) => 
-          apiRequest(`/api/planner-assignments?slotId=${id}`)
-        );
+        const assignments = [];
         
-        // Combine all results from the individual requests
-        const results = await Promise.all(promises);
-        // Flatten the array of arrays
-        const combined = results.flat();
-        console.log("Combined assignments:", combined.length);
+        for (const id of slotIds) {
+          try {
+            // Use direct fetch for better control over auth
+            const response = await fetch(`/api/planner-assignments?slotId=${id}`, {
+              credentials: 'include',
+              headers: {
+                'Accept': 'application/json'
+              }
+            });
+            
+            if (response.status === 401) {
+              console.warn(`Unauthorized access to assignments for slot ${id}. Please log in.`);
+              continue;
+            }
+            
+            if (!response.ok) {
+              console.error(`Error ${response.status} fetching assignments for slot ${id}`);
+              continue;
+            }
+            
+            try {
+              const data = await response.json();
+              if (Array.isArray(data) && data.length > 0) {
+                assignments.push(...data);
+              }
+            } catch (e) {
+              console.warn(`Invalid JSON in slot ${id} assignments response`);
+            }
+          } catch (error) {
+            console.error(`Error fetching assignments for slot ${id}:`, error);
+          }
+        }
+        
+        console.log("Combined assignments:", assignments.length);
         
         // Log some assignment status information
-        if (combined.length > 0) {
+        if (assignments.length > 0) {
           try {
-            const statuses = combined.map((a: any) => a.status);
+            const statuses = assignments.map((a: any) => a.status);
             const uniqueStatuses = Array.from(new Set(statuses));
             console.log("Assignment statuses found:", uniqueStatuses);
             
             // Debug: Show assignments with specific statuses
             if (uniqueStatuses.includes('contract-sent')) {
               console.log("Found assignments with contract-sent status:", 
-                combined.filter((a: any) => a.status === 'contract-sent').map((a: any) => a.id)
+                assignments.filter((a: any) => a.status === 'contract-sent').map((a: any) => a.id)
               );
             }
             
             if (uniqueStatuses.includes('contract-signed')) {
               console.log("Found assignments with contract-signed status:", 
-                combined.filter((a: any) => a.status === 'contract-signed').map((a: any) => a.id)
+                assignments.filter((a: any) => a.status === 'contract-signed').map((a: any) => a.id)
               );
             }
           } catch (error) {
@@ -157,7 +184,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
           }
         }
         
-        return combined;
+        return assignments;
       } catch (error) {
         console.error("Error fetching assignments:", error);
         return [];
@@ -170,54 +197,180 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     refetchOnWindowFocus: true
   });
 
-  // Query to get musicians with proper typing
+  // Query to get musicians with improved error handling
   const {
     data: musicians,
     isLoading: isMusiciansLoading,
   } = useQuery<any[]>({
     queryKey: ['/api/musicians'],
-    select: (data) => Array.isArray(data) ? data : [],
+    queryFn: async () => {
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch('/api/musicians', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to musicians. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching musicians: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const data = await response.json();
+          return Array.isArray(data) ? data : [];
+        } catch (e) {
+          console.warn("Invalid JSON in musicians response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching musicians:", error);
+        return [];
+      }
+    }
   });
 
-  // Query to get musician availability data
+  // Query to get musician availability data with improved error handling
   const {
     data: availabilityData,
     isLoading: isAvailabilityLoading,
   } = useQuery({
     queryKey: ['/api/availability', year, month],
-    queryFn: () => apiRequest(`/api/availability?year=${year}&month=${month}`),
+    queryFn: async () => {
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch(`/api/availability?year=${year}&month=${month}`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to availability data. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching availability: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const data = await response.json();
+          return data;
+        } catch (e) {
+          console.warn("Invalid JSON in availability response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching availability:", error);
+        return [];
+      }
+    },
     enabled: availabilityView && !!musicians && musicians.length > 0,
   });
   
-  // Query to get musician pay rates for proper pricing calculations
+  // Query to get musician pay rates with improved error handling
   const {
     data: payRates,
     isLoading: isPayRatesLoading,
   } = useQuery({
     queryKey: ['/api/musician-pay-rates'],
     queryFn: async () => {
-      const rates = await apiRequest('/api/musician-pay-rates');
-      // Debug: Log James Wilson's rates for Club Performance
-      const jamesRates = rates.filter((r: any) => r.musicianId === 7);
-      const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
-      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
-      
-      console.log("DEBUG - All pay rates count:", rates.length);
-      console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
-      console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
-      console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
-      
-      return rates;
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch('/api/musician-pay-rates', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to pay rates. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching pay rates: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const rates = await response.json();
+          
+          // Debug: Log James Wilson's rates for Club Performance
+          const jamesRates = rates.filter((r: any) => r.musicianId === 7);
+          const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
+          const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
+          
+          console.log("DEBUG - All pay rates count:", rates.length);
+          console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
+          console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
+          console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
+          
+          return rates;
+        } catch (e) {
+          console.warn("Invalid JSON in pay rates response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching pay rates:", error);
+        return [];
+      }
     }
   });
   
-  // Query to get event categories for proper pricing calculations
+  // Query to get event categories with improved error handling
   const {
     data: eventCategories,
     isLoading: isEventCategoriesLoading,
   } = useQuery({
     queryKey: ['/api/event-categories'],
-    queryFn: () => apiRequest('/api/event-categories'),
+    queryFn: async () => {
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch('/api/event-categories', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to event categories. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching event categories: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const data = await response.json();
+          return data;
+        } catch (e) {
+          console.warn("Invalid JSON in event categories response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching event categories:", error);
+        return [];
+      }
+    }
   });
 
   // Update planner status mutation
