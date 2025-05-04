@@ -2567,7 +2567,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Force-convert all fields to their expected types to avoid type mismatches
             // Ensure all required fields are explicitly provided with correct types
             const invitationData = {
-              eventId: 99999, // Special system event for monthly contracts
+              // Use a dynamic event ID based on the month and year
+              // Format: 999YYYYMM (e.g., 99920250 for May 2025)
+              // This ensures unique event IDs for each month while still being recognizable as system events
+              eventId: 999 * 1000000 + planner.year * 100 + planner.month,
               musicianId: parseInt(musicianId),
               invitedAt: now,
               email: musician.email || "missing@example.com", // Fallback value

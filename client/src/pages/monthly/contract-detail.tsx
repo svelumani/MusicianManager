@@ -108,6 +108,18 @@ const MonthlyContractDetailPage = () => {
         return <Clock className="h-4 w-4 mr-1" />;
     }
   };
+  
+  // Helper function to decode the system event ID for monthly contracts
+  // Format: 999YYYYMM (e.g., 99920255 for May 2025)
+  const decodeMonthlyContractEventId = (eventId: number): { isMonthlyContract: boolean, year?: number, month?: number } => {
+    if (eventId >= 999000000) {
+      const yearMonth = eventId - 999000000;
+      const year = Math.floor(yearMonth / 100);
+      const month = yearMonth % 100;
+      return { isMonthlyContract: true, year, month };
+    }
+    return { isMonthlyContract: false };
+  };
 
   if (isContractLoading) {
     return (
