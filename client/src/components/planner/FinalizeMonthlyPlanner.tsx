@@ -175,10 +175,26 @@ The VAMP Team`
         const errorMessage = error?.message || String(error);
         if (errorMessage.includes("Invalid assignment ID")) {
           console.warn("Handling Invalid assignment ID error gracefully");
+          
+          // Return an empty result with the expected structure of musician assignments
+          // This ensures the component can render without errors, while still showing a meaningful message
+          toast({
+            title: "Warning",
+            description: "Some assignments could not be loaded properly. The data shown may be incomplete.",
+            duration: 5000,
+          });
+          
+          // Empty structure that matches what the component expects
           return {
-            _status: "error",
-            _message: "There was a problem with one or more assignments. Please ensure all musicians and slots are valid.",
-            _errorType: "InvalidAssignmentID"
+            _status: "warning",
+            _message: "Some assignments could not be loaded properly",
+            // Add a dummy entry to ensure the component doesn't crash
+            999: {
+              musicianId: 999,
+              musicianName: "Error retrieving assignments",
+              assignments: [],
+              totalFee: 0
+            }
           };
         }
         

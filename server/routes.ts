@@ -2518,22 +2518,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const slotIds = slots.map(slot => slot.id);
       console.log(`[by-musician] Getting assignments for ${slotIds.length} slots: ${slotIds.join(', ')}`);
       const assignments = [];
+      const assignmentErrors = [];
       
       for (const slotId of slotIds) {
         if (!slotId || isNaN(slotId)) {
           console.warn(`[by-musician] Invalid slot ID: ${slotId}, skipping`);
+          assignmentErrors.push(`Invalid slot ID: ${slotId}`);
           continue;
         }
         
-        const slotAssignments = await storage.getPlannerAssignments(slotId);
-        console.log(`[by-musician] Found ${slotAssignments.length} assignments for slot ID: ${slotId}`);
-        
-        // Log details about each assignment
-        slotAssignments.forEach(assignment => {
-          console.log(`[by-musician] Assignment ID: ${assignment.id}, Musician ID: ${assignment.musicianId}, Status: ${assignment.status || 'none'}`);
-        });
-        
-        assignments.push(...slotAssignments);
+        try {
+          const slotAssignments = await storage.getPlannerAssignments(slotId);
+          console.log(`[by-musician] Found ${slotAssignments.length} assignments for slot ID: ${slotId}`);
+          
+          // Log details about each assignment
+          slotAssignments.forEach(assignment => {
+            console.log(`[by-musician] Assignment ID: ${assignment.id}, Musician ID: ${assignment.musicianId}, Status: ${assignment.status || 'none'}`);
+          });
+          
+          // Validate each assignment's musician ID
+          const validAssignments = [];
+          for (const assignment of slotAssignments) {
+            if (!assignment.musicianId || isNaN(assignment.musicianId)) {
+              console.warn(`[by-musician] Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}, skipping`);
+              assignmentErrors.push(`Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}`);
+              continue;
+            }
+            validAssignments.push(assignment);
+          }
+          
+          assignments.push(...validAssignments);
+        } catch (slotError) {
+          console.error(`[by-musician] Error getting assignments for slot ${slotId}: ${slotError}`);
+          assignmentErrors.push(`Error getting assignments for slot ${slotId}: ${slotError}`);
+          continue;
+        }
+      }
+      
+      // Log any errors that occurred during assignment processing
+      if (assignmentErrors.length > 0) {
+        console.warn(`[by-musician] ${assignmentErrors.length} errors occurred while processing assignments:`);
+        assignmentErrors.forEach((err, i) => console.warn(`[by-musician] Error ${i+1}: ${err}`));
       }
       
       console.log(`[by-musician] Total assignments found: ${assignments.length}`);
@@ -2669,17 +2694,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error(`[by-musician] ERROR PROCESSING REQUEST: ${error}`);
       console.error(`[by-musician] Error stack: ${(error as Error).stack}`);
       
-      // Check if the error already has our "Invalid assignment ID" message
+      // Check if the error already has our "Invalid assignment ID" message or another known error
       const errorMessage = (error as Error).message;
-      if (errorMessage.includes("Invalid assignment ID")) {
-        console.error(`[by-musician] This appears to be the 'Invalid assignment ID' error we're troubleshooting`);
+      if (errorMessage.includes("Invalid assignment ID") || 
+          errorMessage.includes("musicianId") ||
+          errorMessage.includes("TypeError: undefined is not an object")) {
+        console.error(`[by-musician] This appears to be a data integrity error with assignments: ${errorMessage}`);
         
-        // Return empty object instead of error
-        console.log(`[by-musician] Handling gracefully by returning empty result instead of error`);
+        // Return a consistent response structure with dummy data to avoid client-side errors
+        // The client expects a specific format with at least one musician entry
+        console.log(`[by-musician] Handling gracefully by returning minimal valid structure`);
         return res.json({
           _status: "error",
-          _message: "Error fetching assignments, returning empty result for fault tolerance",
-          _errorType: "InvalidAssignmentID"
+          _message: "Error fetching assignments. The data shown may be incomplete.",
+          _errorType: "AssignmentDataIntegrityError",
+          _details: errorMessage,
+          // Add a dummy entry to ensure the client doesn't crash on undefined access
+          999: {
+            musicianId: 999,
+            musicianName: "Error loading assignments",
+            assignments: [],
+            totalFee: 0
+          }
         });
       }
       
