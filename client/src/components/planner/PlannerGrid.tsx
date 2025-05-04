@@ -53,14 +53,53 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const monthEnd = endOfMonth(monthStart);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Query to get planner slots
+  // Query to get planner slots with improved error handling
   const {
     data: plannerSlots,
     isLoading: isSlotsLoading,
     refetch: refetchSlots
   } = useQuery({
     queryKey: ['/api/planner-slots', planner?.id],
-    queryFn: () => apiRequest(`/api/planner-slots?plannerId=${planner.id}`),
+    queryFn: async () => {
+      if (!planner?.id) {
+        console.warn("No planner ID available for fetching slots");
+        return [];
+      }
+
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch(`/api/planner-slots?plannerId=${planner.id}`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to planner slots. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching planner slots: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const slots = await response.json();
+          console.log(`Fetched ${slots.length} planner slots for planner ${planner.id}`);
+          return slots;
+        } catch (e) {
+          console.warn("Invalid JSON in planner slots response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching planner slots:", error);
+        // Return an empty array rather than failing
+        return [];
+      }
+    },
     enabled: !!planner?.id,
   });
 

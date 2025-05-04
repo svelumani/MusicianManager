@@ -31,7 +31,7 @@ const PlannerPage = () => {
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
   const currentYear = parseInt(selectedMonth.split("-")[0]);
 
-  // Query to get monthly planner
+  // Query to get monthly planner with enhanced error handling
   const {
     data: planner,
     isLoading: isPlannerLoading,
@@ -40,9 +40,39 @@ const PlannerPage = () => {
     queryKey: ['/api/planners/month', currentMonth, 'year', currentYear],
     queryFn: async ({ queryKey }) => {
       try {
-        const result = await apiRequest(`/api/planners/month/${currentMonth}/year/${currentYear}`);
-        console.log("Planner result:", result);
-        return result;
+        // Use fetch directly with credentials to handle auth properly
+        const response = await fetch(`/api/planners/month/${currentMonth}/year/${currentYear}`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to planner. Please log in.");
+          return null;
+        }
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log("Planner not found for this month");
+            return null;
+          }
+          
+          // For other errors, log them
+          const errorText = await response.text();
+          console.error(`Error ${response.status}: ${errorText}`);
+          return null;
+        }
+
+        try {
+          const result = await response.json();
+          console.log("Planner result:", result);
+          return result;
+        } catch (e) {
+          console.warn("No JSON content in response");
+          return null;
+        }
       } catch (error) {
         console.log("Planner error:", error);
         // If planner doesn't exist for this month, the error is expected
@@ -51,22 +81,86 @@ const PlannerPage = () => {
     },
   });
 
-  // Query to get venues with proper typing
+  // Query to get venues with improved error handling
   const {
     data: venues,
     isLoading: isVenuesLoading,
   } = useQuery<any[]>({
     queryKey: ['/api/venues'],
-    select: (data) => Array.isArray(data) ? data : [],
+    queryFn: async () => {
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch('/api/venues', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to venues. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching venues: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const data = await response.json();
+          return Array.isArray(data) ? data : [];
+        } catch (e) {
+          console.warn("Invalid JSON in venues response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching venues:", error);
+        return [];
+      }
+    }
   });
   
-  // Query to get categories with proper typing
+  // Query to get categories with improved error handling
   const {
     data: categories,
     isLoading: isCategoriesLoading,
   } = useQuery<any[]>({
     queryKey: ['/api/categories'],
-    select: (data) => Array.isArray(data) ? data : [],
+    queryFn: async () => {
+      try {
+        // Use direct fetch to handle auth errors better
+        const response = await fetch('/api/categories', {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+
+        if (response.status === 401) {
+          console.warn("Unauthorized access to categories. Please log in.");
+          return [];
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Error ${response.status} fetching categories: ${errorText}`);
+          return [];
+        }
+
+        try {
+          const data = await response.json();
+          return Array.isArray(data) ? data : [];
+        } catch (e) {
+          console.warn("Invalid JSON in categories response");
+          return [];
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        return [];
+      }
+    }
   });
 
   // Create a new monthly planner
