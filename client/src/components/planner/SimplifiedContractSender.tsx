@@ -469,7 +469,7 @@ const SimplifiedContractSender = ({
         // Handle server error response
         console.error("Server returned error:", response);
         
-        toast({
+        toast.toast({
           title: "Contract Creation Failed",
           description: response.message || "Server could not create contracts. Try again.",
           variant: "destructive"
@@ -483,7 +483,7 @@ const SimplifiedContractSender = ({
       console.error("Contract request failed with error:", error);
       
       // Even with an error, contracts may have been created
-      toast({
+      toast.toast({
         title: "Processing Error",
         description: "There was an error, but contracts may have been created. Check the contracts section.",
         variant: "warning",
@@ -502,7 +502,7 @@ const SimplifiedContractSender = ({
   const handlePrepareFinalize = () => {
     // Validate we have musicians selected
     if (selectedCount === 0) {
-      toast({
+      toast.toast({
         title: "No musicians selected",
         description: "Please select at least one musician to send contracts to.",
         variant: "destructive"
@@ -512,7 +512,7 @@ const SimplifiedContractSender = ({
     
     // Validate email template
     if (!selectedEmailTemplateId) {
-      toast({
+      toast.toast({
         title: "Email template required",
         description: "Please select an email template.",
         variant: "destructive"
@@ -522,7 +522,7 @@ const SimplifiedContractSender = ({
     
     // Validate contract template
     if (!contractTemplateId) {
-      toast({
+      toast.toast({
         title: "Contract template required",
         description: "Please select a contract template.",
         variant: "destructive"
@@ -532,7 +532,7 @@ const SimplifiedContractSender = ({
     
     // Validate email message
     if (!emailMessage || emailMessage.trim() === "") {
-      toast({
+      toast.toast({
         title: "Email message required",
         description: "Please enter an email message.",
         variant: "destructive"
@@ -547,7 +547,7 @@ const SimplifiedContractSender = ({
     
     if (noEmailMusicians.length > 0) {
       const names = noEmailMusicians.map(m => m.musicianName).join(", ");
-      toast({
+      toast.toast({
         title: "Missing email addresses",
         description: `These musicians don't have email addresses: ${names}. They will be skipped.`,
         variant: "default"
