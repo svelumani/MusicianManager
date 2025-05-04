@@ -521,7 +521,7 @@ This agreement is made between {client_name} and {musician_name}..."
                         <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                           <FormControl>
                             <Checkbox
-                              checked={field.value}
+                              checked={!!field.value}
                               onCheckedChange={field.onChange}
                             />
                           </FormControl>
