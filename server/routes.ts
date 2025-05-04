@@ -2268,7 +2268,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planner-assignments/:id", isAuthenticated, async (req, res) => {
     try {
-      const assignment = await storage.getPlannerAssignment(parseInt(req.params.id));
+      const id = parseInt(req.params.id);
+      
+      // Validate the ID is a valid number
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+      
+      const assignment = await storage.getPlannerAssignment(id);
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
@@ -2321,8 +2328,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.put("/planner-assignments/:id", isAuthenticated, async (req, res) => {
     try {
+      const id = parseInt(req.params.id);
+      
+      // Validate the ID is a valid number
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+      
       const assignmentData = insertPlannerAssignmentSchema.partial().parse(req.body);
-      const assignment = await storage.updatePlannerAssignment(parseInt(req.params.id), assignmentData);
+      const assignment = await storage.updatePlannerAssignment(id, assignmentData);
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
@@ -2338,7 +2352,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.delete("/planner-assignments/:id", isAuthenticated, async (req, res) => {
     try {
-      const result = await storage.deletePlannerAssignment(parseInt(req.params.id));
+      const id = parseInt(req.params.id);
+      
+      // Validate the ID is a valid number
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+      
+      const result = await storage.deletePlannerAssignment(id);
       if (!result) {
         return res.status(404).json({ message: "Assignment not found" });
       }
@@ -2351,13 +2372,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.post("/planner-assignments/:id/mark-attendance", isAuthenticated, async (req, res) => {
     try {
+      const id = parseInt(req.params.id);
+      
+      // Validate the ID is a valid number
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid assignment ID" });
+      }
+      
       const { status, notes } = req.body;
       if (!status) {
         return res.status(400).json({ message: "Status is required" });
       }
       
       const userId = (req.user as any).id;
-      const assignment = await storage.markAttendance(parseInt(req.params.id), status, userId, notes);
+      const assignment = await storage.markAttendance(id, status, userId, notes);
       
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
