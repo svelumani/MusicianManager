@@ -141,6 +141,16 @@ The VAMP Team`
         
         // Add metadata about the response
         if (response && typeof response === 'object') {
+          // Special handling for _status fields returned by our enhanced error handling
+          if (response._status === "error") {
+            console.warn(`Server returned error status: ${response._message}`);
+            if (response._errorType === "InvalidAssignmentID") {
+              // For this specific error, we want to show a custom message
+              throw new Error(`Assignment validation error. Please check slot assignments and try again.`);
+            }
+            throw new Error(response._message || "Unknown server error");
+          }
+          
           const musicianCount = Object.keys(response).filter(key => !key.startsWith('_')).length;
           console.log(`Response contains ${musicianCount} musicians with assignments`);
           
@@ -160,6 +170,18 @@ The VAMP Team`
         }
       } catch (error) {
         console.error("Error fetching musician assignments:", error);
+        
+        // Special handling for "Invalid assignment ID" error
+        const errorMessage = error?.message || String(error);
+        if (errorMessage.includes("Invalid assignment ID")) {
+          console.warn("Handling Invalid assignment ID error gracefully");
+          return {
+            _status: "error",
+            _message: "There was a problem with one or more assignments. Please ensure all musicians and slots are valid.",
+            _errorType: "InvalidAssignmentID"
+          };
+        }
+        
         throw error;
       }
     },
