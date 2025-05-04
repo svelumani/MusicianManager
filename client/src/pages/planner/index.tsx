@@ -152,11 +152,6 @@ const PlannerPage = () => {
           // Success! Reset error count
           setConsecutiveErrors(0);
           
-          // Add a small delay to ensure any dependent queries have time to fire properly
-          setTimeout(() => {
-            setIsManuallyLoading(false);
-          }, 200);
-          
           return result;
         } catch (e) {
           console.warn("Error processing planner response", e);
@@ -304,6 +299,14 @@ const PlannerPage = () => {
     const [year, month] = selectedMonth.split("-").map(Number);
     setSelectedDate(new Date(year, month - 1, 1));
   }, [selectedMonth]);
+  
+  // Turn off loading state when all required data is loaded
+  useEffect(() => {
+    if (!isPlannerLoading && !isVenuesLoading && !isCategoriesLoading && planner) {
+      console.log("All planner data loaded successfully, turning off manual loading state");
+      setIsManuallyLoading(false);
+    }
+  }, [isPlannerLoading, isVenuesLoading, isCategoriesLoading, planner]);
 
   // If planner, venues, or categories are loading, show skeleton
   if (isPlannerLoading || isVenuesLoading || isCategoriesLoading || isManuallyLoading) {
