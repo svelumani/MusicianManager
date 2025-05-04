@@ -249,8 +249,19 @@ const MonthlyContractResponsePage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center pt-12 pb-20">
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center pt-8 pb-20">
       <div className="container max-w-4xl">
+        {/* Company Logo and Name */}
+        <div className="mb-8 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
+              {/* Placeholder for actual logo */}
+              <span className="text-4xl font-bold text-gray-500">VAMP</span>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-primary">Victoria Association of Music Promoters</h2>
+        </div>
+        
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold mb-4">Monthly Contract Response</h1>
