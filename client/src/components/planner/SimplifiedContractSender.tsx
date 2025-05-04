@@ -686,9 +686,9 @@ const SimplifiedContractSender = ({
                         />
                       </TableHead>
                       <TableHead>Musician</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead className="text-right">Assignments</TableHead>
+                      <TableHead className="w-1/3">Assignment Dates</TableHead>
                       <TableHead className="text-right">Total Fee</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -702,12 +702,30 @@ const SimplifiedContractSender = ({
                         </TableCell>
                         <TableCell className="font-medium">{musician.musicianName}</TableCell>
                         <TableCell>
-                          {musician.email || (
-                            <span className="text-destructive text-sm">No email</span>
-                          )}
+                          <div className="text-sm space-y-1 max-h-28 overflow-y-auto pr-2">
+                            {musician.assignments.map((assignment, index) => {
+                              const date = new Date(assignment.date);
+                              return (
+                                <div key={index} className="flex justify-between border-b border-gray-100 pb-1">
+                                  <span>
+                                    {date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} 
+                                    {assignment.venueName && ` · ${assignment.venueName}`}
+                                  </span>
+                                  <span className="font-medium">${assignment.fee}</span>
+                                </div>
+                              );
+                            })}
+                            <div className="text-xs text-gray-500 pt-1">
+                              Total: {musician.assignments.length} {musician.assignments.length === 1 ? 'date' : 'dates'}
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-right">{musician.assignments.length}</TableCell>
-                        <TableCell className="text-right">${musician.totalFee}</TableCell>
+                        <TableCell className="text-right font-semibold">${musician.totalFee}</TableCell>
+                        <TableCell className="text-center">
+                          <span className="text-xs px-2 py-1 rounded-full bg-gray-100">
+                            Pending
+                          </span>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
