@@ -96,21 +96,25 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         
         // Log some assignment status information
         if (combined.length > 0) {
-          const statuses = combined.map((a: any) => a.status);
-          const uniqueStatuses = [...new Set(statuses)];
-          console.log("Assignment statuses found:", uniqueStatuses);
-          
-          // Debug: Show assignments with specific statuses
-          if (uniqueStatuses.includes('contract-sent')) {
-            console.log("Found assignments with contract-sent status:", 
-              combined.filter((a: any) => a.status === 'contract-sent').map((a: any) => a.id)
-            );
-          }
-          
-          if (uniqueStatuses.includes('contract-signed')) {
-            console.log("Found assignments with contract-signed status:", 
-              combined.filter((a: any) => a.status === 'contract-signed').map((a: any) => a.id)
-            );
+          try {
+            const statuses = combined.map((a: any) => a.status);
+            const uniqueStatuses = Array.from(new Set(statuses));
+            console.log("Assignment statuses found:", uniqueStatuses);
+            
+            // Debug: Show assignments with specific statuses
+            if (uniqueStatuses.includes('contract-sent')) {
+              console.log("Found assignments with contract-sent status:", 
+                combined.filter((a: any) => a.status === 'contract-sent').map((a: any) => a.id)
+              );
+            }
+            
+            if (uniqueStatuses.includes('contract-signed')) {
+              console.log("Found assignments with contract-signed status:", 
+                combined.filter((a: any) => a.status === 'contract-signed').map((a: any) => a.id)
+              );
+            }
+          } catch (error) {
+            console.error("Error processing status information:", error);
           }
         }
         
@@ -291,19 +295,28 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     [key: string]: any;
   }
   
-  // Get slot by date and venue
+  // Get slot by date and venue with additional error handling
   const getSlotByDateAndVenue = (date: Date, venueId: number): Slot | null => {
-    if (!plannerSlots) return null;
+    // Handle case when plannerSlots is undefined or not an array
+    if (!plannerSlots || !Array.isArray(plannerSlots)) {
+      console.warn("No planner slots available or plannerSlots is not an array");
+      return null;
+    }
     
-    return plannerSlots.find((slot: Slot) => {
-      const slotDate = new Date(slot.date);
-      return (
-        slotDate.getDate() === date.getDate() &&
-        slotDate.getMonth() === date.getMonth() &&
-        slotDate.getFullYear() === date.getFullYear() &&
-        slot.venueId === venueId
-      );
-    }) || null;
+    try {
+      return plannerSlots.find((slot: Slot) => {
+        const slotDate = new Date(slot.date);
+        return (
+          slotDate.getDate() === date.getDate() &&
+          slotDate.getMonth() === date.getMonth() &&
+          slotDate.getFullYear() === date.getFullYear() &&
+          slot.venueId === venueId
+        );
+      }) || null;
+    } catch (error) {
+      console.error("Error finding slot by date and venue:", error);
+      return null;
+    }
   };
 
   // Handle cell click to show the inline musician select
@@ -460,41 +473,57 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     }).format(amount);
   };
 
-  // Get slot status className
+  // Get slot status className with better error handling
   const getSlotStatusClass = (slot: any) => {
     if (!slot) return STATUS_COLORS.open || "bg-white";
     
-    // Enhanced status detection logic
-    console.log("Slot status:", slot.status, "Slot ID:", slot.id);
-    
-    // Check slot contract status first
-    if (slot.status && STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS]) {
-      return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS];
-    }
-    
-    // Check if this slot has assignments
-    const slotAssignments = plannerAssignments?.filter((a: any) => a.slotId === slot.id) || [];
-    
-    if (slotAssignments.length > 0) {
-      // Get the statuses of all assignments
-      const assignmentStatuses = slotAssignments.map((a: any) => a.status);
+    try {
+      // Enhanced status detection logic
+      console.log("Slot status:", slot.status, "Slot ID:", slot.id);
       
-      // Check for contract statuses
-      if (assignmentStatuses.some(s => s === 'contract-signed')) {
-        return STATUS_COLORS['contract-signed'];
+      // Check slot contract status first
+      if (slot.status && STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS]) {
+        return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS];
       }
       
-      if (assignmentStatuses.some(s => s === 'contract-sent')) {
-        return STATUS_COLORS['contract-sent'];
+      // Check if this slot has assignments
+      const slotAssignments = plannerAssignments?.filter((a: any) => a.slotId === slot.id) || [];
+      
+      if (slotAssignments.length > 0) {
+        // Get the statuses of all assignments
+        const assignmentStatuses = slotAssignments.map((a: any) => a.status || "unknown");
+        
+        // Check for contract statuses
+        if (assignmentStatuses.some(s => s === 'contract-signed' || s === 'signed' || s === 'accepted')) {
+          return STATUS_COLORS['contract-signed'];
+        }
+        
+        if (assignmentStatuses.some(s => s === 'contract-sent' || s === 'pending')) {
+          return STATUS_COLORS['contract-sent'];
+        }
+        
+        if (assignmentStatuses.some(s => s === 'rejected')) {
+          return STATUS_COLORS['rejected'];
+        }
+        
+        // Slot has assignments but no contract status
+        return STATUS_COLORS.draft;
       }
       
-      // Slot has assignments but no contract status
-      return STATUS_COLORS.draft;
+      // Default to open if no other condition is met
+      return STATUS_COLORS.open || "bg-white";
+    } catch (error) {
+      console.error("Error getting slot status:", error);
+      return "bg-white"; // Safe default
     }
-    
-    // Default to open if no other condition is met
-    return STATUS_COLORS.open || "bg-white";
   };
+  
+  // Watch for slots & assignments changes to apply correct status colors
+  useEffect(() => {
+    if (plannerSlots && plannerSlots.length > 0 && plannerAssignments) {
+      console.log("PlannerGrid: Slots and assignments updated, refreshing status colors");
+    }
+  }, [plannerSlots, plannerAssignments]);
 
   // Check if musician is available on a given date
   const isMusicianAvailable = useCallback((musicianId: number, date: Date) => {
@@ -530,7 +559,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     return hasUnavailableMusician ? "bg-red-50" : "bg-green-50";
   };
 
-  if (isSlotsLoading || isAssignmentsLoading || isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading) {
+  // Only show loading when essential data is loading
+  // We'll still render even if plannerSlots is empty or has errors
+  if (isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading) {
     return <Skeleton className="h-96 w-full" />;
   }
 
