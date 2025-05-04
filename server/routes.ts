@@ -5097,17 +5097,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse the date data
       const { date, fee, status = 'pending', notes = '' } = req.body;
       
-      // Use direct SQL to insert (more reliable in this case)
+      // Use direct SQL query
       try {
-        const result = await db.execute(sql`
+        // Prepare SQL query
+        const query = `
           INSERT INTO monthly_contract_dates 
             (musician_contract_id, date, status, fee, notes, created_at, updated_at)
           VALUES 
-            (${musicianContractId}, ${new Date(date)}, ${status}, ${fee}, ${notes}, NOW(), NOW())
+            ($1, $2, $3, $4, $5, NOW(), NOW())
           RETURNING *
-        `);
+        `;
         
-        if (result && result.rows && result.rows.length > 0) {
+        // Execute with parameters
+        const result = await pool.query(query, [
+          musicianContractId,
+          new Date(date),
+          status,
+          fee,
+          notes || null
+        ]);
+        
+        if (result.rows && result.rows.length > 0) {
           console.log("Date added successfully:", result.rows[0]);
           
           // Log activity
@@ -5133,12 +5143,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch (sqlError) {
         console.error("SQL error:", sqlError);
-        throw sqlError;
+        res.status(500).json({ message: "Error inserting date into database" });
       }
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Invalid contract date data", errors: error.errors });
-      }
       console.error("Error adding date to contract:", error);
       res.status(500).json({ message: "Error adding date to monthly contract" });
     }
@@ -5251,15 +5258,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const assignment of assignments) {
           const slot = await storage.getPlannerSlot(assignment.slotId);
           if (slot) {
-            await storage.createMonthlyContractDate({
-              musicianContractId: contractMusician.id,
-              date: slot.date,
-              status: 'pending',
-              fee: assignment.fee || 0,
-              notes: `${slot.description || ''} ${slot.time || ''}`,
-              createdAt: new Date(),
-              updatedAt: new Date()
-            });
+            // Use direct SQL since it's more reliable
+            const query = `
+              INSERT INTO monthly_contract_dates 
+                (musician_contract_id, date, status, fee, notes, created_at, updated_at)
+              VALUES 
+                ($1, $2, $3, $4, $5, NOW(), NOW())
+              RETURNING *
+            `;
+            
+            await pool.query(query, [
+              contractMusician.id,
+              new Date(slot.date),
+              'pending',
+              assignment.fee || 0,
+              `${slot.description || ''} ${slot.time || ''}` || null
+            ]);
           }
         }
       }
