@@ -125,12 +125,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       const rates = await apiRequest('/api/musician-pay-rates');
       // Debug: Log James Wilson's rates for Club Performance
       const jamesRates = rates.filter((r: any) => r.musicianId === 7);
-      const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
-      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
+      const clubRates = rates.filter((r: any) => r.eventCategoryId === 7);
+      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 7);
       
       console.log("DEBUG - All pay rates count:", rates.length);
       console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
-      console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
+      console.log("DEBUG - Club Performance (ID 7) rates:", clubRates);
       console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
       
       return rates;
