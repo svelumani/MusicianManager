@@ -193,6 +193,16 @@ export class StatusService {
     eventDate?: Date
   ) {
     try {
+      // For monthly contract entities, eventId is not required
+      const isMonthlyContractEntity = entityType === 'monthly-contract' || 
+                                      entityType === 'monthly-contract-musician' || 
+                                      entityType === 'monthly-contract-date';
+      
+      // In the case of monthly contracts, we need to create a dummy eventId if none is provided
+      // This is a workaround for the not-null constraint in the database
+      // This only applies to monthly contract entities that don't have an associated event
+      const effectiveEventId = isMonthlyContractEntity && !eventId ? -1 : (eventId || null);
+      
       // Create new status entry with the correct field names based on database schema
       const [statusEntry] = await db
         .insert(entityStatus)
@@ -201,7 +211,7 @@ export class StatusService {
           entityId,
           primaryStatus: status, // Use primaryStatus for the main status value
           customStatus: customStatus || null, // Optional custom status 
-          eventId: eventId || null,
+          eventId: effectiveEventId,
           musicianId: musicianId || null,
           eventDate: eventDate || null,
           statusDate: new Date(), // Current date when this status is effective
