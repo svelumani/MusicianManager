@@ -2487,37 +2487,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid plannerId is required" });
       }
       
-      // Get all slots for the planner
+      // Get all slots for the planner with added logging
+      console.log(`Fetching slots for planner ID: ${plannerId}`);
       const slots = await storage.getPlannerSlots(plannerId);
+      console.log(`Found ${slots.length} slots for planner ID: ${plannerId}`);
       
       if (!slots || slots.length === 0) {
+        console.log("No slots found for this planner, returning empty result");
         return res.json({});
       }
       
       // Get all assignments for these slots
       const slotIds = slots.map(slot => slot.id);
+      console.log(`Getting assignments for ${slotIds.length} slots: ${slotIds.join(', ')}`);
       const assignments = [];
       
       for (const slotId of slotIds) {
+        if (!slotId || isNaN(slotId)) {
+          console.warn(`Invalid slot ID: ${slotId}, skipping`);
+          continue;
+        }
+        
         const slotAssignments = await storage.getPlannerAssignments(slotId);
+        console.log(`Found ${slotAssignments.length} assignments for slot ID: ${slotId}`);
         assignments.push(...slotAssignments);
       }
       
+      console.log(`Total assignments found: ${assignments.length}`);
       if (assignments.length === 0) {
+        console.log("No assignments found for this planner, returning empty result");
         return res.json({});
       }
       
       // Group by musician ID
       const musicianMap: Record<number, any> = {};
+      console.log("Grouping assignments by musician");
       
       for (const assignment of assignments) {
+        // Ensure slot ID is valid
+        if (!assignment.slotId || isNaN(assignment.slotId)) {
+          console.warn(`Assignment ${assignment.id} has invalid slot ID: ${assignment.slotId}, skipping`);
+          continue;
+        }
+        
         const slot = slots.find(s => s.id === assignment.slotId);
-        if (!slot) continue;
+        if (!slot) {
+          console.warn(`Slot not found for assignment ${assignment.id} with slot ID ${assignment.slotId}, skipping`);
+          continue;
+        }
+        
+        // Ensure musician ID is valid
+        if (!assignment.musicianId || isNaN(assignment.musicianId)) {
+          console.warn(`Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}, skipping`);
+          continue;
+        }
         
         const musician = await storage.getMusician(assignment.musicianId);
-        if (!musician) continue;
+        if (!musician) {
+          console.warn(`Musician not found for assignment ${assignment.id} with musician ID ${assignment.musicianId}, skipping`);
+          continue;
+        }
         
+        console.log(`Processing assignment for musician: ${musician.name} (ID: ${musician.id}) at slot: ${slot.id} on ${slot.date}`);
+        
+        // Venue might be optional, but let's log if it's missing
         const venue = await storage.getVenue(slot.venueId);
+        if (!venue) {
+          console.warn(`Venue not found for slot ${slot.id} with venue ID ${slot.venueId}, using 'Unknown Venue'`);
+        }
         
         if (!musicianMap[musician.id]) {
           musicianMap[musician.id] = {
@@ -2531,6 +2568,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate fee based on assignment details
         // Try actualFee first, then calculate based on musician rates
         let fee = assignment.actualFee;
+        console.log(`Starting fee calculation for assignment ${assignment.id}: actualFee = ${fee || "not set"}`);
+        
         
         if (!fee) {
           // Get musician pay rates
@@ -2604,30 +2643,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // Get all musicians with assignments using the same logic as /by-musician endpoint
+        console.log(`Fetching slots for planner ID: ${plannerId} for email sending`);
         const slots = await storage.getPlannerSlots(plannerId);
+        console.log(`Found ${slots.length} slots for planner ID: ${plannerId} for email sending`);
         
         if (slots && slots.length > 0) {
           // Get all assignments for these slots
           const slotIds = slots.map(slot => slot.id);
+          console.log(`Getting assignments for ${slotIds.length} slots: ${slotIds.join(', ')} for email sending`);
           const assignments = [];
           
           for (const slotId of slotIds) {
+            if (!slotId || isNaN(slotId)) {
+              console.warn(`Invalid slot ID: ${slotId}, skipping in email sending`);
+              continue;
+            }
+            
             const slotAssignments = await storage.getPlannerAssignments(slotId);
+            console.log(`Found ${slotAssignments.length} assignments for slot ID: ${slotId} for email sending`);
             assignments.push(...slotAssignments);
           }
           
+          console.log(`Total assignments found for email sending: ${assignments.length}`);
           if (assignments.length > 0) {
             // Group by musician ID
             const musicianMap: Record<number, any> = {};
             
             for (const assignment of assignments) {
+              // Ensure slot ID is valid
+              if (!assignment.slotId || isNaN(assignment.slotId)) {
+                console.warn(`Assignment ${assignment.id} has invalid slot ID: ${assignment.slotId}, skipping in email sending`);
+                continue;
+              }
+              
               const slot = slots.find(s => s.id === assignment.slotId);
-              if (!slot) continue;
+              if (!slot) {
+                console.warn(`Slot not found for assignment ${assignment.id} with slot ID ${assignment.slotId}, skipping in email sending`);
+                continue;
+              }
+              
+              // Ensure musician ID is valid
+              if (!assignment.musicianId || isNaN(assignment.musicianId)) {
+                console.warn(`Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}, skipping in email sending`);
+                continue;
+              }
               
               const musician = await storage.getMusician(assignment.musicianId);
-              if (!musician) continue;
+              if (!musician) {
+                console.warn(`Musician not found for assignment ${assignment.id} with musician ID ${assignment.musicianId}, skipping in email sending`);
+                continue;
+              }
               
+              console.log(`Processing email assignment for musician: ${musician.name} (ID: ${musician.id}, Email: ${musician.email || "No email"}) at slot: ${slot.id} on ${slot.date}`);
+              
+              // Venue might be optional, but let's log if it's missing
               const venue = await storage.getVenue(slot.venueId);
+              if (!venue) {
+                console.warn(`Venue not found for slot ${slot.id} with venue ID ${slot.venueId}, using 'Unknown Venue' in email sending`);
+              }
               
               if (!musicianMap[musician.id]) {
                 musicianMap[musician.id] = {
