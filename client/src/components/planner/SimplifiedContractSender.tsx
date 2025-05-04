@@ -271,29 +271,21 @@ const SimplifiedContractSender = ({
     onSuccess: (response) => {
       console.log("Contracts sent successfully:", response);
       
-      // Check if contracts were created but emails not sent (SendGrid issue)
-      if (response.success && response.sent > 0) {
-        // Force show SendGrid warning as we know it's not configured yet
-        // This is a temporary fix until proper SendGrid setup
-        if (true) { // Always show the warning for now
-          toast({
-            title: "Partial Success",
-            description: `Created ${response.sent} contracts but emails could not be sent. SendGrid is not configured properly. Go to Settings to set up email.`,
-            variant: "warning",
-            duration: 6000,
-          });
-        } else {
-          toast({
-            title: "Success",
-            description: `Sent ${response.sent} contracts to musicians. ${response.failed > 0 ? `Failed: ${response.failed}` : ''} ${response.skipped > 0 ? `Skipped: ${response.skipped}` : ''}`,
-          });
-        }
+      // Always treat as success with warning for SendGrid - regardless of response
+      if (response?.success && response?.sent > 0) {
+        // Show warning toast about SendGrid
+        toast({
+          title: "Contracts Created",
+          description: `Created ${response?.sent || 0} contracts, but emails could not be sent. SendGrid is not configured. Go to Settings to set up email.`,
+          variant: "warning",
+          duration: 6000,
+        });
         
         // Invalidate relevant queries
         queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
         queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
         
-        // Set to complete state
+        // Force to complete state - this is critical
         setStep("complete");
         
         // Close after a delay
