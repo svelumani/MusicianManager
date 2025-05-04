@@ -501,50 +501,11 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
             )}
           </div>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={refreshData}
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Refresh data</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setAvailabilityView(!availabilityView)}
-                  className={availabilityView ? "bg-blue-50" : ""}
-                >
-                  <Calendar className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{availabilityView ? "Hide" : "Show"} availability</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={handleManualSave}
-            className="gap-1"
-          >
-            <Save className="h-4 w-4" />
-            Save
-          </Button>
+          {/* Removed "Refresh data" button for UI streamlining */}
+          
+          {/* Removed "Show availability" button for UI streamlining */}
+          
+          {/* Removed "Save" button for UI streamlining */}
           
           <Button 
             onClick={() => setShowFinalizeDialog(true)}

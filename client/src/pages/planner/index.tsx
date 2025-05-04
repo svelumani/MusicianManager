@@ -154,11 +154,7 @@ const PlannerPage = () => {
               )}
             </Button>
           )}
-          {planner && (
-            <Link href={`/events/planner/${planner.id}/invoice`}>
-              <Button variant="outline">View Invoices</Button>
-            </Link>
-          )}
+          {/* "View Invoices" button removed for UI streamlining */}
         </div>
       </div>
 
