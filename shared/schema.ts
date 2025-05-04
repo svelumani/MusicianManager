@@ -822,10 +822,7 @@ export const monthlyContracts = pgTable("monthly_contracts", {
   status: text("status").notNull().default("draft"), // draft, sent, completed
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
-  createdBy: integer("created_by"), // User ID
   sentAt: timestamp("sent_at"),
-  expiresAt: timestamp("expires_at"),
-  generalNotes: text("general_notes"), // Notes applicable to all musicians
 });
 
 export const insertMonthlyContractSchema = createInsertSchema(monthlyContracts).pick({
@@ -835,9 +832,6 @@ export const insertMonthlyContractSchema = createInsertSchema(monthlyContracts).
   month: true,
   year: true,
   status: true,
-  createdBy: true,
-  expiresAt: true,
-  generalNotes: true,
 });
 
 export type MonthlyContract = typeof monthlyContracts.$inferSelect;
