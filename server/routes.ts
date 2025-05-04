@@ -23,6 +23,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { availability } from "@shared/schema";
 import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
+import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -6688,6 +6689,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount the monthly contract response router
   apiRouter.use("/monthly-contract-responses", monthlyContractResponseRouter);
+  
+  // Mount the monthly contract preview router
+  apiRouter.use("/monthly-contracts", monthlyContractPreviewRouter);
   
   // Mount the API router
   app.use("/api", apiRouter);
