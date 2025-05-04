@@ -2500,12 +2500,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         }
         
+        // Calculate fee based on assignment details
+        // Try actualFee first, then calculate based on musician rates
+        let fee = assignment.actualFee;
+        
+        if (!fee) {
+          // Get musician pay rates
+          const payRates = await storage.getMusicianPayRatesByMusicianId(musician.id);
+          
+          // Find rate for this event category (if available)
+          const slotCategory = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
+          const matchingRate = payRates.find(rate => rate.eventCategoryId === slotCategory);
+          
+          if (matchingRate) {
+            // Calculate hours between start and end time
+            const hours = 2; // Default to 2 hours if times not available
+            fee = matchingRate.hourlyRate ? matchingRate.hourlyRate * hours : 150; // Default to $150 if no rate found
+          } else {
+            // Fallback to default rate
+            fee = 150;
+          }
+        }
+        
         const assignmentDetails = {
           id: assignment.id,
           date: slot.date,
           venueName: venue ? venue.name : 'Unknown Venue',
           venueId: slot.venueId,
-          fee: assignment.actualFee || musician.payRate,
+          fee: fee,
           startTime: slot.startTime,
           endTime: slot.endTime,
           status: assignment.status
@@ -2589,12 +2611,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 };
               }
               
+              // Calculate fee based on assignment details
+              // Try actualFee first, then calculate based on musician rates
+              let fee = assignment.actualFee;
+              
+              if (!fee) {
+                // Get musician pay rates
+                const payRates = await storage.getMusicianPayRatesByMusicianId(musician.id);
+                
+                // Find rate for this event category (if available)
+                const slotCategory = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
+                const matchingRate = payRates.find(rate => rate.eventCategoryId === slotCategory);
+                
+                if (matchingRate) {
+                  // Calculate hours between start and end time
+                  const hours = 2; // Default to 2 hours if times not available
+                  fee = matchingRate.hourlyRate ? matchingRate.hourlyRate * hours : 150; // Default to $150 if no rate found
+                } else {
+                  // Fallback to default rate
+                  fee = 150;
+                }
+              }
+              
               const assignmentDetails = {
                 id: assignment.id,
                 date: format(new Date(slot.date), 'MMM d, yyyy'),
                 venueName: venue ? venue.name : 'Unknown Venue',
                 venueId: slot.venueId,
-                fee: assignment.actualFee || musician.payRate,
+                fee: fee,
                 startTime: slot.startTime,
                 endTime: slot.endTime,
                 status: assignment.status

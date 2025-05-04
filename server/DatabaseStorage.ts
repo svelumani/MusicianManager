@@ -2419,6 +2419,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined> {
+    // Check for valid numeric ID
+    if (!id || isNaN(id)) {
+      console.warn(`Invalid planner assignment ID: ${id}`);
+      return undefined;
+    }
+    
     const [assignment] = await db.select()
       .from(plannerAssignments)
       .where(eq(plannerAssignments.id, id));
