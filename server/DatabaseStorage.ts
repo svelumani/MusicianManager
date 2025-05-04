@@ -3232,9 +3232,13 @@ export class DatabaseStorage implements IStorage {
   async createMonthlyContract(contract: InsertMonthlyContract): Promise<MonthlyContract> {
     const [newContract] = await db.insert(monthlyContracts)
       .values({
-        ...contract,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        plannerId: contract.plannerId,
+        templateId: contract.templateId,
+        name: contract.name, 
+        month: contract.month,
+        year: contract.year,
+        status: contract.status || 'draft',
+        created_at: new Date() // Using snake_case to match actual DB schema
       })
       .returning();
     
@@ -3255,11 +3259,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateMonthlyContract(id: number, data: Partial<InsertMonthlyContract>): Promise<MonthlyContract | undefined> {
+    // Build update object with only fields that exist in the database
+    const updateData: Record<string, any> = {};
+    
+    if (data.plannerId !== undefined) updateData.planner_id = data.plannerId;
+    if (data.templateId !== undefined) updateData.template_id = data.templateId;
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.month !== undefined) updateData.month = data.month;
+    if (data.year !== undefined) updateData.year = data.year;
+    if (data.status !== undefined) updateData.status = data.status;
+    
+    // Add updated_at field
+    updateData.updated_at = new Date();
+    
     const [updated] = await db.update(monthlyContracts)
-      .set({
-        ...data,
-        updatedAt: new Date()
-      })
+      .set(updateData)
       .where(eq(monthlyContracts.id, id))
       .returning();
     
