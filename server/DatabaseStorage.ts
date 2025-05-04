@@ -3356,74 +3356,164 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician> {
-    const [newMusician] = await db.insert(monthlyContractMusicians)
-      .values({
-        contract_id: contractMusician.contractId,
-        musician_id: contractMusician.musicianId,
-        status: contractMusician.status || 'pending',
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .returning();
+    // Generate a unique token if not provided
+    if (!contractMusician.token) {
+      contractMusician.token = `mcm-${Math.random().toString(36).substring(2, 15)}-${Date.now().toString(36)}`;
+    }
     
-    // Get musician name for activity log
-    const musician = await this.getMusician(contractMusician.musicianId);
-    const musicianName = musician ? musician.name : `Musician ID ${contractMusician.musicianId}`;
-    
-    // Log activity
-    await this.createActivity({
-      entityType: 'monthlyContractMusician',
-      entityId: newMusician.id,
-      action: 'create',
-      userId: 1, // Assuming admin user
-      timestamp: new Date(),
-      details: JSON.stringify({
-        message: `${musicianName} added to monthly contract`,
-        status: newMusician.status
-      })
-    });
-    
-    return newMusician;
+    try {
+      const result = await db.execute(`
+        INSERT INTO monthly_contract_musicians (
+          contract_id, musician_id, status, token, notes, musician_notes, 
+          company_signature, musician_signature, created_at, updated_at
+        ) VALUES (
+          ${contractMusician.contractId}, 
+          ${contractMusician.musicianId}, 
+          '${contractMusician.status || 'pending'}', 
+          '${contractMusician.token}',
+          ${contractMusician.notes ? `'${contractMusician.notes}'` : 'NULL'},
+          ${contractMusician.musicianNotes ? `'${contractMusician.musicianNotes}'` : 'NULL'},
+          ${contractMusician.companySignature ? `'${contractMusician.companySignature}'` : 'NULL'},
+          ${contractMusician.musicianSignature ? `'${contractMusician.musicianSignature}'` : 'NULL'},
+          NOW(), 
+          NOW()
+        )
+        RETURNING *
+      `);
+      
+      console.log("SQL insert result:", result);
+      
+      if (result.rows && result.rows.length > 0) {
+        const newMusician = result.rows[0];
+        console.log("Created new contract musician:", newMusician);
+        
+        // Get musician name for activity log
+        const musician = await this.getMusician(contractMusician.musicianId);
+        const musicianName = musician ? musician.name : `Musician ID ${contractMusician.musicianId}`;
+        
+        // Log activity
+        await this.createActivity({
+          entityType: 'monthlyContractMusician',
+          entityId: newMusician.id,
+          action: 'create',
+          userId: 1, // Assuming admin user
+          timestamp: new Date(),
+          details: JSON.stringify({
+            message: `${musicianName} added to monthly contract`,
+            status: newMusician.status,
+            token: newMusician.token
+          })
+        });
+        
+        return newMusician;
+      } else {
+        throw new Error("No contract musician was returned from insert operation");
+      }
+    } catch (error) {
+      console.error("Error in createMonthlyContractMusician:", error);
+      throw error;
+    }
   }
 
   async updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined> {
-    // Build update object with only fields that exist in the database
-    const updateData: Record<string, any> = {};
-    
-    if (data.contractId !== undefined) updateData.contract_id = data.contractId;
-    if (data.musicianId !== undefined) updateData.musician_id = data.musicianId;
-    if (data.status !== undefined) updateData.status = data.status;
-    if (data.sentAt !== undefined) updateData.sent_at = data.sentAt;
-    if (data.respondedAt !== undefined) updateData.responded_at = data.respondedAt;
-    
-    // Add updated_at field
-    updateData.updated_at = new Date();
-    
-    const [updated] = await db.update(monthlyContractMusicians)
-      .set(updateData)
-      .where(eq(monthlyContractMusicians.id, id))
-      .returning();
-    
-    if (updated) {
-      // Get musician name for activity log
-      const musician = await this.getMusician(updated.musician_id); // Use snake case field
-      const musicianName = musician ? musician.name : `Musician ID ${updated.musician_id}`;
+    try {
+      // First get the existing record to merge with updates
+      const [existingRecord] = await db.select()
+        .from(monthlyContractMusicians)
+        .where(eq(monthlyContractMusicians.id, id));
       
-      // Log activity
-      await this.createActivity({
-        entityType: 'monthlyContractMusician',
-        entityId: id,
-        action: 'update',
-        userId: 1, // Assuming admin user
-        timestamp: new Date(),
-        details: JSON.stringify({
-          message: `Monthly contract for ${musicianName} updated`,
-          status: data.status || updated.status
-        })
-      });
+      if (!existingRecord) {
+        return undefined;
+      }
+      
+      // Build SET clause string for SQL query
+      const setClauses = [];
+      
+      if (data.contractId !== undefined) setClauses.push(`contract_id = ${data.contractId}`);
+      if (data.musicianId !== undefined) setClauses.push(`musician_id = ${data.musicianId}`);
+      if (data.status !== undefined) setClauses.push(`status = '${data.status}'`);
+      if (data.respondedAt !== undefined) {
+        if (data.respondedAt) {
+          setClauses.push(`responded_at = '${data.respondedAt.toISOString()}'`);
+        } else {
+          setClauses.push(`responded_at = NULL`);
+        }
+      }
+      if (data.token !== undefined) setClauses.push(`token = '${data.token}'`);
+      if (data.notes !== undefined) {
+        if (data.notes) {
+          setClauses.push(`notes = '${data.notes}'`);
+        } else {
+          setClauses.push(`notes = NULL`);
+        }
+      }
+      if (data.musicianNotes !== undefined) {
+        if (data.musicianNotes) {
+          setClauses.push(`musician_notes = '${data.musicianNotes}'`);
+        } else {
+          setClauses.push(`musician_notes = NULL`);
+        }
+      }
+      if (data.companySignature !== undefined) {
+        if (data.companySignature) {
+          setClauses.push(`company_signature = '${data.companySignature}'`);
+        } else {
+          setClauses.push(`company_signature = NULL`);
+        }
+      }
+      if (data.musicianSignature !== undefined) {
+        if (data.musicianSignature) {
+          setClauses.push(`musician_signature = '${data.musicianSignature}'`);
+        } else {
+          setClauses.push(`musician_signature = NULL`);
+        }
+      }
+      
+      // Always update the updated_at timestamp
+      setClauses.push(`updated_at = NOW()`);
+      
+      if (setClauses.length === 0) {
+        return existingRecord; // Nothing to update
+      }
+      
+      const result = await db.execute(`
+        UPDATE monthly_contract_musicians
+        SET ${setClauses.join(', ')}
+        WHERE id = ${id}
+        RETURNING *
+      `);
+      
+      console.log("SQL update result:", result);
+      
+      if (result.rows && result.rows.length > 0) {
+        const updated = result.rows[0];
+        console.log("Updated contract musician:", updated);
+        
+        // Get musician name for activity log
+        const musician = await this.getMusician(updated.musician_id);
+        const musicianName = musician ? musician.name : `Musician ID ${updated.musician_id}`;
+        
+        // Log activity
+        await this.createActivity({
+          entityType: 'monthlyContractMusician',
+          entityId: id,
+          action: 'update',
+          userId: 1, // Assuming admin user
+          timestamp: new Date(),
+          details: JSON.stringify({
+            message: `Monthly contract for ${musicianName} updated`,
+            status: data.status || updated.status
+          })
+        });
+        
+        return updated;
+      } else {
+        throw new Error("No updated record was returned");
+      }
+    } catch (error) {
+      console.error("Error in updateMonthlyContractMusician:", error);
+      throw error;
     }
-    
-    return updated;
   }
 
   async deleteMonthlyContractMusician(id: number): Promise<boolean> {

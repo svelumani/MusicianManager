@@ -870,20 +870,25 @@ export const monthlyContractDates = pgTable("monthly_contract_dates", {
   id: serial("id").primaryKey(),
   musicianContractId: integer("musician_contract_id").notNull(), // Foreign key to monthly_contract_musicians
   date: timestamp("date").notNull(),
-  slotId: integer("slot_id"), // Foreign key to planner_slots if available
-  assignmentId: integer("assignment_id"), // Foreign key to planner_assignments if available
-  response: text("response").default("pending"), // accepted, rejected, pending
-  amount: doublePrecision("amount"), // Fee for this date
+  status: text("status").notNull().default("pending"), // accepted, rejected, pending
+  fee: doublePrecision("fee").notNull(), // Fee for this date
   notes: text("notes"), // Notes for this specific date
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertMonthlyContractDateSchema = createInsertSchema(monthlyContractDates).pick({
+export const insertMonthlyContractDateSchema = createInsertSchema(monthlyContractDates, {
+  date: z.coerce.date(), // Add coercion to allow string dates
+})
+.omit({
+  createdAt: true,
+  updatedAt: true,
+})
+.pick({
   musicianContractId: true,
   date: true,
-  slotId: true,
-  assignmentId: true,
-  response: true,
-  amount: true,
+  status: true,
+  fee: true,
   notes: true,
 });
 
