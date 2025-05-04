@@ -45,6 +45,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const MonthlyContractResponsePage = () => {
   const { toast } = useToast();
@@ -114,10 +116,18 @@ const MonthlyContractResponsePage = () => {
   
   // Mutation to update date status
   const updateDateStatusMutation = useMutation({
-    mutationFn: ({ dateId, status, notes }: { dateId: number; status: string; notes?: string }) => {
+    mutationFn: ({ dateId, status, notes, ipAddress, musicianSignature }: { 
+      dateId: number; 
+      status: string; 
+      notes?: string;
+      ipAddress?: string;
+      musicianSignature?: string;
+    }) => {
       return apiRequest(`/api/monthly-contract-dates/${dateId}/status`, 'PUT', {
         status,
-        notes
+        notes,
+        ipAddress,
+        musicianSignature
       });
     },
     onSuccess: () => {
@@ -163,7 +173,9 @@ const MonthlyContractResponsePage = () => {
     updateDateStatusMutation.mutate({
       dateId,
       status,
-      notes: status === 'rejected' ? noteValue : undefined
+      notes: status === 'rejected' ? noteValue : undefined,
+      ipAddress: status === 'accepted' ? ipAddress : undefined,
+      musicianSignature: status === 'accepted' ? musicianInitials : undefined
     });
   };
   
@@ -217,7 +229,9 @@ const MonthlyContractResponsePage = () => {
         return updateDateStatusMutation.mutateAsync({
           dateId: date.id,
           status,
-          notes: allRejected ? noteValue : undefined
+          notes: allRejected ? noteValue : undefined,
+          ipAddress: allAccepted ? ipAddress : undefined,
+          musicianSignature: allAccepted ? musicianInitials : undefined
         });
       });
     
@@ -302,6 +316,46 @@ const MonthlyContractResponsePage = () => {
           </div>
           <h2 className="text-2xl font-bold text-primary">Victoria Association of Music Promoters</h2>
         </div>
+        
+        {/* Digital Signature Dialog */}
+        <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Digital Signature Required</DialogTitle>
+              <DialogDescription>
+                Please enter your initials to digitally sign and confirm your acceptance.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="p-4 space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="signature">Your Initials</Label>
+                <Input 
+                  id="signature" 
+                  placeholder="Enter your initials here (e.g., JD)" 
+                  value={musicianInitials}
+                  onChange={(e) => setMusicianInitials(e.target.value)}
+                  className="text-lg h-12 text-center"
+                  maxLength={5}
+                />
+                <p className="text-sm text-gray-500">
+                  By entering your initials, you confirm that you agree to the terms and conditions 
+                  and that this serves as your legal electronic signature.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Your IP address ({ipAddress}) will be recorded as verification of your identity.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowSignatureDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSignatureConfirm}>
+                Confirm Signature
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         
         {/* Header */}
         <div className="mb-8 text-center">
