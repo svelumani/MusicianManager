@@ -3232,13 +3232,14 @@ export class DatabaseStorage implements IStorage {
   async createMonthlyContract(contract: InsertMonthlyContract): Promise<MonthlyContract> {
     const [newContract] = await db.insert(monthlyContracts)
       .values({
-        plannerId: contract.plannerId,
-        templateId: contract.templateId,
-        name: contract.name, 
+        planner_id: contract.plannerId,
         month: contract.month,
         year: contract.year,
+        template_id: contract.templateId,
+        name: contract.name, 
         status: contract.status || 'draft',
-        created_at: new Date() // Using snake_case to match actual DB schema
+        created_at: new Date(),
+        updated_at: new Date()
       })
       .returning();
     

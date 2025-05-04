@@ -815,14 +815,14 @@ export type InsertEntityStatus = z.infer<typeof insertEntityStatusSchema>;
 export const monthlyContracts = pgTable("monthly_contracts", {
   id: serial("id").primaryKey(),
   plannerId: integer("planner_id").notNull(), // Foreign key to monthly_planners
-  templateId: integer("template_id").notNull(), // Foreign key to contract_templates
-  name: text("name").notNull(),
   month: integer("month").notNull(),
   year: integer("year").notNull(),
-  status: text("status").notNull().default("draft"), // draft, sent, completed
+  templateId: integer("template_id").notNull(), // Foreign key to contract_templates
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at"),
   sentAt: timestamp("sent_at"),
+  status: text("status").notNull().default("draft"), // draft, sent, completed
+  name: text("name"),
 });
 
 export const insertMonthlyContractSchema = createInsertSchema(monthlyContracts).pick({
