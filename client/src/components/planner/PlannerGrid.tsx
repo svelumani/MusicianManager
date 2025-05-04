@@ -834,10 +834,40 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     return hasUnavailableMusician ? "bg-red-50" : "bg-green-50";
   };
 
-  // Only show loading when essential data is loading
-  // We'll still render even if plannerSlots is empty or has errors
-  if (isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading) {
-    return <Skeleton className="h-96 w-full" />;
+  // Double-check that all necessary data is present before trying to render
+  // This prevents the most common rendering errors
+  const dataIsComplete = () => {
+    // Check if we have all necessary data to render
+    const hasPlanner = planner && planner.id;
+    const hasVenues = venues && Array.isArray(venues) && venues.length > 0;
+    const hasSlots = plannerSlots && Array.isArray(plannerSlots);
+    const hasMusicians = musicians && Array.isArray(musicians) && musicians.length > 0;
+    const hasCategories = categories && Array.isArray(categories);
+    
+    // Log any specific missing data for debugging
+    if (!hasPlanner) console.warn("Planner data is missing");
+    if (!hasVenues) console.warn("Venues data is missing");
+    if (!hasSlots) console.warn("Slots data is missing");
+    if (!hasMusicians) console.warn("Musicians data is missing");
+    if (!hasCategories) console.warn("Categories data is missing");
+    
+    return hasPlanner && hasVenues && hasSlots && hasMusicians && hasCategories;
+  };
+  
+  // Only show loading when essential data is loading OR data is incomplete
+  if (isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading || !dataIsComplete()) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-center p-4 text-sm text-blue-700 border border-blue-200 bg-blue-50 rounded-md mb-4">
+          <svg className="animate-spin h-5 w-5 mr-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span>Loading planner grid data...</span>
+        </div>
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
   }
 
   // Format month name for the planner title

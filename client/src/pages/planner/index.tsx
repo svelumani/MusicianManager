@@ -44,6 +44,36 @@ const PlannerPage = () => {
   
   // Fix rendering issues by tracking loading manually
   const [isManuallyLoading, setIsManuallyLoading] = useState(true);
+  const [lastLoadAttempt, setLastLoadAttempt] = useState<Date | null>(null);
+  const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+
+  // Reset loading state after specified time to prevent infinite loading
+  useEffect(() => {
+    if (isManuallyLoading && lastLoadAttempt) {
+      const timeElapsed = Date.now() - lastLoadAttempt.getTime();
+      // If loading for more than 8 seconds, force reset the loading state
+      if (timeElapsed > 8000) {
+        console.log("Forcing loading state reset due to timeout");
+        setIsManuallyLoading(false);
+        setConsecutiveErrors(prev => prev + 1);
+      }
+    }
+  }, [isManuallyLoading, lastLoadAttempt]);
+
+  // Automatic restart after multiple errors
+  useEffect(() => {
+    if (consecutiveErrors >= 3) {
+      console.log("Too many consecutive errors, refreshing data");
+      // Reset error counter
+      setConsecutiveErrors(0);
+      // Force hard refresh of data - important for recovering from stale states
+      setTimeout(() => {
+        queryClient.invalidateQueries({queryKey: ['/api/planners']});
+        queryClient.invalidateQueries({queryKey: ['/api/venues']});
+        queryClient.invalidateQueries({queryKey: ['/api/categories']});
+      }, 500);
+    }
+  }, [consecutiveErrors]);
 
   // Query to get monthly planner with better debug logging and error handling
   const {
@@ -55,6 +85,8 @@ const PlannerPage = () => {
     queryKey: ['/api/planners/month', currentMonth, 'year', currentYear],
     queryFn: async ({ queryKey }) => {
       try {
+        // Track load attempt for safety timeout
+        setLastLoadAttempt(new Date());
         setIsManuallyLoading(true);
         console.log(`Fetching planner for month ${currentMonth} year ${currentYear}`);
         
@@ -72,6 +104,7 @@ const PlannerPage = () => {
         if (response.status === 401) {
           console.warn("Unauthorized access to planner. Please log in.");
           setIsManuallyLoading(false);
+          setConsecutiveErrors(0); // Reset errors on auth issues
           return null;
         }
 
@@ -79,6 +112,7 @@ const PlannerPage = () => {
           if (response.status === 404) {
             console.log("Planner not found for this month");
             setIsManuallyLoading(false);
+            setConsecutiveErrors(0); // Reset errors on expected 404
             return null;
           }
           
@@ -86,6 +120,7 @@ const PlannerPage = () => {
           const errorText = await response.text();
           console.error(`Error ${response.status}: ${errorText}`);
           setIsManuallyLoading(false);
+          setConsecutiveErrors(prev => prev + 1);
           return null;
         }
 
@@ -102,6 +137,7 @@ const PlannerPage = () => {
           if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
             console.error("Planner data is empty or invalid:", result);
             setIsManuallyLoading(false);
+            setConsecutiveErrors(prev => prev + 1);
             return null;
           }
           
@@ -109,29 +145,36 @@ const PlannerPage = () => {
           if (!result.id || !result.month || !result.year) {
             console.error("Planner data is missing required fields:", result);
             setIsManuallyLoading(false);
+            setConsecutiveErrors(prev => prev + 1);
             return null;
           }
+          
+          // Success! Reset error count
+          setConsecutiveErrors(0);
           
           // Add a small delay to ensure any dependent queries have time to fire properly
           setTimeout(() => {
             setIsManuallyLoading(false);
-          }, 100);
+          }, 200);
           
           return result;
         } catch (e) {
           console.warn("Error processing planner response", e);
           setIsManuallyLoading(false);
+          setConsecutiveErrors(prev => prev + 1);
           return null;
         }
       } catch (error) {
         console.error("Planner fetch error:", error);
         setIsManuallyLoading(false);
+        setConsecutiveErrors(prev => prev + 1);
         return null;
       }
     },
-    retry: 1,
+    retry: 2,
     retryDelay: 1000,
     refetchOnWindowFocus: false,
+    refetchInterval: consecutiveErrors > 1 ? 5000 : false, // Auto-refetch if we've had multiple errors
   });
 
   // Query to get venues with improved error handling
