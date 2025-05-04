@@ -32,13 +32,13 @@ import {
   Calendar, 
   FileText, 
   CheckCircle, 
-  CheckCircle2, 
+  CheckCircle as CheckCircle2, // Using CheckCircle as a substitute
   Clock, 
   Send, 
   Search, 
   AlertTriangle,
   XCircle,
-  Hourglass 
+  Clock as Hourglass // Using Clock as a substitute
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -154,7 +154,7 @@ const MonthlyContractsPage = () => {
       case 'cancelled':
         return <XCircle className="h-4 w-4 mr-1" />;
       case 'in-progress':
-        return <HourglassMedium className="h-4 w-4 mr-1" />;
+        return <Hourglass className="h-4 w-4 mr-1" />;
       case 'completed':
         return <CheckCircle2 className="h-4 w-4 mr-1" />;
       default:
@@ -379,7 +379,8 @@ const MonthlyContractsPage = () => {
                 <div className="text-right font-medium">Status:</div>
                 <div className="col-span-3">
                   <Badge className={`${getStatusColor(selectedContract.status)} text-white`}>
-                    {selectedContract.status}
+                    {selectedContract.status === 'signed' ? 'Accepted' : 
+                     selectedContract.status.charAt(0).toUpperCase() + selectedContract.status.slice(1)}
                   </Badge>
                 </div>
               </div>

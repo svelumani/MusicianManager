@@ -161,6 +161,7 @@ const ContractStatusPage = () => {
     const pending = musicians.filter((m: MusicianContractStatus) => 
       m.status === 'sent' || m.status === 'pending').length;
     
+    // Count both "signed" (legacy) and "accepted" as accepted responses
     const accepted = musicians.filter((m: MusicianContractStatus) => 
       m.status === 'signed' || m.status === 'accepted').length;
     
@@ -378,7 +379,8 @@ const ContractStatusPage = () => {
                       <div className="flex items-center mt-2">
                         <div>
                           <Badge className={`${getStatusColor(contract.status)} text-white`}>
-                            {contract.status}
+                            {contract.status === 'signed' ? 'Accepted' : 
+                            contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
                           </Badge>
                         </div>
                         <span className="ml-2 text-sm">
