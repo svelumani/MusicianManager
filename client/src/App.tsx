@@ -33,6 +33,9 @@ import PaymentsPage from "@/pages/payments/index";
 import ReportsPage from "@/pages/reports/index";
 import PlannerPage from "@/pages/planner/index";
 import PlannerInvoicePage from "@/pages/planner/invoice";
+import MonthlyManagementPage from "@/pages/monthly/index";
+import MonthlyContractsPage from "@/pages/monthly/contracts";
+import ContractStatusPage from "@/pages/monthly/status";
 import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
@@ -196,6 +199,23 @@ function Router() {
       </Route>
 
       {/* Planner routes moved under Events */}
+      
+      {/* Monthly Management */}
+      <Route path="/monthly">
+        <AppLayout>
+          <MonthlyManagementPage />
+        </AppLayout>
+      </Route>
+      <Route path="/monthly/contracts">
+        <AppLayout>
+          <MonthlyContractsPage />
+        </AppLayout>
+      </Route>
+      <Route path="/monthly/status">
+        <AppLayout>
+          <ContractStatusPage />
+        </AppLayout>
+      </Route>
 
       {/* Settings */}
       <Route path="/settings">
