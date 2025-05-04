@@ -2434,7 +2434,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: []
       };
       
-      const formattedMonth = new Date(planner.month).toLocaleString('default', { month: 'long', year: 'numeric' });
+      // Format month name and year for the contract
+      const plannerDate = new Date(planner.year, planner.month - 1, 1);
+      const formattedMonth = plannerDate.toLocaleString('default', { month: 'long', year: 'numeric' });
       
       // Process each musician
       for (const musicianId of musicians) {
@@ -2554,7 +2556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Create contract invitations for the musician
-          const invitation = await storage.createContractInvitation({
+          const invitation = await storage.createInvitation({
             musicianId: parseInt(musicianId),
             token: generateRandomToken(32),
             contractId: contract.id,
