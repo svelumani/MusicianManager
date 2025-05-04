@@ -3354,6 +3354,14 @@ export class DatabaseStorage implements IStorage {
     
     return musician;
   }
+  
+  async getMonthlyContractMusicianByToken(token: string): Promise<MonthlyContractMusician | undefined> {
+    const [musician] = await db.select()
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.token, token));
+    
+    return musician;
+  }
 
   async createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician> {
     // Generate a unique token if not provided

@@ -5184,6 +5184,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get musician contract by token (for public response page)
+  apiRouter.get("/monthly-contract-musicians/token/:token", async (req, res) => {
+    try {
+      const token = req.params.token;
+      
+      // Find the musician contract with this token
+      const musicianContract = await storage.getMonthlyContractMusicianByToken(token);
+      
+      if (!musicianContract) {
+        return res.status(404).json({ message: "Contract not found" });
+      }
+      
+      // Get the associated contract
+      const contract = await storage.getMonthlyContract(musicianContract.contractId);
+      
+      // Get the musician
+      const musician = await storage.getMusician(musicianContract.musicianId);
+      
+      // Get the dates
+      const dates = await storage.getMonthlyContractDates(musicianContract.id);
+      
+      // Return the combined data with formatted fields
+      res.json({
+        id: musicianContract.id,
+        musicianId: musicianContract.musicianId,
+        contractId: musicianContract.contractId,
+        status: musicianContract.status,
+        sentAt: musicianContract.sentAt,
+        signedAt: musicianContract.signedAt,
+        token: musicianContract.token,
+        createdAt: musicianContract.createdAt,
+        updatedAt: musicianContract.updatedAt,
+        musician,
+        contract,
+        dates: dates.map(date => ({
+          id: date.id,
+          musicianContractId: date.musicianContractId,
+          date: date.date,
+          status: date.status,
+          fee: date.fee,
+          notes: date.notes,
+          createdAt: date.createdAt,
+          updatedAt: date.updatedAt
+        }))
+      });
+    } catch (error) {
+      console.error("Error fetching musician contract by token:", error);
+      res.status(500).json({ message: "Error fetching contract data" });
+    }
+  });
+  
+  // Update date status in a monthly contract (for musician responses)
+  apiRouter.put("/monthly-contract-dates/:dateId/status", async (req, res) => {
+    try {
+      const dateId = parseInt(req.params.dateId);
+      const { status, notes } = req.body;
+      
+      if (!['accepted', 'rejected', 'pending'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status value" });
+      }
+      
+      // Get the date first to verify it exists
+      const date = await storage.getMonthlyContractDate(dateId);
+      if (!date) {
+        return res.status(404).json({ message: "Date not found" });
+      }
+      
+      // Update the date status
+      const updatedDate = await storage.updateMonthlyContractDate(dateId, {
+        status,
+        notes: notes || date.notes
+      });
+      
+      // Get the musician contract to update its status if needed
+      const musicianContract = await storage.getMonthlyContractMusician(date.musicianContractId);
+      if (!musicianContract) {
+        return res.status(404).json({ message: "Musician contract not found" });
+      }
+      
+      // Check if all dates have responses
+      const allDates = await storage.getMonthlyContractDates(musicianContract.id);
+      const allResponded = allDates.every(d => d.status === 'accepted' || d.status === 'rejected');
+      
+      // If all dates have responses, update the musician contract status
+      if (allResponded) {
+        const hasAccepted = allDates.some(d => d.status === 'accepted');
+        
+        await storage.updateMonthlyContractMusician(musicianContract.id, {
+          status: hasAccepted ? 'signed' : 'rejected',
+          respondedAt: new Date()
+        });
+        
+        // Update the parent contract if all musicians have responded
+        const allMusicians = await storage.getMonthlyContractMusicians(musicianContract.contractId);
+        const allMusiciansResponded = allMusicians.every(m => 
+          m.status === 'signed' || m.status === 'rejected'
+        );
+        
+        if (allMusiciansResponded) {
+          await storage.updateMonthlyContract(musicianContract.contractId, {
+            status: 'completed'
+          });
+        }
+      }
+      
+      // Return the updated date
+      res.json({
+        id: updatedDate.id,
+        musicianContractId: updatedDate.musicianContractId,
+        date: updatedDate.date,
+        status: updatedDate.status,
+        fee: updatedDate.fee,
+        notes: updatedDate.notes,
+        createdAt: updatedDate.createdAt,
+        updatedAt: updatedDate.updatedAt
+      });
+    } catch (error) {
+      console.error("Error updating date status:", error);
+      res.status(500).json({ message: "Error updating date status" });
+    }
+  });
+  
   // Generate Monthly Contract
   apiRouter.post("/monthly-contracts/generate", isAuthenticated, async (req, res) => {
     try {
