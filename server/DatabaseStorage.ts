@@ -3342,9 +3342,11 @@ export class DatabaseStorage implements IStorage {
   async createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician> {
     const [newMusician] = await db.insert(monthlyContractMusicians)
       .values({
-        ...contractMusician,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        contract_id: contractMusician.contractId,
+        musician_id: contractMusician.musicianId,
+        status: contractMusician.status || 'pending',
+        created_at: new Date(),
+        updated_at: new Date()
       })
       .returning();
     
@@ -3369,18 +3371,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined> {
+    // Build update object with only fields that exist in the database
+    const updateData: Record<string, any> = {};
+    
+    if (data.contractId !== undefined) updateData.contract_id = data.contractId;
+    if (data.musicianId !== undefined) updateData.musician_id = data.musicianId;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.sentAt !== undefined) updateData.sent_at = data.sentAt;
+    if (data.respondedAt !== undefined) updateData.responded_at = data.respondedAt;
+    
+    // Add updated_at field
+    updateData.updated_at = new Date();
+    
     const [updated] = await db.update(monthlyContractMusicians)
-      .set({
-        ...data,
-        updatedAt: new Date()
-      })
+      .set(updateData)
       .where(eq(monthlyContractMusicians.id, id))
       .returning();
     
     if (updated) {
       // Get musician name for activity log
-      const musician = await this.getMusician(updated.musicianId);
-      const musicianName = musician ? musician.name : `Musician ID ${updated.musicianId}`;
+      const musician = await this.getMusician(updated.musician_id); // Use snake case field
+      const musicianName = musician ? musician.name : `Musician ID ${updated.musician_id}`;
       
       // Log activity
       await this.createActivity({
@@ -3459,9 +3470,13 @@ export class DatabaseStorage implements IStorage {
   async createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate> {
     const [newDate] = await db.insert(monthlyContractDates)
       .values({
-        ...contractDate,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        musician_contract_id: contractDate.musicianContractId,
+        date: contractDate.date,
+        fee: contractDate.fee,
+        status: contractDate.status || 'pending',
+        notes: contractDate.notes || null,
+        created_at: new Date(),
+        updated_at: new Date()
       })
       .returning();
     
@@ -3470,7 +3485,7 @@ export class DatabaseStorage implements IStorage {
     let musicianName = "Unknown";
     
     if (musicianContract) {
-      const musician = await this.getMusician(musicianContract.musicianId);
+      const musician = await this.getMusician(musicianContract.musician_id); // Use snake case
       if (musician) {
         musicianName = musician.name;
       }
@@ -3496,21 +3511,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateMonthlyContractDate(id: number, data: Partial<InsertMonthlyContractDate>): Promise<MonthlyContractDate | undefined> {
+    // Build update object with only fields that exist in the database
+    const updateData: Record<string, any> = {};
+    
+    if (data.musicianContractId !== undefined) updateData.musician_contract_id = data.musicianContractId;
+    if (data.date !== undefined) updateData.date = data.date;
+    if (data.fee !== undefined) updateData.fee = data.fee;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+    
+    // Add updated_at field
+    updateData.updated_at = new Date();
+    
     const [updated] = await db.update(monthlyContractDates)
-      .set({
-        ...data,
-        updatedAt: new Date()
-      })
+      .set(updateData)
       .where(eq(monthlyContractDates.id, id))
       .returning();
     
     if (updated) {
       // Get musician contract and musician for activity log
-      const musicianContract = await this.getMonthlyContractMusician(updated.musicianContractId);
+      const musicianContract = await this.getMonthlyContractMusician(updated.musician_contract_id); // Use snake case field
       let musicianName = "Unknown";
       
       if (musicianContract) {
-        const musician = await this.getMusician(musicianContract.musicianId);
+        const musician = await this.getMusician(musicianContract.musician_id); // Use snake case field
         if (musician) {
           musicianName = musician.name;
         }
@@ -3544,11 +3568,11 @@ export class DatabaseStorage implements IStorage {
     
     if (contractDate) {
       // Get musician contract and musician for activity log
-      const musicianContract = await this.getMonthlyContractMusician(contractDate.musicianContractId);
+      const musicianContract = await this.getMonthlyContractMusician(contractDate.musician_contract_id); // Use snake case field
       let musicianName = "Unknown";
       
       if (musicianContract) {
-        const musician = await this.getMusician(musicianContract.musicianId);
+        const musician = await this.getMusician(musicianContract.musician_id); // Use snake case field
         if (musician) {
           musicianName = musician.name;
         }
@@ -3561,7 +3585,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.delete(monthlyContractDates)
         .where(eq(monthlyContractDates.id, id));
       
-      if (result.rowCount > 0) {
+      if (result.rowCount && result.rowCount > 0) {
         // Log activity
         await this.createActivity({
           entityType: 'monthlyContractDate',
@@ -3575,7 +3599,7 @@ export class DatabaseStorage implements IStorage {
         });
       }
       
-      return result.rowCount > 0;
+      return result.rowCount ? result.rowCount > 0 : false;
     }
     
     return false;
