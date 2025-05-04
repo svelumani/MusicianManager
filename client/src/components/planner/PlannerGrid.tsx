@@ -26,7 +26,11 @@ const STATUS_COLORS = {
   open: "bg-white",
   draft: "bg-gray-100",
   "contract-sent": "bg-blue-100",
-  "contract-signed": "bg-green-100",
+  "contract-signed": "bg-green-100", 
+  "signed": "bg-green-100", // Alias for contract-signed
+  "accepted": "bg-green-100", // Alias for accepted contracts
+  "rejected": "bg-red-100", // For rejected contracts
+  "pending": "bg-yellow-100", // For pending monthly contract responses
   "needs-clarification": "bg-yellow-100",
   "overseas-performer": "bg-purple-100",
   "finalized": "bg-green-50"
@@ -67,8 +71,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     refetch: refetchAssignments
   } = useQuery({
     // Use a simpler queryKey that's easier to invalidate
-    queryKey: ['plannerAssignments', planner?.id],
-    queryFn: () => {
+    queryKey: ['plannerAssignments', planner?.id, Date.now()], // Add timestamp to force refresh
+    queryFn: async () => {
       if (!plannerSlots || plannerSlots.length === 0) {
         console.log("No planner slots available, skipping assignment fetch");
         return [];
@@ -78,22 +82,49 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       const slotIds = plannerSlots.map((slot: any) => slot.id);
       console.log("Fetching assignments for slots:", slotIds);
       
-      // Build individual queries for each slot to avoid URL length issues
-      const promises = slotIds.map((id: number) => 
-        apiRequest(`/api/planner-assignments?slotId=${id}`)
-      );
-      
-      // Combine all results from the individual requests
-      return Promise.all(promises).then(results => {
+      try {
+        // Build individual queries for each slot to avoid URL length issues
+        const promises = slotIds.map((id: number) => 
+          apiRequest(`/api/planner-assignments?slotId=${id}`)
+        );
+        
+        // Combine all results from the individual requests
+        const results = await Promise.all(promises);
         // Flatten the array of arrays
         const combined = results.flat();
         console.log("Combined assignments:", combined.length);
+        
+        // Log some assignment status information
+        if (combined.length > 0) {
+          const statuses = combined.map((a: any) => a.status);
+          const uniqueStatuses = [...new Set(statuses)];
+          console.log("Assignment statuses found:", uniqueStatuses);
+          
+          // Debug: Show assignments with specific statuses
+          if (uniqueStatuses.includes('contract-sent')) {
+            console.log("Found assignments with contract-sent status:", 
+              combined.filter((a: any) => a.status === 'contract-sent').map((a: any) => a.id)
+            );
+          }
+          
+          if (uniqueStatuses.includes('contract-signed')) {
+            console.log("Found assignments with contract-signed status:", 
+              combined.filter((a: any) => a.status === 'contract-signed').map((a: any) => a.id)
+            );
+          }
+        }
+        
         return combined;
-      });
+      } catch (error) {
+        console.error("Error fetching assignments:", error);
+        return [];
+      }
     },
     enabled: !!plannerSlots && plannerSlots.length > 0,
     // Stale time set to 0 to ensure fresh data on every render
-    staleTime: 0
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true
   });
 
   // Query to get musicians with proper typing
@@ -431,8 +462,38 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Get slot status className
   const getSlotStatusClass = (slot: any) => {
-    if (!slot) return "";
-    return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS] || "bg-white";
+    if (!slot) return STATUS_COLORS.open || "bg-white";
+    
+    // Enhanced status detection logic
+    console.log("Slot status:", slot.status, "Slot ID:", slot.id);
+    
+    // Check slot contract status first
+    if (slot.status && STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS]) {
+      return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS];
+    }
+    
+    // Check if this slot has assignments
+    const slotAssignments = plannerAssignments?.filter((a: any) => a.slotId === slot.id) || [];
+    
+    if (slotAssignments.length > 0) {
+      // Get the statuses of all assignments
+      const assignmentStatuses = slotAssignments.map((a: any) => a.status);
+      
+      // Check for contract statuses
+      if (assignmentStatuses.some(s => s === 'contract-signed')) {
+        return STATUS_COLORS['contract-signed'];
+      }
+      
+      if (assignmentStatuses.some(s => s === 'contract-sent')) {
+        return STATUS_COLORS['contract-sent'];
+      }
+      
+      // Slot has assignments but no contract status
+      return STATUS_COLORS.draft;
+    }
+    
+    // Default to open if no other condition is met
+    return STATUS_COLORS.open || "bg-white";
   };
 
   // Check if musician is available on a given date
