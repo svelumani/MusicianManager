@@ -1,4 +1,4 @@
-import express, { Request } from 'express';
+import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import { 
@@ -6,8 +6,7 @@ import {
   monthlyContractMusicians,
   monthlyContractDates,
   musicians,
-  type MonthlyContractDate,
-  type User
+  type MonthlyContractDate
 } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { monthlyContractStatusService } from '../services/monthlyContractStatus';
@@ -15,7 +14,14 @@ import { isAuthenticated } from '../auth';
 
 // Extend Express Request type to include user property
 interface AuthenticatedRequest extends Request {
-  user?: User;
+  user?: {
+    id: number;
+    username: string;
+    name: string;
+    email: string;
+    role: string;
+    profileImage: string | null;
+  };
 }
 
 const router = express.Router();
@@ -362,7 +368,7 @@ router.post('/token/:token/dates/:dateId', async (req, res) => {
 // Admin routes for contract management
 
 // Get a summary of responses for a contract
-router.get('/:contractId/summary', isAuthenticated, async (req, res) => {
+router.get('/:contractId/summary', isAuthenticated, async (req: AuthenticatedRequest, res) => {
   try {
     const { contractId } = req.params;
     
@@ -381,7 +387,7 @@ router.get('/:contractId/summary', isAuthenticated, async (req, res) => {
 });
 
 // Update the status of a monthly contract musician
-router.put('/musicians/:musicianContractId/status', isAuthenticated, async (req, res) => {
+router.put('/musicians/:musicianContractId/status', isAuthenticated, async (req: AuthenticatedRequest, res) => {
   try {
     const { musicianContractId } = req.params;
     const { status, notes } = req.body;
@@ -424,7 +430,7 @@ router.put('/musicians/:musicianContractId/status', isAuthenticated, async (req,
 });
 
 // Update the status of a monthly contract
-router.put('/:contractId/status', isAuthenticated, async (req, res) => {
+router.put('/:contractId/status', isAuthenticated, async (req: AuthenticatedRequest, res) => {
   try {
     const { contractId } = req.params;
     const { status, notes } = req.body;
