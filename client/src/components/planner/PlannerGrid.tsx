@@ -665,73 +665,131 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     }).format(amount);
   };
 
-  // Get slot status className with robust error handling
+  // Get slot status className with fully revised and robust error handling
   const getSlotStatusClass = (slot: any) => {
-    if (!slot) return "bg-white"; // Safe default if slot is missing
+    // DEFENSE LEVEL 1: Handle missing slot completely
+    if (!slot) {
+      return "bg-white"; // Absolute safe default
+    }
     
     try {
-      // Enhanced status detection logic with additional defensive checks
-      console.log("Slot status:", slot.status, "Slot ID:", slot.id);
-      
-      // ---------- SAFE STATUS MAPPING ----------
-      // Check if the status exists AND is a valid key in our STATUS_COLORS map
-      const statusKey = slot.status || 'open';
-      
-      // Use type assertion for safety, with fallbacks
-      let statusColor = "bg-white"; // Default fallback
-      
-      // Safely access status color
-      if (statusKey in STATUS_COLORS) {
-        statusColor = STATUS_COLORS[statusKey as keyof typeof STATUS_COLORS];
-      } else if (statusKey === "scheduled" || statusKey === "confirmed") {
-        // Handle status values from database that aren't in our mapping
-        statusColor = STATUS_COLORS.draft; // Consider scheduled slots as draft
+      // DEFENSE LEVEL 2: Safe logging with null checks
+      if (slot && typeof slot === 'object') {
+        const slotId = slot.id || 'unknown';
+        const slotStatus = typeof slot.status === 'string' ? slot.status : 'unknown';
+        console.log("Slot status:", slotStatus, "Slot ID:", slotId);
       }
       
-      // ---------- ASSIGNMENT STATUS CHECK ----------
-      // Check if this slot has assignments
-      let slotAssignments: any[] = [];
-      if (plannerAssignments && Array.isArray(plannerAssignments)) {
-        slotAssignments = plannerAssignments.filter((a: any) => 
-          a && typeof a === 'object' && a.slotId === slot.id
+      // DEFENSE LEVEL 3: Extract status with multiple fallbacks
+      // Multiple defense layers for status extraction
+      const statusKey = (slot && 
+                         typeof slot === 'object' && 
+                         typeof slot.status === 'string' && 
+                         slot.status.trim() !== '') 
+                         ? slot.status 
+                         : 'open';
+      
+      // DEFENSE LEVEL 4: Status color mapping with guaranteed fallback
+      // Start with absolute default
+      let statusColor = "bg-white"; 
+      
+      // DEFENSE LEVEL 5: Safe lookup with explicit type checking
+      // Only proceed if we have a valid status key AND our color map exists
+      if (typeof statusKey === 'string' && 
+          STATUS_COLORS && 
+          typeof STATUS_COLORS === 'object') {
+        
+        // Check if status exists in our map
+        if (statusKey in STATUS_COLORS) {
+          // Safe retrieval with explicit type assertion
+          statusColor = STATUS_COLORS[statusKey as keyof typeof STATUS_COLORS] || "bg-white";
+        } 
+        // Handle special status values with custom mapping
+        else if (['scheduled', 'confirmed'].includes(statusKey)) {
+          statusColor = "bg-gray-100"; // Use draft color for these statuses
+        }
+      }
+      
+      // DEFENSE LEVEL 6: Assignment-based status calculation
+      // First validate plannerAssignments with strong type checking
+      const assignmentsValid = plannerAssignments && 
+                              Array.isArray(plannerAssignments) && 
+                              plannerAssignments.length > 0;
+      
+      // Only proceed if we have valid assignments AND a valid slot
+      if (assignmentsValid && slot && typeof slot.id === 'number') {
+        // Filter with comprehensive safety checks
+        const slotAssignments = plannerAssignments.filter((a: any) => 
+          a && 
+          typeof a === 'object' && 
+          'slotId' in a && 
+          typeof a.slotId === 'number' && 
+          a.slotId === slot.id
         );
+        
+        // Process assignments if we have any
+        if (slotAssignments && slotAssignments.length > 0) {
+          // Log for debugging
+          console.log("Combined assignments:", slotAssignments.length);
+          
+          // Extract valid statuses with rigorous validation
+          const assignmentStatuses = slotAssignments
+            .map((a: any) => {
+              return (a && 
+                     typeof a === 'object' && 
+                     'status' in a && 
+                     typeof a.status === 'string' && 
+                     a.status.trim() !== '') 
+                     ? a.status.toLowerCase() 
+                     : "unknown";
+            })
+            .filter((s: string) => s !== "unknown");
+          
+          // Log extracted statuses for debugging
+          console.log("Assignment statuses found:", [...new Set(assignmentStatuses)]);
+          
+          // DEFENSE LEVEL 7: Status prioritization with safe lookups
+          // Define status priorities with comprehensive checks
+          
+          // 1. Highest priority: Confirmed/Accepted/Signed statuses
+          const confirmedStatuses = ['contract-signed', 'signed', 'accepted', 'confirmed'];
+          if (assignmentStatuses.some(s => confirmedStatuses.includes(s))) {
+            return (STATUS_COLORS['contract-signed'] || 
+                   STATUS_COLORS['signed'] || 
+                   STATUS_COLORS['accepted'] || 
+                   "bg-green-100");
+          }
+          
+          // 2. Medium priority: In-progress/Pending statuses
+          const pendingStatuses = ['contract-sent', 'pending', 'scheduled'];
+          if (assignmentStatuses.some(s => pendingStatuses.includes(s))) {
+            return (STATUS_COLORS['contract-sent'] || 
+                   STATUS_COLORS['pending'] || 
+                   "bg-blue-100");
+          }
+          
+          // 3. Problem statuses: Rejected/Needs clarification
+          const problemStatuses = ['rejected', 'needs-clarification'];
+          if (assignmentStatuses.some(s => problemStatuses.includes(s))) {
+            return (STATUS_COLORS['rejected'] || 
+                   STATUS_COLORS['needs-clarification'] || 
+                   "bg-red-100");
+          }
+          
+          // 4. Default for assignments with no specific status
+          return STATUS_COLORS['draft'] || "bg-gray-100";
+        }
       }
       
-      if (slotAssignments.length > 0) {
-        // Safely extract assignment statuses, filtering out any invalid values
-        const assignmentStatuses = slotAssignments
-          .map((a: any) => (a && typeof a === 'object' && typeof a.status === 'string') ? a.status : "unknown")
-          .filter((s: string) => s !== "unknown"); // Filter out unknown statuses
-        
-        // Apply coloring rules based on assignment statuses
-        if (assignmentStatuses.some(s => 
-          s === 'contract-signed' || 
-          s === 'signed' || 
-          s === 'accepted' || 
-          s === 'confirmed')) {
-          return STATUS_COLORS['contract-signed'] || "bg-green-100";
-        }
-        
-        if (assignmentStatuses.some(s => 
-          s === 'contract-sent' || 
-          s === 'pending' || 
-          s === 'scheduled')) {
-          return STATUS_COLORS['contract-sent'] || "bg-blue-100";
-        }
-        
-        if (assignmentStatuses.some(s => s === 'rejected')) {
-          return STATUS_COLORS['rejected'] || "bg-red-100";
-        }
-        
-        // Slot has assignments but no specific contract status
-        return STATUS_COLORS.draft || "bg-gray-100";
-      }
-      
-      // Return the determined status color or fallback
+      // DEFENSE LEVEL 8: Final safe return
+      // If we've made it this far, use the individually determined status color
       return statusColor;
     } catch (error) {
-      console.error("Error getting slot status:", error);
-      return "bg-white"; // Safe default on error
+      // DEFENSE LEVEL 9: Error recovery
+      console.error("Error determining slot status:", error);
+      console.error("Problem slot:", slot);
+      // Absolute safe default on any error
+      return "bg-white"; 
     }
   };
   

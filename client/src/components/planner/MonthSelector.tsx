@@ -13,9 +13,10 @@ import {
 interface MonthSelectorProps {
   value: string; // yyyy-MM format
   onChange: (value: string) => void;
+  disabled?: boolean; // Add disabled prop
 }
 
-const MonthSelector = ({ value, onChange }: MonthSelectorProps) => {
+const MonthSelector = ({ value, onChange, disabled = false }: MonthSelectorProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   
   // Initialize with the provided value
@@ -78,7 +79,12 @@ const MonthSelector = ({ value, onChange }: MonthSelectorProps) => {
 
   return (
     <div className="flex items-center gap-2">
-      <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+      <Button 
+        variant="outline" 
+        size="icon" 
+        onClick={handlePrevMonth}
+        disabled={disabled}
+      >
         <ChevronLeft className="h-4 w-4" />
       </Button>
 
@@ -86,6 +92,7 @@ const MonthSelector = ({ value, onChange }: MonthSelectorProps) => {
         <Select
           value={currentDate.getMonth().toString()}
           onValueChange={handleMonthSelect}
+          disabled={disabled}
         >
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Month" />
@@ -102,6 +109,7 @@ const MonthSelector = ({ value, onChange }: MonthSelectorProps) => {
         <Select
           value={currentDate.getFullYear().toString()}
           onValueChange={handleYearSelect}
+          disabled={disabled}
         >
           <SelectTrigger className="w-[100px]">
             <SelectValue placeholder="Year" />
@@ -116,7 +124,12 @@ const MonthSelector = ({ value, onChange }: MonthSelectorProps) => {
         </Select>
       </div>
 
-      <Button variant="outline" size="icon" onClick={handleNextMonth}>
+      <Button 
+        variant="outline" 
+        size="icon" 
+        onClick={handleNextMonth}
+        disabled={disabled}
+      >
         <ChevronRight className="h-4 w-4" />
       </Button>
     </div>
