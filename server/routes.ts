@@ -2455,8 +2455,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
       
-      if (!plannerId) {
-        return res.status(400).json({ message: "plannerId is required" });
+      if (!plannerId || isNaN(plannerId)) {
+        return res.status(400).json({ message: "Valid plannerId is required" });
       }
       
       // Get all slots for the planner

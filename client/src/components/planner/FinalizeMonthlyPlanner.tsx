@@ -138,6 +138,33 @@ The VAMP Team`
     return "";
   }, [contractTemplates]);
   
+  // Find default email template
+  const defaultEmailTemplate = useMemo(() => {
+    if (emailTemplates && emailTemplates.length > 0) {
+      // First try to find a template with "monthly" in the name
+      const monthlyTemplates = emailTemplates.filter(t => 
+        t.name.toLowerCase().includes('monthly') || 
+        t.name.toLowerCase().includes('assignment')
+      );
+      return monthlyTemplates.length > 0 ? monthlyTemplates[0].id.toString() : emailTemplates[0].id.toString();
+    }
+    return "";
+  }, [emailTemplates]);
+  
+  // Set default email template when component loads
+  useEffect(() => {
+    if (defaultEmailTemplate && !selectedEmailTemplateId && open) {
+      setSelectedEmailTemplateId(defaultEmailTemplate);
+    }
+  }, [defaultEmailTemplate, selectedEmailTemplateId, open]);
+  
+  // Set default contract template when component loads
+  useEffect(() => {
+    if (defaultContractTemplate && !contractTemplateId && open) {
+      setContractTemplateId(defaultContractTemplate);
+    }
+  }, [defaultContractTemplate, contractTemplateId, open]);
+  
   // Query to get a specific email template by ID
   const {
     data: selectedEmailTemplate,

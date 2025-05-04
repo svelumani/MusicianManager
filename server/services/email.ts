@@ -152,9 +152,9 @@ export async function sendMusicianAssignmentEmail(
     // If an email template ID is provided, try to get it
     if (emailTemplateId) {
       try {
-        // Import dynamically to avoid circular dependencies
-        const DatabaseStorage = await import('../DatabaseStorage');
-        const template = await DatabaseStorage.default.getEmailTemplate(emailTemplateId);
+        // Import storage directly to avoid circular dependencies
+        const { storage } = await import('../storage');
+        const template = await storage.getEmailTemplate(emailTemplateId);
         
         if (template) {
           // Replace template variables
