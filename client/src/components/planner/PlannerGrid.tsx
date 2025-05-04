@@ -175,6 +175,22 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       updatedAt: new Date(),
     });
   };
+  
+  // Handle unfinalizing the planner to allow editing
+  const handleUnfinalize = () => {
+    if (!planner) return;
+    
+    updatePlannerMutation.mutate({
+      ...planner,
+      status: 'draft',
+      updatedAt: new Date(),
+    });
+    
+    toast({
+      title: "Planner Reopened",
+      description: "You can now make changes to the planner",
+    });
+  };
 
   // Auto-save feature
   useEffect(() => {
@@ -503,15 +519,25 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
           
           {/* Removed "Save" button for UI streamlining */}
           
-          <Button 
-            onClick={() => setShowFinalizeDialog(true)}
-            disabled={planner?.status === "finalized"}
-            variant="default"
-            className="gap-1"
-          >
-            <Send className="h-4 w-4" />
-            Finalize & Send
-          </Button>
+          {planner?.status === "finalized" ? (
+            <Button 
+              onClick={handleUnfinalize}
+              variant="outline"
+              className="gap-1"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Edit Planner
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => setShowFinalizeDialog(true)}
+              variant="default"
+              className="gap-1"
+            >
+              <Send className="h-4 w-4" />
+              Finalize & Send
+            </Button>
+          )}
         </div>
       </div>
 
