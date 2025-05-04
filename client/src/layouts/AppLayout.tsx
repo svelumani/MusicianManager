@@ -9,6 +9,7 @@ import {
   CalendarRange, Settings, CalendarDays, CalendarClock,
   FileText, CheckCircle
 } from "lucide-react";
+import vampLogoPath from "@assets/VAMP_Logo_Blue-PNG.webp";
 
 type SidebarItem = {
   label: string;
@@ -25,11 +26,11 @@ const sidebarItems: SidebarItem[] = [
   { 
     label: "Monthly Management", 
     path: "/monthly", 
-    icon: <Calendar className="mr-3 h-5 w-5" />,
+    icon: <CalendarRange className="mr-3 h-5 w-5" />,
     subItems: [
-      { label: "Monthly Planner", path: "/planner", icon: <Calendar className="mr-3 h-5 w-5" /> },
-      { label: "Monthly Contracts", path: "/monthly/contracts", icon: <Calendar className="mr-3 h-5 w-5" /> },
-      { label: "Contract Status", path: "/monthly/status", icon: <Calendar className="mr-3 h-5 w-5" /> },
+      { label: "Monthly Planner", path: "/monthly/planner", icon: <CalendarDays className="mr-3 h-5 w-5" /> },
+      { label: "Monthly Contracts", path: "/monthly/contracts", icon: <FileText className="mr-3 h-5 w-5" /> },
+      { label: "Contract Status", path: "/monthly/status", icon: <CheckCircle className="mr-3 h-5 w-5" /> },
     ]
   },
   { label: "Payments", path: "/payments", icon: <DollarSign className="mr-3 h-5 w-5" /> },
@@ -76,8 +77,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <div className={`${isMobileSidebarOpen ? 'fixed inset-y-0 left-0 z-30' : 'hidden'} md:flex md:flex-shrink-0 md:relative`}>
         <div className="flex flex-col w-64 bg-gray-800">
-          <div className="flex items-center justify-center h-16 px-4 bg-gray-900">
-            <span className="text-white font-bold text-xl tracking-wide">VAMP</span>
+          <div className="flex items-center justify-center h-20 px-4 bg-gray-900">
+            <div className="flex flex-col items-center">
+              <img 
+                src={vampLogoPath}
+                alt="Vamp Productions Logo"
+                className="h-12 w-auto"
+              />
+              <span className="text-white text-xs mt-1">Productions</span>
+            </div>
           </div>
           <div className="h-0 flex-1 flex flex-col overflow-y-auto">
             {/* Sidebar Navigation */}
