@@ -2853,7 +2853,219 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Finalize a planner and optionally send emails
+  // NEW SIMPLIFIED ENDPOINT: Fetch musician assignments with step-by-step validation
+  apiRouter.get("/planner-musicians/:plannerId", isAuthenticated, async (req, res) => {
+    try {
+      console.log("\n\n======== STARTING PLANNER-MUSICIANS FETCH ========");
+      
+      // 1. Validate the planner ID parameter
+      const plannerId = parseInt(req.params.plannerId);
+      if (isNaN(plannerId) || plannerId <= 0) {
+        console.error(`[planner-musicians] Invalid planner ID: ${req.params.plannerId}`);
+        return res.status(200).json({ 
+          success: false, 
+          error: "Invalid planner ID",
+          message: "The planner ID provided is not valid."
+        });
+      }
+      
+      // 2. Check if planner exists
+      const planner = await storage.getMonthlyPlanner(plannerId);
+      if (!planner) {
+        console.error(`[planner-musicians] Planner not found: ${plannerId}`);
+        return res.status(200).json({ 
+          success: false, 
+          error: "PlannerNotFound",
+          message: "The monthly planner could not be found."
+        });
+      }
+      
+      // 3. Get all slots for the planner
+      const slots = await storage.getPlannerSlots(plannerId);
+      console.log(`[planner-musicians] Found ${slots.length} slots for planner ID: ${plannerId}`);
+      
+      if (!slots || slots.length === 0) {
+        return res.status(200).json({
+          success: false,
+          error: "NoSlots",
+          message: "No slots found for this planner."
+        });
+      }
+      
+      // 4. Process each slot to get assignments
+      const slotIds = slots.map(slot => slot.id);
+      
+      // 5. Get musician data with careful validation at each step
+      const musicians = {}; // Final result object to return
+      const musiciansSeen = new Set(); // Track which musicians we've already seen
+      
+      for (const slotId of slotIds) {
+        // Get slot details (will need for date, venue, etc.)
+        const slot = slots.find(s => s.id === slotId);
+        if (!slot) continue;
+        
+        try {
+          // Get assignments for this slot
+          const assignments = await storage.getPlannerAssignments(slotId);
+          
+          for (const assignment of assignments) {
+            // Skip if no musician ID or invalid
+            if (!assignment.musicianId || isNaN(assignment.musicianId)) continue;
+            
+            // If we've already processed this musician, just add this assignment
+            if (musiciansSeen.has(assignment.musicianId)) {
+              const musicianKey = assignment.musicianId.toString();
+              
+              // Get venue info
+              let venueName = "Unknown Venue";
+              if (slot.venueId) {
+                try {
+                  const venue = await storage.getVenue(slot.venueId);
+                  if (venue) venueName = venue.name;
+                } catch (err) {
+                  console.error(`[planner-musicians] Error fetching venue ${slot.venueId}:`, err);
+                }
+              }
+              
+              // Calculate fee
+              let fee = assignment.actualFee || 0;
+              if (!fee) {
+                try {
+                  const rates = await storage.getMusicianPayRatesByMusicianId(assignment.musicianId);
+                  const category = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
+                  const matchingRate = rates.find(r => r.eventCategoryId === category);
+                  
+                  if (matchingRate && matchingRate.hourlyRate) {
+                    // Default to 2 hours if not specified
+                    const duration = 2; 
+                    fee = matchingRate.hourlyRate * duration;
+                  } else {
+                    fee = 150; // Default fallback
+                  }
+                } catch (err) {
+                  console.error(`[planner-musicians] Error calculating fee:`, err);
+                  fee = 150; // Default fallback
+                }
+              }
+              
+              // Add this assignment to the musician's list
+              musicians[musicianKey].assignments.push({
+                id: assignment.id,
+                date: slot.date,
+                venueName: venueName,
+                venueId: slot.venueId,
+                fee: fee,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                status: assignment.status || "pending"
+              });
+              
+              musicians[musicianKey].totalFee += fee;
+              continue;
+            }
+            
+            // First time seeing this musician - get their details
+            try {
+              const musician = await storage.getMusician(assignment.musicianId);
+              if (!musician) continue; // Skip if musician not found
+              
+              // Get venue info
+              let venueName = "Unknown Venue";
+              if (slot.venueId) {
+                try {
+                  const venue = await storage.getVenue(slot.venueId);
+                  if (venue) venueName = venue.name;
+                } catch (err) {
+                  console.error(`[planner-musicians] Error fetching venue ${slot.venueId}:`, err);
+                }
+              }
+              
+              // Calculate fee
+              let fee = assignment.actualFee || 0;
+              if (!fee) {
+                try {
+                  const rates = await storage.getMusicianPayRatesByMusicianId(assignment.musicianId);
+                  const category = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
+                  const matchingRate = rates.find(r => r.eventCategoryId === category);
+                  
+                  if (matchingRate && matchingRate.hourlyRate) {
+                    // Default to 2 hours if not specified
+                    const duration = 2; 
+                    fee = matchingRate.hourlyRate * duration;
+                  } else {
+                    fee = 150; // Default fallback
+                  }
+                } catch (err) {
+                  console.error(`[planner-musicians] Error calculating fee:`, err);
+                  fee = 150; // Default fallback
+                }
+              }
+              
+              // Create new musician entry with first assignment
+              const musicianKey = musician.id.toString();
+              musicians[musicianKey] = {
+                musicianId: musician.id,
+                musicianName: musician.name,
+                email: musician.email,
+                phone: musician.phone,
+                assignments: [{
+                  id: assignment.id,
+                  date: slot.date,
+                  venueName: venueName,
+                  venueId: slot.venueId,
+                  fee: fee,
+                  startTime: slot.startTime,
+                  endTime: slot.endTime,
+                  status: assignment.status || "pending"
+                }],
+                totalFee: fee
+              };
+              
+              // Mark as seen
+              musiciansSeen.add(musician.id);
+            } catch (err) {
+              console.error(`[planner-musicians] Error processing musician ${assignment.musicianId}:`, err);
+              continue;
+            }
+          }
+        } catch (err) {
+          console.error(`[planner-musicians] Error processing slot ${slotId}:`, err);
+          continue;
+        }
+      }
+      
+      // If no musicians found after all that processing, return error
+      if (Object.keys(musicians).length === 0) {
+        return res.status(200).json({
+          success: false,
+          error: "NoMusicians",
+          message: "No musicians with assignments found for this planner."
+        });
+      }
+      
+      // Return successful response with musician data
+      return res.status(200).json({
+        success: true,
+        planner: {
+          id: planner.id,
+          name: planner.name,
+          month: planner.month,
+          year: planner.year
+        },
+        musicians: musicians
+      });
+      
+    } catch (error) {
+      console.error("[planner-musicians] Unexpected error:", error);
+      return res.status(200).json({
+        success: false,
+        error: "ServerError",
+        message: "An unexpected error occurred while processing musician data."
+      });
+    }
+  });
+
+  // Finalize a planner and optionally send emails (previous implementation)
   apiRouter.post("/planners/:id/finalize", isAuthenticated, async (req, res) => {
     try {
       const plannerId = parseInt(req.params.id);
