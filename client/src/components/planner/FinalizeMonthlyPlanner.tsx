@@ -108,25 +108,60 @@ The VAMP Team`
     error: assignmentsError,
   } = useQuery({
     queryKey: ['/api/planner-assignments/by-musician', plannerId],
-    queryFn: () => {
+    queryFn: async () => {
       // Enhanced logging to track what values are being sent
       console.log("FinalizeMonthlyPlanner - API request parameters:", {
         plannerId,
         isNumber: typeof plannerId === 'number',
         isNaN: isNaN(plannerId),
         stringValue: String(plannerId),
-        asInt: parseInt(String(plannerId))
+        asInt: parseInt(String(plannerId)),
+        plannerIdType: typeof plannerId
       });
       
       // Ensure plannerId is a valid number
       if (!plannerId || isNaN(plannerId)) {
         console.error("Invalid plannerId:", plannerId);
-        return {}; // Return empty object instead of making API call with invalid ID
+        throw new Error("Invalid planner ID. Please try again with a valid monthly planner.");
       }
       
-      const url = `/api/planner-assignments/by-musician?plannerId=${plannerId}`;
+      // Ensure we're passing a number, not a string that looks like a number
+      const numericPlannerId = typeof plannerId === 'number' ? plannerId : parseInt(String(plannerId), 10);
+      const url = `/api/planner-assignments/by-musician?plannerId=${numericPlannerId}`;
       console.log("Making API request to:", url);
-      return apiRequest(url);
+      
+      try {
+        const response = await apiRequest(url);
+        console.log("API response received:", {
+          responseType: typeof response,
+          isObject: response && typeof response === 'object',
+          hasKeys: response && typeof response === 'object' ? Object.keys(response).length : 0,
+          firstKeys: response && typeof response === 'object' ? Object.keys(response).slice(0, 5) : []
+        });
+        
+        // Add metadata about the response
+        if (response && typeof response === 'object') {
+          const musicianCount = Object.keys(response).filter(key => !key.startsWith('_')).length;
+          console.log(`Response contains ${musicianCount} musicians with assignments`);
+          
+          if (musicianCount === 0) {
+            console.warn("Empty response received (no musicians) - adding diagnostic info");
+            return {
+              _status: "empty",
+              _message: "No musicians found in the response",
+              _originalResponse: response
+            };
+          }
+          
+          return response;
+        } else {
+          console.error("Invalid response format:", response);
+          throw new Error("Invalid response format from server");
+        }
+      } catch (error) {
+        console.error("Error fetching musician assignments:", error);
+        throw error;
+      }
     },
     enabled: open && !!plannerId && !isNaN(plannerId),
     retry: 2, // Retry failed requests twice
