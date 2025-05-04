@@ -130,6 +130,70 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
     queryKey: ["/api/musicians"],
   });
   
+  // Fetch contracts for the event when editing to check statuses
+  const { data: eventContracts = [], isLoading: isLoadingContracts } = useQuery({
+    queryKey: ["/api/contracts/event", initialData?.id],
+    enabled: !!initialData?.id, // Only fetch when editing an existing event
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/contracts/event/${initialData?.id}`);
+        if (!res.ok) throw new Error("Failed to load contracts");
+        return res.json();
+      } catch (err) {
+        console.error("Error fetching contracts:", err);
+        return [];
+      }
+    }
+  });
+  
+  // Create a map of musician contracts for easy lookup
+  const musicianContractsMap = useMemo(() => {
+    const contractMap = new Map();
+    eventContracts.forEach(contract => {
+      // Store by musician ID and date if present
+      if (contract.eventDate) {
+        const dateKey = format(new Date(contract.eventDate), 'yyyy-MM-dd');
+        const mapKey = `${contract.musicianId}-${dateKey}`;
+        contractMap.set(mapKey, contract);
+      } else {
+        // Store by musician ID only if no date
+        contractMap.set(`${contract.musicianId}`, contract);
+      }
+    });
+    return contractMap;
+  }, [eventContracts]);
+  
+  // Function to check if a musician has a signed contract
+  const hasMusicianSignedContract = useCallback((musicianId: number, date?: Date): boolean => {
+    // If we have a date, check for that specific date
+    if (date) {
+      const dateKey = format(date, 'yyyy-MM-dd');
+      const mapKey = `${musicianId}-${dateKey}`;
+      const contract = musicianContractsMap.get(mapKey);
+      
+      if (contract) {
+        return ['contract-signed', 'accepted'].includes(contract.status);
+      }
+    }
+    
+    // Otherwise check for any contract for this musician
+    const contract = musicianContractsMap.get(`${musicianId}`);
+    return contract ? ['contract-signed', 'accepted'].includes(contract.status) : false;
+  }, [musicianContractsMap]);
+  
+  // Function to get musician contract status
+  const getMusicianContractStatus = useCallback((musicianId: number, date?: Date): string => {
+    if (date) {
+      const dateKey = format(date, 'yyyy-MM-dd');
+      const mapKey = `${musicianId}-${dateKey}`;
+      const contract = musicianContractsMap.get(mapKey);
+      return contract ? contract.status : 'none';
+    }
+    
+    const contract = musicianContractsMap.get(`${musicianId}`);
+    return contract ? contract.status : 'none';
+  }, [musicianContractsMap]);
+  
   // No need to maintain a separate map as we now use dateAvailabilityData from the query
   
   // Query for musicians of selected categories - we're not filtering by availability here anymore
@@ -1038,31 +1102,63 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                     </div>
                                   </div>
                                   {activeDate && (
-                                    <Button
-                                      type="button"
-                                      variant={isSelectedForActiveDate ? "destructive" : "outline"}
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        e.preventDefault();
-                                        
-                                        if (isSelectedForActiveDate) {
-                                          handleRemoveMusicianFromDate(musician.id, activeDate);
-                                        } else {
-                                          if (isMusicianAvailableForDate(musician.id, activeDate)) {
-                                            handleAddMusicianToDate(musician.id, activeDate);
+                                    <>
+                                      {/* Show contract status if available */}
+                                      {isSelectedForActiveDate && (
+                                        <div className="mr-2">
+                                          {getMusicianContractStatus(musician.id, activeDate) !== 'none' && (
+                                            <Badge 
+                                              variant="outline" 
+                                              className={`mr-2 text-xs ${
+                                                hasMusicianSignedContract(musician.id, activeDate) 
+                                                  ? 'bg-green-100 border-green-300 text-green-800' 
+                                                  : 'bg-blue-100 border-blue-300 text-blue-800'
+                                              }`}
+                                            >
+                                              {hasMusicianSignedContract(musician.id, activeDate) 
+                                                ? 'Contract Signed' 
+                                                : 'Contract Sent'}
+                                            </Badge>
+                                          )}
+                                        </div>
+                                      )}
+                                      
+                                      <Button
+                                        type="button"
+                                        variant={isSelectedForActiveDate ? "destructive" : "outline"}
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          e.preventDefault();
+                                          
+                                          if (isSelectedForActiveDate) {
+                                            // Check if musician has signed a contract
+                                            if (hasMusicianSignedContract(musician.id, activeDate)) {
+                                              toast({
+                                                title: "Cannot remove musician",
+                                                description: "This musician has signed a contract and cannot be removed.",
+                                                variant: "destructive",
+                                              });
+                                              return;
+                                            }
+                                            handleRemoveMusicianFromDate(musician.id, activeDate);
                                           } else {
-                                            toast({
-                                              title: "Musician unavailable",
-                                              description: "This musician is not available on this date.",
-                                              variant: "destructive",
-                                            });
+                                            if (isMusicianAvailableForDate(musician.id, activeDate)) {
+                                              handleAddMusicianToDate(musician.id, activeDate);
+                                            } else {
+                                              toast({
+                                                title: "Musician unavailable",
+                                                description: "This musician is not available on this date.",
+                                                variant: "destructive",
+                                              });
+                                            }
                                           }
-                                        }
-                                      }}
-                                    >
-                                      {isSelectedForActiveDate ? "Remove" : "Select"}
-                                    </Button>
+                                        }}
+                                        disabled={isSelectedForActiveDate && hasMusicianSignedContract(musician.id, activeDate)}
+                                      >
+                                        {isSelectedForActiveDate ? "Remove" : "Select"}
+                                      </Button>
+                                    </>
                                   )}
                                 </div>
                                 
