@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, jsonb, date, many } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, jsonb, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -844,12 +844,21 @@ export const monthlyContractMusicians = pgTable("monthly_contract_musicians", {
   musicianId: integer("musician_id").notNull(), // Foreign key to musicians
   status: text("status").notNull().default("pending"), // pending, accepted, rejected, partial
   token: text("token").notNull().unique(), // Unique token for musician to access contract
-  respondedAt: timestamp("responded_at"),
+  sentAt: timestamp("sent_at"), // When the contract was sent to the musician
+  respondedAt: timestamp("responded_at"), // When the musician first responded
+  completedAt: timestamp("completed_at"), // When all dates were responded to
+  lastReminderAt: timestamp("last_reminder_at"), // When the last reminder was sent
+  reminderCount: integer("reminder_count").default(0), // Number of reminders sent
   notes: text("notes"), // Admin notes about this musician's contract
   musicianNotes: text("musician_notes"), // Notes from the musician
-  companySignature: text("company_signature"), // Company digital signature
-  musicianSignature: text("musician_signature"), // Musician digital signature
+  companySignature: text("company_signature"), // Company digital signature for the overall contract
+  musicianSignature: text("musician_signature"), // Musician signature for the overall contract
   ipAddress: text("ip_address"), // IP address captured during signature
+  acceptedDates: integer("accepted_dates").default(0), // Count of accepted dates
+  rejectedDates: integer("rejected_dates").default(0), // Count of rejected dates
+  pendingDates: integer("pending_dates").default(0), // Count of pending dates
+  totalDates: integer("total_dates").default(0), // Total number of dates in this contract
+  totalFee: doublePrecision("total_fee").default(0), // Total fee for all dates
 });
 
 export const insertMonthlyContractMusicianSchema = createInsertSchema(monthlyContractMusicians).pick({
@@ -857,11 +866,18 @@ export const insertMonthlyContractMusicianSchema = createInsertSchema(monthlyCon
   musicianId: true,
   status: true,
   token: true,
+  sentAt: true,
   notes: true,
   musicianNotes: true,
   companySignature: true,
   musicianSignature: true,
   ipAddress: true,
+  reminderCount: true,
+  acceptedDates: true,
+  rejectedDates: true,
+  pendingDates: true,
+  totalDates: true,
+  totalFee: true,
 });
 
 export type MonthlyContractMusician = typeof monthlyContractMusicians.$inferSelect;
@@ -875,6 +891,17 @@ export const monthlyContractDates = pgTable("monthly_contract_dates", {
   status: text("status").notNull().default("pending"), // accepted, rejected, pending
   fee: doublePrecision("fee").notNull(), // Fee for this date
   notes: text("notes"), // Notes for this specific date
+  responseNotes: text("response_notes"), // Notes from musician about this date
+  eventId: integer("event_id"), // Optional related event/planner slot
+  venueId: integer("venue_id"), // Optional venue ID for this date
+  venueName: text("venue_name"), // Venue name for this date
+  startTime: text("start_time"), // Start time for this performance
+  endTime: text("end_time"), // End time for this performance
+  responseTimestamp: timestamp("response_timestamp"), // When the musician responded
+  ipAddress: text("ip_address"), // IP address when responding
+  signatureData: jsonb("signature_data"), // Signature data for this specific date
+  replacementMusicianId: integer("replacement_musician_id"), // If this date was reassigned
+  isReplacement: boolean("is_replacement").default(false), // If this is a replacement booking
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -892,10 +919,46 @@ export const insertMonthlyContractDateSchema = createInsertSchema(monthlyContrac
   status: true,
   fee: true,
   notes: true,
+  responseNotes: true,
+  eventId: true,
+  venueId: true,
+  venueName: true,
+  startTime: true,
+  endTime: true,
+  ipAddress: true,
+  signatureData: true,
+  replacementMusicianId: true,
+  isReplacement: true
 });
 
 export type MonthlyContractDate = typeof monthlyContractDates.$inferSelect;
 export type InsertMonthlyContractDate = z.infer<typeof insertMonthlyContractDateSchema>;
+
+// Monthly Contract Status History table
+export const monthlyContractStatusHistory = pgTable("monthly_contract_status_history", {
+  id: serial("id").primaryKey(),
+  contractId: integer("contract_id").notNull(), // FK to monthly_contracts
+  previousStatus: text("previous_status").notNull(),
+  newStatus: text("new_status").notNull(),
+  changedAt: timestamp("changed_at").notNull().defaultNow(),
+  changedById: integer("changed_by_id"), // FK to users - who made the change
+  notes: text("notes"), // Optional notes about this status change
+});
+
+export const insertMonthlyContractStatusHistorySchema = createInsertSchema(monthlyContractStatusHistory)
+.omit({
+  id: true,
+})
+.pick({
+  contractId: true,
+  previousStatus: true,
+  newStatus: true,
+  changedById: true,
+  notes: true
+});
+
+export type MonthlyContractStatusHistory = typeof monthlyContractStatusHistory.$inferSelect;
+export type InsertMonthlyContractStatusHistory = z.infer<typeof insertMonthlyContractStatusHistorySchema>;
 
 // Define relationships between tables
 
