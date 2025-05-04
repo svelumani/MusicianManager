@@ -108,7 +108,7 @@ const MonthlyManagementPage = () => {
             </CardContent>
             <CardFooter>
               <Button asChild className="w-full">
-                <Link href="/planner">
+                <Link href="/events/planner">
                   Go to Monthly Planner <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -239,7 +239,7 @@ const MonthlyManagementPage = () => {
                     Start by creating a monthly planner and adding events to the schedule.
                   </p>
                   <Button asChild variant="link" className="p-0 h-auto">
-                    <Link href="/planner">
+                    <Link href="/events/planner">
                       Go to Monthly Planner <ArrowRight className="ml-1 h-4 w-4" />
                     </Link>
                   </Button>
