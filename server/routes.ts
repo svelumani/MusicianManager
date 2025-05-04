@@ -5281,7 +5281,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updateData.musicianSignature = musicianSignature;
         }
         
-        if (hasAccepted && ipAddress) {
+        // Always update IP address if provided, regardless of accepted status
+        if (ipAddress) {
           updateData.ipAddress = ipAddress;
         }
         

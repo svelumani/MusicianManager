@@ -309,12 +309,15 @@ const MonthlyContractResponsePage = () => {
         {/* Company Logo and Name */}
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
-            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
-              {/* Placeholder for actual logo */}
-              <span className="text-4xl font-bold text-gray-500">VAMP</span>
+            <div className="w-48 h-auto overflow-hidden">
+              <img 
+                src="/attached_assets/VAMP_Logo_Blue-PNG.webp"
+                alt="Vamp Productions Logo"
+                className="w-full h-auto"
+              />
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-primary">Victoria Association of Music Promoters</h2>
+          <h2 className="text-2xl font-bold text-primary">Vamp Productions</h2>
         </div>
         
         {/* Digital Signature Dialog */}
