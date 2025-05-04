@@ -2481,7 +2481,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get assignments grouped by musician for a planner
   apiRouter.get("/planner-assignments/by-musician", isAuthenticated, async (req, res) => {
     try {
-      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
+      console.log("[by-musician] Received request with query params:", req.query);
+      
+      // Force convert the plannerId to string first to handle all input types
+      const plannerIdInput = req.query.plannerId ? String(req.query.plannerId) : undefined;
+      const plannerId = plannerIdInput ? parseInt(plannerIdInput) : undefined;
+      
+      console.log(`[by-musician] Parsed plannerId: ${plannerId}, raw value: ${plannerIdInput}, type: ${typeof req.query.plannerId}`);
       
       if (!plannerId || isNaN(plannerId)) {
         console.error(`[by-musician] Invalid plannerId: ${req.query.plannerId}`);

@@ -109,14 +109,28 @@ The VAMP Team`
   } = useQuery({
     queryKey: ['/api/planner-assignments/by-musician', plannerId],
     queryFn: () => {
+      // Enhanced logging to track what values are being sent
+      console.log("FinalizeMonthlyPlanner - API request parameters:", {
+        plannerId,
+        isNumber: typeof plannerId === 'number',
+        isNaN: isNaN(plannerId),
+        stringValue: String(plannerId),
+        asInt: parseInt(String(plannerId))
+      });
+      
       // Ensure plannerId is a valid number
       if (!plannerId || isNaN(plannerId)) {
         console.error("Invalid plannerId:", plannerId);
         return {}; // Return empty object instead of making API call with invalid ID
       }
-      return apiRequest(`/api/planner-assignments/by-musician?plannerId=${plannerId}`);
+      
+      const url = `/api/planner-assignments/by-musician?plannerId=${plannerId}`;
+      console.log("Making API request to:", url);
+      return apiRequest(url);
     },
     enabled: open && !!plannerId && !isNaN(plannerId),
+    retry: 2, // Retry failed requests twice
+    retryDelay: 1000 // Wait 1 second between retries
   });
   
   // Query to get all email templates
@@ -281,8 +295,8 @@ The VAMP Team`
     }
     
     // Check if musicianAssignments contains the special _status flag for an empty result
-    if (musicianAssignments._status === 'empty') {
-      console.warn(`Empty musician assignments: ${musicianAssignments._message || 'No reason provided'}`);
+    if (musicianAssignments && 'object' === typeof musicianAssignments && '_status' in musicianAssignments && musicianAssignments._status === 'empty') {
+      console.warn(`Empty musician assignments: ${('_message' in musicianAssignments) ? musicianAssignments._message : 'No reason provided'}`);
       toast({
         title: "Error",
         description: "No musicians with assignments found for this month. Cannot finalize empty planner.",
