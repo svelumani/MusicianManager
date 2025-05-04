@@ -1197,6 +1197,15 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                             
                                             // Use direct add/remove functions
                                             if (isAssignedToDate) {
+                                              // Check if musician has signed a contract for this date
+                                              if (hasMusicianSignedContract(musician.id, date)) {
+                                                toast({
+                                                  title: "Cannot remove musician",
+                                                  description: "This musician has signed a contract and cannot be removed.",
+                                                  variant: "destructive",
+                                                });
+                                                return;
+                                              }
                                               handleRemoveMusicianFromDate(musician.id, date);
                                             } else if (isAvailableForDate) {
                                               handleAddMusicianToDate(musician.id, date);
@@ -1208,10 +1217,15 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
                                               });
                                             }
                                           }}
+                                          // Disable the badge click if contract is signed
+                                          style={isAssignedToDate && hasMusicianSignedContract(musician.id, date) ? { pointerEvents: 'none', opacity: 0.7 } : {}}
                                         >
                                           {format(date, "MMM d")}
+                                          {isAssignedToDate && hasMusicianSignedContract(musician.id, date) && (
+                                            <span className="ml-1" title="Contract Signed">✓</span>
+                                          )}
                                           {!isAvailableForDate && !isAssignedToDate && (
-                                            <span className="ml-1">❌</span>
+                                            <span className="ml-1" title="Not available">❌</span>
                                           )}
                                         </Badge>
                                       );
