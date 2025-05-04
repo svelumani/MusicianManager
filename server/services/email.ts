@@ -153,8 +153,8 @@ export async function sendMusicianAssignmentEmail(
     if (emailTemplateId) {
       try {
         // Import dynamically to avoid circular dependencies
-        const { storage } = await import('../DatabaseStorage');
-        const template = await storage.getEmailTemplate(emailTemplateId);
+        const DatabaseStorage = await import('../DatabaseStorage');
+        const template = await DatabaseStorage.default.getEmailTemplate(emailTemplateId);
         
         if (template) {
           // Replace template variables
@@ -260,10 +260,16 @@ This is an automated email. Please do not reply directly to this message.
 /**
  * Send a batch of emails to multiple musicians
  * @param assignments Map of musician data to assignments
+ * @param month The month for the assignments (formatted string)
+ * @param customMessage Optional custom message to include in the email
+ * @param emailTemplateId Optional email template ID to use
  * @returns Number of successfully sent emails
  */
 export async function sendBatchAssignmentEmails(
-  assignments: Map<{ id: number; name: string; email: string }, MusicianAssignment[]>
+  assignments: Map<{ id: number; name: string; email: string }, MusicianAssignment[]>,
+  month: string = 'Current Month',
+  customMessage?: string | null,
+  emailTemplateId?: number | null
 ): Promise<number> {
   let successCount = 0;
 
@@ -279,7 +285,10 @@ export async function sendBatchAssignmentEmails(
     const success = await sendMusicianAssignmentEmail(
       musician.email,
       musician.name,
-      musicianAssignments
+      month,
+      musicianAssignments,
+      customMessage,
+      emailTemplateId
     );
 
     if (success) {

@@ -2613,7 +2613,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 musicianData.musicianName,
                 format(new Date(planner.month), 'MMMM yyyy'),
                 musicianData.assignments,
-                emailMessage
+                emailMessage,
+                emailTemplateId
               );
             });
             
@@ -2806,6 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const result = await sendMusicianAssignmentEmail(
           to,
           "Test Recipient",
+          "May 2025",
           [
             {
               date: "May 15, 2025",
