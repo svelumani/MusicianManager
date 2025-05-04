@@ -3559,18 +3559,50 @@ export class DatabaseStorage implements IStorage {
 
   // Monthly Contract Dates management implementation
   async getMonthlyContractDates(musicianContractId: number): Promise<MonthlyContractDate[]> {
-    return await db.select()
-      .from(monthlyContractDates)
-      .where(eq(monthlyContractDates.musicianContractId, musicianContractId))
-      .orderBy(asc(monthlyContractDates.date));
+    // Use direct SQL to ensure proper date formatting
+    const result = await pool.query(`
+      SELECT * FROM monthly_contract_dates 
+      WHERE musician_contract_id = $1
+      ORDER BY date ASC
+    `, [musicianContractId]);
+    
+    // Convert column names from snake_case to camelCase and format dates
+    return result.rows.map(row => ({
+      id: row.id,
+      musicianContractId: row.musician_contract_id,
+      date: new Date(row.date),
+      status: row.status,
+      fee: row.fee,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    }));
   }
 
   async getMonthlyContractDate(id: number): Promise<MonthlyContractDate | undefined> {
-    const [date] = await db.select()
-      .from(monthlyContractDates)
-      .where(eq(monthlyContractDates.id, id));
+    // Use direct SQL for consistent date handling
+    const result = await pool.query(`
+      SELECT * FROM monthly_contract_dates 
+      WHERE id = $1
+    `, [id]);
     
-    return date;
+    if (result.rows.length === 0) {
+      return undefined;
+    }
+    
+    const row = result.rows[0];
+    
+    // Convert column names from snake_case to camelCase and format dates
+    return {
+      id: row.id,
+      musicianContractId: row.musician_contract_id,
+      date: new Date(row.date),
+      status: row.status,
+      fee: row.fee,
+      notes: row.notes,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
   }
 
   async createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate> {

@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, jsonb, many } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, doublePrecision, timestamp, jsonb, date, many } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -869,7 +869,7 @@ export type InsertMonthlyContractMusician = z.infer<typeof insertMonthlyContract
 export const monthlyContractDates = pgTable("monthly_contract_dates", {
   id: serial("id").primaryKey(),
   musicianContractId: integer("musician_contract_id").notNull(), // Foreign key to monthly_contract_musicians
-  date: timestamp("date").notNull(),
+  date: date("date").notNull(), // Changed to date() instead of timestamp()
   status: text("status").notNull().default("pending"), // accepted, rejected, pending
   fee: doublePrecision("fee").notNull(), // Fee for this date
   notes: text("notes"), // Notes for this specific date
