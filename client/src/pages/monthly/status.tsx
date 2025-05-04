@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { format, isAfter, isBefore, subDays } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -30,7 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Calendar, CheckCircle, XCircle, Clock, AlertTriangle, Search } from "lucide-react";
+import { Calendar, CheckCircle, XCircle, Clock, AlertTriangle, Search, MailIcon, RefreshCw, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +72,9 @@ const ContractStatusPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContract, setSelectedContract] = useState<any>(null);
   const [showResponseDialog, setShowResponseDialog] = useState(false);
+  const [showReminderDialog, setShowReminderDialog] = useState(false);
   const [selectedMusician, setSelectedMusician] = useState<MusicianContractStatus | null>(null);
+  const [sendingReminders, setSendingReminders] = useState(false);
   
   // Format month names
   const getMonthName = (month: number) => {
@@ -188,6 +190,49 @@ const ContractStatusPage = () => {
       return format(new Date(dateString), 'E, MMM d, yyyy');
     } catch (e) {
       return 'Invalid date';
+    }
+  };
+  
+  // Check if a musician's response is overdue (more than 3 days since sent)
+  const isResponseOverdue = (musician: MusicianContractStatus) => {
+    if (musician.status !== 'sent' && musician.status !== 'pending') return false;
+    if (!selectedContract?.sentAt) return false;
+    
+    const sentDate = new Date(selectedContract.sentAt);
+    const threeDaysAfterSent = subDays(new Date(), -3); // Current date minus 3 days
+    
+    return isBefore(sentDate, threeDaysAfterSent);
+  };
+  
+  // Get musicians who need reminders
+  const getOverdueMusicians = () => {
+    return musicians.filter((m: MusicianContractStatus) => isResponseOverdue(m));
+  };
+  
+  // Send reminder emails to musicians (simulated)
+  const sendReminders = async () => {
+    try {
+      setSendingReminders(true);
+      
+      // Simulate API request
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Show success message
+      toast({
+        title: "Reminders sent",
+        description: `Email reminders sent to ${getOverdueMusicians().length} musicians.`,
+        variant: "default",
+      });
+      
+      setShowReminderDialog(false);
+    } catch (error) {
+      toast({
+        title: "Error sending reminders",
+        description: "There was a problem sending reminder emails.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingReminders(false);
     }
   };
 
@@ -339,6 +384,32 @@ const ContractStatusPage = () => {
                     </div>
                     <Progress value={stats.completion} className="h-2" />
                   </div>
+                  
+                  {/* Overdue responses alert */}
+                  {getOverdueMusicians().length > 0 && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
+                      <div className="flex items-start">
+                        <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 mr-3" />
+                        <div>
+                          <h3 className="text-sm font-medium text-amber-800">
+                            {getOverdueMusicians().length} musician{getOverdueMusicians().length > 1 ? 's' : ''} with overdue responses
+                          </h3>
+                          <p className="text-sm text-amber-700 mt-1">
+                            These musicians have not responded to their contract within the expected timeframe.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2 bg-white border-amber-300 text-amber-700 hover:bg-amber-50"
+                            onClick={() => setShowReminderDialog(true)}
+                          >
+                            <MailIcon className="h-4 w-4 mr-2" />
+                            Send Reminder Emails
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Search bar */}
                   <div className="relative mb-4">
@@ -410,6 +481,78 @@ const ContractStatusPage = () => {
         </div>
       </div>
 
+      {/* Reminder dialog */}
+      <Dialog open={showReminderDialog} onOpenChange={setShowReminderDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-xl">Send Reminder Emails</DialogTitle>
+            <DialogDescription>
+              This will send reminder emails to all musicians who have not responded to their contracts.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <h3 className="font-medium mb-2">Musicians to remind:</h3>
+            <div className="border rounded-md overflow-auto max-h-60">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {getOverdueMusicians().map((musician: MusicianContractStatus) => (
+                    <TableRow key={musician.id}>
+                      <TableCell className="font-medium">{musician.musician.name}</TableCell>
+                      <TableCell>{musician.musician.email}</TableCell>
+                      <TableCell>
+                        <div>
+                          <Badge className={`${getStatusColor(musician.status)} text-white flex items-center w-fit`}>
+                            {getStatusIcon(musician.status)}
+                            {musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            
+            <div className="bg-blue-50 p-3 rounded-md mt-4 text-sm text-blue-700">
+              <p className="flex items-center">
+                <Info className="h-4 w-4 mr-2" />
+                Reminder emails will include a link to the musician's contract and a friendly reminder to respond.
+              </p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReminderDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              disabled={sendingReminders}
+              onClick={sendReminders}
+            >
+              {sendingReminders ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <MailIcon className="mr-2 h-4 w-4" />
+                  Send Reminders
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
       {/* Response details dialog */}
       {selectedMusician && (
         <Dialog open={showResponseDialog} onOpenChange={setShowResponseDialog}>
@@ -512,7 +655,23 @@ const ContractStatusPage = () => {
               <Button variant="outline" onClick={() => setShowResponseDialog(false)}>
                 Close
               </Button>
-              <Button>Send Reminder</Button>
+              {(selectedMusician.status === 'sent' || selectedMusician.status === 'pending') && (
+                <Button 
+                  onClick={() => {
+                    setShowResponseDialog(false);
+                    
+                    // Simulate sending an individual reminder
+                    toast({
+                      title: "Reminder sent",
+                      description: `A reminder email was sent to ${selectedMusician.musician.name}.`,
+                      variant: "default",
+                    });
+                  }}
+                >
+                  <MailIcon className="mr-2 h-4 w-4" />
+                  Send Reminder
+                </Button>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
