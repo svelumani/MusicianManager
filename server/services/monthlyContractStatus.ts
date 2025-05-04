@@ -235,21 +235,27 @@ class MonthlyContractStatusService {
         .where(eq(monthlyContractDates.id, dateId));
       
       // Record in entity status
-      await statusService.updateEntityStatus(
-        'monthly-contract-date',
-        dateId,
-        newStatus,
-        userId,
-        notes || `Status changed from ${currentStatus} to ${newStatus}`,
-        undefined,
-        { 
-          contractId,
-          musicianId,
-          musicianContractId,
-          previousStatus: currentStatus,
-          responseNotes
-        }
-      );
+      try {
+        await statusService.updateEntityStatus(
+          'monthly-contract-date',
+          dateId,
+          newStatus,
+          userId,
+          notes || `Status changed from ${currentStatus} to ${newStatus}`,
+          undefined, // eventId - will be handled in the status service
+          { 
+            contractId,
+            musicianId,
+            musicianContractId,
+            previousStatus: currentStatus,
+            responseNotes
+          }
+        );
+      } catch (error) {
+        console.error('Error updating entity status for contract date:', error);
+        // Continue execution even if the status update fails
+        // We've already updated the main record in the database
+      }
       
       // Update musician accepted/rejected counts
       await this.updateMusicianResponseCounts(musicianContractId);
