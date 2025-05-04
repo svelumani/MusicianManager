@@ -30,6 +30,19 @@ import {
   SelectValue
 } from "@/components/ui/select";
 
+interface ContractTemplate {
+  id: number;
+  name: string;
+  description: string | null;
+  content: string;
+  isDefault: boolean | null;
+  isMonthly: boolean | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+  createdBy: number | null;
+  variables: unknown;
+}
+
 interface FinalizeMonthlyPlannerProps {
   plannerId: number;
   plannerName: string;
@@ -47,6 +60,7 @@ const FinalizeMonthlyPlanner = ({
 }: FinalizeMonthlyPlannerProps) => {
   const { toast } = useToast();
   const [sendEmails, setSendEmails] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [emailMessage, setEmailMessage] = useState(
     `Dear musician,\n\nPlease find attached your scheduled performances for ${plannerMonth}. Please confirm your availability by clicking the confirmation link in this email.\n\nBest regards,\nThe VAMP Team`
   );
@@ -60,6 +74,39 @@ const FinalizeMonthlyPlanner = ({
     queryFn: () => apiRequest(`/api/planner-assignments/by-musician?plannerId=${plannerId}`),
     enabled: open && !!plannerId,
   });
+  
+  // Query to get all monthly contract templates
+  const {
+    data: contractTemplates = [] as ContractTemplate[],
+    isLoading: isLoadingTemplates,
+  } = useQuery<ContractTemplate[]>({
+    queryKey: ['/api/contract-templates'],
+    enabled: open && sendEmails,
+  });
+  
+  // Query to get a specific template by ID
+  const {
+    data: selectedTemplate,
+    isLoading: isLoadingSelectedTemplate,
+  } = useQuery({
+    queryKey: ['/api/contract-templates', selectedTemplateId],
+    queryFn: () => apiRequest(`/api/contract-templates/${selectedTemplateId}`),
+    enabled: !!selectedTemplateId && selectedTemplateId !== "loading" && selectedTemplateId !== "none",
+  });
+  
+  // Effect to update email message when a template is selected
+  useEffect(() => {
+    if (selectedTemplate) {
+      // Replace template variables with planner-specific values
+      let content = selectedTemplate.content;
+      content = content.replace(/{month}/g, plannerMonth);
+      content = content.replace(/{year}/g, new Date().getFullYear().toString());
+      content = content.replace(/{company_name}/g, "VAMP Productions");
+      
+      // Set the email message to the template content
+      setEmailMessage(content);
+    }
+  }, [selectedTemplate, plannerMonth]);
 
   // Finalize planner mutation
   const finalizeMutation = useMutation({
@@ -89,6 +136,7 @@ const FinalizeMonthlyPlanner = ({
     finalizeMutation.mutate({
       sendEmails,
       emailMessage: sendEmails ? emailMessage : null,
+      contractTemplateId: sendEmails && selectedTemplateId ? parseInt(selectedTemplateId) : null,
     });
   };
 
@@ -113,14 +161,46 @@ const FinalizeMonthlyPlanner = ({
           </div>
 
           {sendEmails && (
-            <div className="space-y-2">
-              <Label htmlFor="email-message">Email Message</Label>
-              <Textarea
-                id="email-message"
-                value={emailMessage}
-                onChange={(e) => setEmailMessage(e.target.value)}
-                rows={5}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="contract-template">Contract Template</Label>
+                <Select 
+                  value={selectedTemplateId} 
+                  onValueChange={setSelectedTemplateId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a monthly contract template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isLoadingTemplates ? (
+                      <SelectItem value="loading" disabled>Loading templates...</SelectItem>
+                    ) : contractTemplates.filter(template => template.isMonthly).length > 0 ? (
+                      contractTemplates
+                        .filter(template => template.isMonthly)
+                        .map(template => (
+                          <SelectItem key={template.id} value={template.id.toString()}>
+                            {template.name}
+                          </SelectItem>
+                        ))
+                    ) : (
+                      <SelectItem value="none" disabled>No monthly templates available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Choose a monthly contract template that will be used for email notifications
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email-message">Email Message</Label>
+                <Textarea
+                  id="email-message"
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  rows={5}
+                />
+              </div>
             </div>
           )}
 
@@ -168,7 +248,10 @@ const FinalizeMonthlyPlanner = ({
           </Button>
           <Button 
             onClick={handleFinalize} 
-            disabled={finalizeMutation.isPending}
+            disabled={
+              finalizeMutation.isPending || 
+              (sendEmails && (!selectedTemplateId || selectedTemplateId === "none" || selectedTemplateId === "loading"))
+            }
           >
             {finalizeMutation.isPending ? "Finalizing..." : "Finalize & Send"}
           </Button>
