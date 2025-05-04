@@ -518,7 +518,9 @@ const ContractStatusPage = () => {
                                 <div>
                                   <Badge className={`${getStatusColor(musician.status)} text-white flex items-center w-fit`}>
                                     {getStatusIcon(musician.status)}
-                                    {musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
+                                    {musician.status === 'signed' 
+                                      ? 'Accepted' 
+                                      : musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
                                   </Badge>
                                 </div>
                               </TableCell>
@@ -577,7 +579,9 @@ const ContractStatusPage = () => {
                         <div>
                           <Badge className={`${getStatusColor(musician.status)} text-white flex items-center w-fit`}>
                             {getStatusIcon(musician.status)}
-                            {musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
+                            {musician.status === 'signed' 
+                              ? 'Accepted' 
+                              : musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
                           </Badge>
                         </div>
                       </TableCell>
@@ -639,7 +643,7 @@ const ContractStatusPage = () => {
                       <div className="font-medium mr-2">Overall Status:</div>
                       <div className="flex space-x-2 items-center">
                         <Badge className={`${getStatusColor(selectedMusician.status)} text-white`}>
-                          {selectedMusician.status === 'signed' ? 'accepted' : selectedMusician.status}
+                          {selectedMusician.status === 'signed' ? 'Accepted' : selectedMusician.status.charAt(0).toUpperCase() + selectedMusician.status.slice(1)}
                         </Badge>
                         
                         <Select
@@ -725,7 +729,9 @@ const ContractStatusPage = () => {
                             <div>
                               <Badge className={`${getStatusColor(date.status)} text-white flex items-center w-fit`}>
                                 {getStatusIcon(date.status)}
-                                {date.status.charAt(0).toUpperCase() + date.status.slice(1)}
+                                {date.status === 'signed' 
+                                  ? 'Accepted' 
+                                  : date.status.charAt(0).toUpperCase() + date.status.slice(1)}
                               </Badge>
                             </div>
                           </TableCell>
