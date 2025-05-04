@@ -2057,15 +2057,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planners/month/:month/year/:year", isAuthenticated, async (req, res) => {
     try {
+      console.log(`[planner] Fetching monthly planner for ${req.params.month}/${req.params.year}`);
       const { month, year } = req.params;
-      const planner = await storage.getMonthlyPlannerByMonth(parseInt(month), parseInt(year));
-      if (!planner) {
-        return res.status(404).json({ message: "Planner not found for specified month/year" });
+      const monthInt = parseInt(month);
+      const yearInt = parseInt(year);
+      
+      // Validate inputs
+      if (isNaN(monthInt) || isNaN(yearInt) || monthInt < 1 || monthInt > 12) {
+        console.error(`[planner] Invalid month/year parameters: ${month}/${year}`);
+        return res.status(400).json({ 
+          message: "Invalid month/year parameters",
+          error: "BAD_REQUEST" 
+        });
       }
-      res.json(planner);
+      
+      // Try to get existing planner
+      const planner = await storage.getMonthlyPlannerByMonth(monthInt, yearInt);
+      
+      if (planner) {
+        console.log(`[planner] Found existing planner for ${month}/${year} with ID ${planner.id}`);
+        return res.json(planner);
+      }
+      
+      // Auto-create planner if not found
+      console.log(`[planner] No planner found for ${month}/${year}, creating one automatically`);
+      
+      try {
+        // Generate a name for the planner
+        const monthName = new Date(yearInt, monthInt - 1).toLocaleString('default', { month: 'long' });
+        const plannerName = `${monthName} ${yearInt} Planner`;
+        
+        const newPlanner = await storage.createMonthlyPlanner({
+          name: plannerName,
+          month: monthInt,
+          year: yearInt,
+          status: 'draft',
+          description: `Automatically created planner for ${monthName} ${yearInt}`
+        });
+        
+        console.log(`[planner] Successfully created planner with ID ${newPlanner.id}`);
+        res.json(newPlanner);
+      } catch (createError) {
+        console.error('[planner] Error creating planner:', createError);
+        // If we can't create one, return 404 as before
+        res.status(404).json({ 
+          message: "Planner not found and could not be created automatically",
+          error: "NOT_FOUND"
+        });
+      }
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error fetching planner by month/year" });
+      console.error('[planner] Unexpected error:', error);
+      res.status(500).json({ 
+        message: "Error fetching or creating planner",
+        error: "SERVER_ERROR" 
+      });
     }
   });
 
