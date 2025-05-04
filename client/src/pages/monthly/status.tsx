@@ -30,7 +30,19 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Calendar, CheckCircle, XCircle, Clock, AlertTriangle, Search, MailIcon, RefreshCw, Info } from "lucide-react";
+import { 
+  Calendar, 
+  CheckCircle, 
+  CheckCircle2,
+  ClipboardIcon, 
+  XCircle, 
+  Clock, 
+  AlertTriangle, 
+  Search, 
+  MailIcon, 
+  RefreshCw, 
+  Info 
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -137,15 +149,49 @@ const ContractStatusPage = () => {
 
   // Calculate contract completion stats
   const calculateStats = () => {
-    if (!musicians.length) return { pending: 0, accepted: 0, rejected: 0, total: 0, completion: 0 };
+    if (!musicians.length) return { 
+      pending: 0, 
+      accepted: 0, 
+      rejected: 0, 
+      cancelled: 0,
+      total: 0, 
+      completion: 0 
+    };
     
-    const pending = musicians.filter((m: MusicianContractStatus) => m.status === 'sent' || m.status === 'pending').length;
-    const accepted = musicians.filter((m: MusicianContractStatus) => m.status === 'signed' || m.status === 'accepted').length;
-    const rejected = musicians.filter((m: MusicianContractStatus) => m.status === 'rejected').length;
+    const pending = musicians.filter((m: MusicianContractStatus) => 
+      m.status === 'sent' || m.status === 'pending').length;
+    
+    const accepted = musicians.filter((m: MusicianContractStatus) => 
+      m.status === 'signed' || m.status === 'accepted').length;
+    
+    const rejected = musicians.filter((m: MusicianContractStatus) => 
+      m.status === 'rejected').length;
+    
+    const cancelled = musicians.filter((m: MusicianContractStatus) => 
+      m.status === 'cancelled').length;
+    
     const total = musicians.length;
-    const completion = (accepted + rejected) / total * 100;
+    const completion = (accepted + rejected + cancelled) / total * 100;
     
-    return { pending, accepted, rejected, total, completion };
+    // Update contract aggregate status based on musician responses
+    const updateContractStatus = () => {
+      if (!selectedContract) return;
+      
+      // If all musicians have responded, status should be 'completed'
+      if (pending === 0 && total > 0) {
+        // This is simulated - in a real app we'd update the backend
+        console.log('Contract status should be updated to: completed');
+      } 
+      // If some musicians have responded but not all, status should be 'in-progress'
+      else if (accepted + rejected + cancelled > 0) {
+        console.log('Contract status should be updated to: in-progress');
+      }
+    };
+    
+    // Only log status changes, don't actually update in this demo
+    updateContractStatus();
+    
+    return { pending, accepted, rejected, cancelled, total, completion };
   };
 
   const stats = calculateStats();
@@ -157,7 +203,15 @@ const ContractStatusPage = () => {
         return 'bg-gray-500';
       case 'sent':
         return 'bg-blue-500';
-      case 'signed':
+      case 'draft':
+        return 'bg-slate-500';
+      case 'in-progress':
+        return 'bg-amber-500';
+      case 'completed':
+        return 'bg-emerald-500';
+      case 'cancelled':
+        return 'bg-rose-500';
+      case 'signed': // Legacy support
       case 'accepted':
         return 'bg-green-500';
       case 'rejected':
@@ -172,13 +226,21 @@ const ContractStatusPage = () => {
     switch (status) {
       case 'pending':
         return <Clock className="h-4 w-4 mr-1" />;
-      case 'signed':
+      case 'sent':
+        return <AlertTriangle className="h-4 w-4 mr-1" />;
+      case 'draft':
+        return <ClipboardIcon className="h-4 w-4 mr-1" />;
+      case 'in-progress':
+        return <RefreshCw className="h-4 w-4 mr-1" />;
+      case 'completed':
+        return <CheckCircle2 className="h-4 w-4 mr-1" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 mr-1" />;
+      case 'signed': // Legacy support
       case 'accepted':
         return <CheckCircle className="h-4 w-4 mr-1" />;
       case 'rejected':
         return <XCircle className="h-4 w-4 mr-1" />;
-      case 'sent':
-        return <AlertTriangle className="h-4 w-4 mr-1" />;
       default:
         return <Clock className="h-4 w-4 mr-1" />;
     }
@@ -357,7 +419,7 @@ const ContractStatusPage = () => {
               ) : (
                 <>
                   {/* Stats overview */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <div className="text-blue-500 text-sm font-medium">Total</div>
                       <div className="text-2xl font-bold">{stats.total}</div>
@@ -373,6 +435,10 @@ const ContractStatusPage = () => {
                     <div className="bg-red-50 p-4 rounded-lg">
                       <div className="text-red-500 text-sm font-medium">Rejected</div>
                       <div className="text-2xl font-bold">{stats.rejected}</div>
+                    </div>
+                    <div className="bg-rose-50 p-4 rounded-lg">
+                      <div className="text-rose-500 text-sm font-medium">Cancelled</div>
+                      <div className="text-2xl font-bold">{stats.cancelled}</div>
                     </div>
                   </div>
 
@@ -571,10 +637,31 @@ const ContractStatusPage = () => {
                   <div className="space-y-2">
                     <div className="flex items-center mb-2">
                       <div className="font-medium mr-2">Overall Status:</div>
-                      <div>
+                      <div className="flex space-x-2 items-center">
                         <Badge className={`${getStatusColor(selectedMusician.status)} text-white`}>
-                          {selectedMusician.status}
+                          {selectedMusician.status === 'signed' ? 'accepted' : selectedMusician.status}
                         </Badge>
+                        
+                        <Select
+                          onValueChange={(value) => {
+                            // In a real application, we would update the status in the database
+                            toast({
+                              title: "Status updated",
+                              description: `Status updated to: ${value}`,
+                              variant: "default",
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[140px] h-8">
+                            <SelectValue placeholder="Change status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="accepted">Accepted</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                     {selectedMusician.sentAt && (
