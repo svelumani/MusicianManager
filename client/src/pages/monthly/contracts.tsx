@@ -74,6 +74,62 @@ const MonthlyContractsPage = () => {
     error,
   } = useQuery({
     queryKey: ['/api/monthly-contracts'],
+    queryFn: async () => {
+      const contractsData = await apiRequest('/api/monthly-contracts');
+      
+      // For each contract, fetch additional details like dates
+      if (Array.isArray(contractsData)) {
+        const contractsWithDetails = await Promise.all(
+          contractsData.map(async (contract) => {
+            try {
+              // Get the dates for this contract
+              const assignments = await apiRequest(`/api/monthly-contracts/${contract.id}/assignments`);
+              
+              // Calculate total number of dates across all musicians
+              let allDates: any[] = [];
+              let dateCount = 0;
+              
+              if (Array.isArray(assignments)) {
+                assignments.forEach((assignment: any) => {
+                  if (Array.isArray(assignment.dates)) {
+                    dateCount += assignment.dates.length;
+                    allDates = [...allDates, ...assignment.dates];
+                  }
+                });
+              }
+              
+              // Create a summary of dates with fees
+              const dateList = allDates.length > 0 
+                ? allDates.slice(0, 5).map((date: any) => ({
+                    date: date.date,
+                    fee: date.fee,
+                    venue: date.venueName || 'Unknown venue'
+                  }))
+                : [];
+              
+              return {
+                ...contract,
+                dateCount,
+                dateList,
+                musicianCount: Array.isArray(assignments) ? assignments.length : 0
+              };
+            } catch (error) {
+              console.error(`Error fetching details for contract ${contract.id}:`, error);
+              return {
+                ...contract,
+                dateCount: 0,
+                dateList: [],
+                musicianCount: 0
+              };
+            }
+          })
+        );
+        
+        return contractsWithDetails;
+      }
+      
+      return contractsData;
+    },
     select: (data: any[]) => {
       // Filter contracts by search query if provided
       if (searchQuery) {
@@ -260,11 +316,11 @@ const MonthlyContractsPage = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[100px]">ID</TableHead>
+                        <TableHead className="w-[80px]">ID</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Month</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Musicians</TableHead>
+                        <TableHead>Number of Days</TableHead>
                         <TableHead>Created</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -284,30 +340,31 @@ const MonthlyContractsPage = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            {contract.musicianCount || 0} musicians
+                            {contract.dateCount || 0} days
+                            {contract.dateList && contract.dateList.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {contract.dateList.map((date: any, index: number) => (
+                                  <span key={index}>
+                                    {format(new Date(date.date), 'MMM d')}: ${date.fee || 0}
+                                    {index < contract.dateList.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             {contract.createdAt ? format(new Date(contract.createdAt), 'MMM d, yyyy') : 'N/A'}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewContractDetails(contract)}
-                              >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                            >
+                              <Link href={`/monthly/contracts/${contract.id}`}>
                                 View Details
-                              </Button>
-                              {contract.status === 'draft' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => sendContractMutation.mutate(contract.id)}
-                                  disabled={sendContractMutation.isPending}
-                                >
-                                  Send Contract
-                                </Button>
-                              )}
-                            </div>
+                              </Link>
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
