@@ -172,7 +172,8 @@ The VAMP Team`
         console.error("Error fetching musician assignments:", error);
         
         // Special handling for "Invalid assignment ID" error
-        const errorMessage = error?.message || String(error);
+        const errorObj = error as Error;
+        const errorMessage = errorObj?.message || String(error);
         if (errorMessage.includes("Invalid assignment ID")) {
           console.warn("Handling Invalid assignment ID error gracefully");
           
@@ -602,28 +603,48 @@ The VAMP Team`
                 <Skeleton className="h-40 w-full" />
               ) : musicianAssignments && Object.keys(musicianAssignments).length > 0 ? (
                 <Accordion type="multiple" className="w-full">
-                  {Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => (
-                    <AccordionItem key={musicianId} value={musicianId}>
-                      <AccordionTrigger>
-                        {assignments.musicianName} ({assignments.assignments.length} assignments)
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-2 pl-4">
-                          {assignments.assignments.map((assignment: any) => (
-                            <div key={assignment.id} className="grid grid-cols-3 text-sm">
-                              <div>{format(new Date(assignment.date), "MMM d, yyyy")}</div>
-                              <div>{assignment.venueName}</div>
-                              <div className="text-right">${assignment.fee || assignment.actualFee}</div>
+                  {Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => {
+                    // Safety check to ensure assignments has the expected structure
+                    const hasValidAssignments = assignments && 
+                                             typeof assignments === 'object' && 
+                                             assignments.musicianName && 
+                                             Array.isArray(assignments.assignments);
+                                             
+                    // Get the assignments array safely
+                    const assignmentsArray = hasValidAssignments ? assignments.assignments : [];
+                    const assignmentCount = assignmentsArray.length;
+                    const musicianName = hasValidAssignments ? assignments.musicianName : 'Unknown Musician';
+                    const totalFee = hasValidAssignments ? (assignments.totalFee || 0) : 0;
+                    
+                    // Skip rendering if there are no valid assignments
+                    if (!hasValidAssignments && musicianId !== '999') { // Allow our special error entry
+                      console.warn(`Skipping invalid musician entry: ${musicianId}`);
+                      return null;
+                    }
+                    
+                    return (
+                      <AccordionItem key={musicianId} value={musicianId}>
+                        <AccordionTrigger>
+                          {musicianName} ({assignmentCount} assignments)
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 pl-4">
+                            {assignmentsArray.map((assignment: any) => (
+                              <div key={assignment.id} className="grid grid-cols-3 text-sm">
+                                <div>{assignment.date ? format(new Date(assignment.date), "MMM d, yyyy") : 'Unknown date'}</div>
+                                <div>{assignment.venueName || 'Unknown venue'}</div>
+                                <div className="text-right">${assignment.fee || assignment.actualFee || 0}</div>
+                              </div>
+                            ))}
+                            <div className="border-t pt-2 mt-2 font-medium flex justify-between">
+                              <span>Total</span>
+                              <span>${totalFee}</span>
                             </div>
-                          ))}
-                          <div className="border-t pt-2 mt-2 font-medium flex justify-between">
-                            <span>Total</span>
-                            <span>${assignments.totalFee}</span>
                           </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
                 </Accordion>
               ) : (
                 <div className="text-center p-6 border rounded-md text-gray-500">
@@ -663,38 +684,58 @@ The VAMP Team`
 
           <div className="my-4 max-h-[50vh] overflow-auto border rounded-md p-4">
             <div className="space-y-4">
-              {musicianAssignments && Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => (
-                <div key={musicianId} className="border-b pb-4 last:border-0">
-                  <h4 className="text-md font-semibold">{assignments.musicianName}</h4>
-                  <p className="text-sm text-muted-foreground">{assignments.email}</p>
-                  
-                  <div className="mt-2 space-y-1">
-                    <h5 className="text-sm font-medium">Performance Schedule:</h5>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2">Date</th>
-                          <th className="text-left py-2">Venue</th>
-                          <th className="text-right py-2">Fee</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assignments.assignments.map((assignment: any) => (
-                          <tr key={assignment.id} className="border-b border-dashed">
-                            <td className="py-2">{format(new Date(assignment.date), "MMM d, yyyy")}</td>
-                            <td className="py-2">{assignment.venueName}</td>
-                            <td className="py-2 text-right">${assignment.fee || assignment.actualFee}</td>
+              {musicianAssignments && Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => {
+                // Safety check to ensure assignments has the expected structure
+                const hasValidAssignments = assignments && 
+                                         typeof assignments === 'object' && 
+                                         assignments.musicianName && 
+                                         Array.isArray(assignments.assignments);
+                                         
+                // Skip rendering if there are no valid assignments
+                if (!hasValidAssignments && musicianId !== '999') {
+                  console.warn(`Confirmation dialog: Skipping invalid musician entry: ${musicianId}`);
+                  return null;
+                }
+                
+                // Get the assignments array safely
+                const assignmentsArray = hasValidAssignments ? assignments.assignments : [];
+                const musicianName = hasValidAssignments ? assignments.musicianName : 'Unknown Musician';
+                const email = hasValidAssignments && assignments.email ? assignments.email : '';
+                const totalFee = hasValidAssignments ? (assignments.totalFee || 0) : 0;
+                
+                return (
+                  <div key={musicianId} className="border-b pb-4 last:border-0">
+                    <h4 className="text-md font-semibold">{musicianName}</h4>
+                    <p className="text-sm text-muted-foreground">{email}</p>
+                    
+                    <div className="mt-2 space-y-1">
+                      <h5 className="text-sm font-medium">Performance Schedule:</h5>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2">Date</th>
+                            <th className="text-left py-2">Venue</th>
+                            <th className="text-right py-2">Fee</th>
                           </tr>
-                        ))}
-                        <tr className="font-medium">
-                          <td colSpan={2} className="py-2 text-right">Total:</td>
-                          <td className="py-2 text-right">${assignments.totalFee}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {assignmentsArray.map((assignment: any) => (
+                            <tr key={assignment.id} className="border-b border-dashed">
+                              <td className="py-2">{assignment.date ? format(new Date(assignment.date), "MMM d, yyyy") : 'Unknown date'}</td>
+                              <td className="py-2">{assignment.venueName || 'Unknown venue'}</td>
+                              <td className="py-2 text-right">${assignment.fee || assignment.actualFee || 0}</td>
+                            </tr>
+                          ))}
+                          <tr className="font-medium">
+                            <td colSpan={2} className="py-2 text-right">Total:</td>
+                            <td className="py-2 text-right">${totalFee}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
