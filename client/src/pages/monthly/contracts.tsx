@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Link, useLocation } from "wouter";
 import {
   Card,
   CardContent,
@@ -406,7 +407,9 @@ const MonthlyContractsPage = () => {
               <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
                 Close
               </Button>
-              <Button>Go to Contract</Button>
+              <Link href={`/contracts/${selectedContract.id}`}>
+                <Button onClick={() => setShowDetailsDialog(false)}>Go to Contract</Button>
+              </Link>
             </DialogFooter>
           </DialogContent>
         </Dialog>
