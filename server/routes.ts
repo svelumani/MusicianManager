@@ -2562,7 +2562,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Create invitation with required fields
           // For monthly contracts, we'll use a special system event (ID: 99999)
           // This is a placeholder event created specifically for monthly contracts
-          const invitation = await storage.createInvitation({
+          
+          // Prepare the invitation data
+          const invitationData = {
             eventId: 99999, // Special system event for monthly contracts
             musicianId: parseInt(musicianId),
             invitedAt: now,
@@ -2570,7 +2572,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             messageSubject: `Contract for ${formattedMonth}`,
             messageBody: emailMessage || `Please review your schedule for ${formattedMonth}`,
             status: "invited"
-          });
+          };
+          
+          // Log the data being sent to the database
+          console.log(`[DEBUG] Creating invitation with data:`, JSON.stringify(invitationData));
+          
+          const invitation = await storage.createInvitation(invitationData);
           
           if (!invitation) {
             results.failed++;
