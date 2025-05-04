@@ -111,91 +111,66 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     refetch: refetchAssignments
   } = useQuery({
     // Use a simpler queryKey that's easier to invalidate
-    queryKey: ['plannerAssignments', planner?.id, Date.now()], // Add timestamp to force refresh
+    queryKey: ['plannerAssignments', planner?.id], // Removed timestamp to prevent excessive refreshing
     queryFn: async () => {
-      if (!plannerSlots || plannerSlots.length === 0) {
-        console.log("No planner slots available, skipping assignment fetch");
+      if (!planner?.id) {
+        console.log("No planner ID available, skipping assignment fetch");
         return [];
       }
       
-      // Use a cleaner approach to build the query with all slot IDs
-      const slotIds = plannerSlots.map((slot: any) => slot.id);
-      console.log("Fetching assignments for slots:", slotIds);
-      
       try {
-        // Build individual queries for each slot to avoid URL length issues
-        const assignments = [];
+        // Fetch ALL assignments for this planner in a single request
+        console.log(`Fetching all assignments for planner ID ${planner.id} at once`);
         
-        for (const id of slotIds) {
-          try {
-            // Use direct fetch for better control over auth
-            const response = await fetch(`/api/planner-assignments?slotId=${id}`, {
-              credentials: 'include',
-              headers: {
-                'Accept': 'application/json'
-              }
-            });
-            
-            if (response.status === 401) {
-              console.warn(`Unauthorized access to assignments for slot ${id}. Please log in.`);
-              continue;
-            }
-            
-            if (!response.ok) {
-              console.error(`Error ${response.status} fetching assignments for slot ${id}`);
-              continue;
-            }
-            
+        // Use direct fetch with better auth handling
+        const response = await fetch(`/api/planner-assignments?plannerId=${planner.id}`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        if (response.status === 401) {
+          console.warn("Unauthorized access to assignments. Please log in.");
+          return [];
+        }
+        
+        if (!response.ok) {
+          console.error(`Error ${response.status} fetching planner assignments`);
+          return [];
+        }
+        
+        try {
+          const assignments = await response.json();
+          
+          console.log(`Successfully fetched ${assignments.length} assignments in one request`);
+          
+          // Log some assignment status information (for debugging only)
+          if (assignments.length > 0) {
             try {
-              const data = await response.json();
-              if (Array.isArray(data) && data.length > 0) {
-                assignments.push(...data);
-              }
-            } catch (e) {
-              console.warn(`Invalid JSON in slot ${id} assignments response`);
+              const statuses = assignments.map((a: any) => a.status).filter(Boolean);
+              const uniqueStatuses = Array.from(new Set(statuses));
+              console.log("Assignment statuses found:", uniqueStatuses);
+            } catch (error) {
+              console.error("Error processing status information:", error);
             }
-          } catch (error) {
-            console.error(`Error fetching assignments for slot ${id}:`, error);
           }
+          
+          return assignments;
+        } catch (e) {
+          console.warn("Invalid JSON in assignments response");
+          return [];
         }
-        
-        console.log("Combined assignments:", assignments.length);
-        
-        // Log some assignment status information
-        if (assignments.length > 0) {
-          try {
-            const statuses = assignments.map((a: any) => a.status);
-            const uniqueStatuses = Array.from(new Set(statuses));
-            console.log("Assignment statuses found:", uniqueStatuses);
-            
-            // Debug: Show assignments with specific statuses
-            if (uniqueStatuses.includes('contract-sent')) {
-              console.log("Found assignments with contract-sent status:", 
-                assignments.filter((a: any) => a.status === 'contract-sent').map((a: any) => a.id)
-              );
-            }
-            
-            if (uniqueStatuses.includes('contract-signed')) {
-              console.log("Found assignments with contract-signed status:", 
-                assignments.filter((a: any) => a.status === 'contract-signed').map((a: any) => a.id)
-              );
-            }
-          } catch (error) {
-            console.error("Error processing status information:", error);
-          }
-        }
-        
-        return assignments;
       } catch (error) {
         console.error("Error fetching assignments:", error);
         return [];
       }
     },
-    enabled: !!plannerSlots && plannerSlots.length > 0,
-    // Stale time set to 0 to ensure fresh data on every render
-    staleTime: 0,
+    enabled: !!planner?.id,
+    // Set reasonable stale time to prevent excessive refreshing
+    staleTime: 30000, // 30 seconds
     refetchOnMount: true,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: false
   });
 
   // Query to get musicians with improved error handling

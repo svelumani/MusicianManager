@@ -2854,6 +2854,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const slotId = req.query.slotId ? parseInt(req.query.slotId as string) : undefined;
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
+      
+      if (plannerId) {
+        // Get all assignments for slots that belong to this planner
+        try {
+          // First, get all slots for this planner
+          const plannerSlots = await storage.getPlannerSlots(plannerId);
+          if (!plannerSlots || plannerSlots.length === 0) {
+            return res.json([]);
+          }
+          
+          // Then get all assignments for these slots
+          const slotIds = plannerSlots.map(slot => slot.id);
+          const allAssignments = await Promise.all(
+            slotIds.map(id => storage.getPlannerAssignments(id))
+          );
+          
+          // Flatten the array of arrays
+          const assignments = allAssignments.flat();
+          return res.json(assignments);
+        } catch (plannerError) {
+          console.error("Error fetching planner assignments by plannerId:", plannerError);
+          return res.status(500).json({ message: "Error fetching planner assignments by planner ID" });
+        }
+      }
+      
+      // Original functionality for slotId and musicianId filters
       const assignments = await storage.getPlannerAssignments(slotId, musicianId);
       res.json(assignments);
     } catch (error) {
