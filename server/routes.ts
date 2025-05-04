@@ -2648,6 +2648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (assignmentError) {
           console.error(`[by-musician] Error processing assignment ${assignment.id}: ${assignmentError}`);
           // Continue to next assignment rather than failing the entire request
+          // DO NOT return error response here - that would exit the entire endpoint
+          continue;
         }
       }
       
