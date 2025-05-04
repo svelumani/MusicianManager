@@ -180,19 +180,20 @@ The VAMP Team`
           // Return an empty result with the expected structure of musician assignments
           // This ensures the component can render without errors, while still showing a meaningful message
           toast({
-            title: "Warning",
+            title: "Error retrieving musician data",
             description: "Some assignments could not be loaded properly. The data shown may be incomplete.",
-            duration: 5000,
+            duration: 7000,
+            variant: "destructive"
           });
           
           // Empty structure that matches what the component expects
           return {
             _status: "warning",
-            _message: "Some assignments could not be loaded properly",
+            _message: "Error retrieving musician data",
             // Add a dummy entry to ensure the component doesn't crash
             999: {
               musicianId: 999,
-              musicianName: "Error retrieving assignments",
+              musicianName: "Error retrieving musician data",
               assignments: [],
               totalFee: 0
             }
