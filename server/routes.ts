@@ -2556,42 +2556,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Create contract invitations for the musician
-          // Get current date/time
-          const now = new Date();
-          
-          // Create invitation with required fields
           // For monthly contracts, we'll use a special system event (ID: 99999)
           // This is a placeholder event created specifically for monthly contracts
           
-          // Prepare the invitation data
-          const invitationData = {
-            eventId: 99999, // Special system event for monthly contracts
-            musicianId: parseInt(musicianId),
-            invitedAt: now,
-            email: musician.email,
-            messageSubject: `Contract for ${formattedMonth}`,
-            messageBody: emailMessage || `Please review your schedule for ${formattedMonth}`,
-            status: "invited"
-          };
+          // Get current timestamp for tracking
+          const now = new Date();
+          let invitation = null; // Initialize to avoid undefined issues
           
-          // Log the data being sent to the database
-          console.log(`[DEBUG] Creating invitation with data:`, JSON.stringify(invitationData));
-          
-          const invitation = await storage.createInvitation(invitationData);
-          
-          if (!invitation) {
-            results.failed++;
-            results.details.push({
-              musicianId,
-              musicianName: musician.name,
-              status: "failed",
-              reason: "Failed to create invitation"
-            });
-            continue;
-          }
-          
-          // Try to send the email
           try {
+            // Force-convert all fields to their expected types to avoid type mismatches
+            // Ensure all required fields are explicitly provided with correct types
+            const invitationData = {
+              eventId: 99999, // Special system event for monthly contracts
+              musicianId: parseInt(musicianId),
+              invitedAt: now,
+              email: musician.email || "missing@example.com", // Fallback value
+              messageSubject: `Contract for ${formattedMonth}`,
+              messageBody: emailMessage || `Please review your schedule for ${formattedMonth}`,
+              status: "invited",
+              // Optional fields with explicit null or default values
+              respondedAt: null,
+              responseMessage: null,
+              reminders: 0,
+              lastReminderAt: null,
+              updatedAt: now
+            };
+            
+            // Log the data being sent to the database
+            console.log(`[DEBUG] Creating invitation with data for musician ${musicianId}:`, invitationData);
+            
+            // Execute the database call
+            invitation = await storage.createInvitation(invitationData);
+            console.log(`[DEBUG] Created invitation ID ${invitation.id} successfully`);
+          
+            // Try to send the email
             await sendMusicianAssignmentEmail(
               musician.email,
               musician.name,
@@ -2614,17 +2612,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               assignmentCount: assignments.length,
               totalFee: totalFee
             });
-          } catch (emailError) {
-            console.error(`[planner-contracts] Error sending email to ${musician.name} (${musician.email}):`, emailError);
+          } catch (processingError) {
+            console.error(`[planner-contracts] Error processing musician ${musicianId}:`, processingError);
             
             results.failed++;
+            // Add detailed error information to the results
             results.details.push({
               musicianId,
               musicianName: musician.name,
               status: "failed",
-              reason: "Email sending failed",
-              contractId: contract.id,
-              invitationId: invitation.id
+              reason: invitation ? "Email sending failed" : "Failed to create invitation",
+              error: processingError.message,
+              ...(invitation ? { invitationId: invitation.id } : {}),
+              ...(contract ? { contractId: contract.id } : {})
             });
           }
         } catch (musicianError) {
