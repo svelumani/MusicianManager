@@ -2815,6 +2815,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For all other errors, return a detailed error response as a regular JSON
       // object with a status code of 200 but internal _status of "error" to allow client-side handling
       console.log(`[by-musician] Returning structured error response for client-side handling`);
+      
+      // Previously, we might have returned a 400 status code here, causing the client
+      // to receive a rejection instead of a valid response object.
+      // Always return a 200 response with error details in the body for consistent handling.
       return res.json({
         _status: "error",
         _message: "Error fetching assignments. Please try again.",
@@ -2824,7 +2828,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Add a dummy entry to ensure the client doesn't crash on undefined access
         999: {
           musicianId: 999,
-          musicianName: "Server error occurred",
+          musicianName: "Error retrieving musician data",
           assignments: [],
           totalFee: 0
         }
