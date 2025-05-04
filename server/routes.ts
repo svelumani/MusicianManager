@@ -5371,6 +5371,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // API endpoint for monthly contract assignments (for the detail page)
+  apiRouter.get("/monthly-contracts/:contractId/assignments", isAuthenticated, async (req, res) => {
+    try {
+      const contractId = parseInt(req.params.contractId);
+      
+      // Get all musicians assigned to this contract
+      const contractMusicians = await storage.getMonthlyContractMusicians(contractId);
+      
+      // For each musician, get their dates and actual musician data
+      const assignments = await Promise.all(
+        contractMusicians.map(async (cm) => {
+          try {
+            const musician = await storage.getMusician(cm.musicianId);
+            const dates = await storage.getMonthlyContractDates(cm.id);
+            
+            return {
+              id: cm.id,
+              musicianId: cm.musicianId,
+              contractId: cm.contractId,
+              status: cm.status,
+              responseDate: cm.respondedAt,
+              notes: cm.notes,
+              musician: {
+                id: musician?.id || 0,
+                name: musician?.name || "Unknown",
+                email: musician?.email || "",
+                phone: musician?.phone || "",
+                type: musician?.type || "Unknown",
+              },
+              dates,
+              dateCount: dates.length
+            };
+          } catch (error) {
+            console.error(`Error enriching musician ${cm.musicianId}:`, error);
+            return {
+              id: cm.id,
+              musicianId: cm.musicianId,
+              contractId: cm.contractId,
+              status: cm.status,
+              responseDate: cm.respondedAt,
+              notes: cm.notes,
+              musician: { id: 0, name: "Unknown", type: "Unknown", email: "", phone: "" },
+              dates: [],
+              dateCount: 0
+            };
+          }
+        })
+      );
+      
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching contract assignments:", error);
+      res.status(500).json({ message: "Error fetching contract assignments" });
+    }
+  });
+  
   apiRouter.post("/monthly-contracts/:contractId/musicians", isAuthenticated, async (req, res) => {
     try {
       const contractId = parseInt(req.params.contractId);
