@@ -8,7 +8,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { format, parseISO, isValid } from "date-fns";
 import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "./services/settings";
-import { sendMusicianAssignmentEmail, initializeSendGrid } from "./services/email";
+import { sendMusicianAssignmentEmail, initializeSendGrid, isSendGridConfigured } from "./services/email";
 import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 import pgSession from 'connect-pg-simple';

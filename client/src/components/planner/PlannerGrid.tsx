@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import InlineMusicianSelect from "./InlineMusicianSelect";
-import FinalizeMonthlyPlanner from "./FinalizeMonthlyPlanner";
+import SimplifiedContractSender from "./SimplifiedContractSender";
 import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -732,9 +732,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         </div>
       </div>
 
-      {/* Finalize Monthly Planner Dialog */}
+      {/* Simplified Contract Sender Dialog */}
       {showFinalizeDialog && (
-        <FinalizeMonthlyPlanner
+        <SimplifiedContractSender
           plannerId={planner.id}
           plannerName={planner.name || monthName}
           plannerMonth={monthName}
