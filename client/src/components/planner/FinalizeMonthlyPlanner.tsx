@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -53,6 +53,18 @@ interface ContractTemplate {
   variables: unknown;
 }
 
+interface EmailTemplate {
+  id: number;
+  name: string;
+  subject: string;
+  htmlContent: string;
+  textContent: string;
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date | null;
+  isDefault: boolean;
+}
+
 interface FinalizeMonthlyPlannerProps {
   plannerId: number;
   plannerName: string;
@@ -70,7 +82,8 @@ const FinalizeMonthlyPlanner = ({
 }: FinalizeMonthlyPlannerProps) => {
   const { toast } = useToast();
   const [sendEmails, setSendEmails] = useState(true);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [selectedEmailTemplateId, setSelectedEmailTemplateId] = useState<string>("");
+  const [contractTemplateId, setContractTemplateId] = useState<string>("");
   const [emailMessage, setEmailMessage] = useState(
     `Dear {musician_name},
 
@@ -98,30 +111,48 @@ The VAMP Team`
     enabled: open && !!plannerId,
   });
   
-  // Query to get all monthly contract templates
+  // Query to get all email templates
+  const {
+    data: emailTemplates = [] as EmailTemplate[],
+    isLoading: isLoadingTemplates,
+  } = useQuery<EmailTemplate[]>({
+    queryKey: ['/api/email-templates'],
+    enabled: open && sendEmails,
+  });
+  
+  // Query to get all contract templates (still needed for contract generation)
   const {
     data: contractTemplates = [] as ContractTemplate[],
-    isLoading: isLoadingTemplates,
+    isLoading: isLoadingContractTemplates,
   } = useQuery<ContractTemplate[]>({
     queryKey: ['/api/contract-templates'],
     enabled: open && sendEmails,
   });
   
-  // Query to get a specific template by ID
+  // Get selected contract template (default to the first monthly one)
+  const defaultContractTemplate = useMemo(() => {
+    if (contractTemplates && contractTemplates.length > 0) {
+      const monthlyTemplates = contractTemplates.filter(t => t.isMonthly);
+      return monthlyTemplates.length > 0 ? monthlyTemplates[0].id.toString() : "";
+    }
+    return "";
+  }, [contractTemplates]);
+  
+  // Query to get a specific email template by ID
   const {
-    data: selectedTemplate,
+    data: selectedEmailTemplate,
     isLoading: isLoadingSelectedTemplate,
   } = useQuery({
-    queryKey: ['/api/contract-templates', selectedTemplateId],
-    queryFn: () => apiRequest(`/api/contract-templates/${selectedTemplateId}`),
-    enabled: !!selectedTemplateId && selectedTemplateId !== "loading" && selectedTemplateId !== "none",
+    queryKey: ['/api/email-templates', selectedEmailTemplateId],
+    queryFn: () => apiRequest(`/api/email-templates/${selectedEmailTemplateId}`),
+    enabled: !!selectedEmailTemplateId && selectedEmailTemplateId !== "loading" && selectedEmailTemplateId !== "none",
   });
   
   // Effect to update email message when a template is selected
   useEffect(() => {
-    if (selectedTemplate) {
+    if (selectedEmailTemplate) {
       // Replace template variables with planner-specific values
-      let content = selectedTemplate.content;
+      let content = selectedEmailTemplate.textContent;
       content = content.replace(/{month}/g, plannerMonth);
       content = content.replace(/{year}/g, new Date().getFullYear().toString());
       content = content.replace(/{company_name}/g, "VAMP Productions");
@@ -129,7 +160,7 @@ The VAMP Team`
       // Set the email message to the template content
       setEmailMessage(content);
     }
-  }, [selectedTemplate, plannerMonth]);
+  }, [selectedEmailTemplate, plannerMonth]);
 
   // Finalize planner mutation
   const finalizeMutation = useMutation({
@@ -159,14 +190,20 @@ The VAMP Team`
   const [showConfirmation, setShowConfirmation] = useState(false);
   
   const handlePrepareFinalize = () => {
-    if (sendEmails && (!selectedTemplateId || selectedTemplateId === "none" || selectedTemplateId === "loading")) {
+    if (sendEmails && (!selectedEmailTemplateId || selectedEmailTemplateId === "none" || selectedEmailTemplateId === "loading")) {
       toast({
         title: "Error",
-        description: "Please select a monthly contract template",
+        description: "Please select an email template",
         variant: "destructive",
       });
       return;
     }
+    
+    // If no contract template is selected, use the default one
+    if (!contractTemplateId && defaultContractTemplate) {
+      setContractTemplateId(defaultContractTemplate);
+    }
+    
     setShowConfirmation(true);
   };
 
@@ -174,7 +211,9 @@ The VAMP Team`
     finalizeMutation.mutate({
       sendEmails,
       emailMessage: sendEmails ? emailMessage : null,
-      contractTemplateId: sendEmails && selectedTemplateId ? parseInt(selectedTemplateId) : null,
+      contractTemplateId: sendEmails && contractTemplateId ? parseInt(contractTemplateId) : 
+                        defaultContractTemplate ? parseInt(defaultContractTemplate) : null,
+      emailTemplateId: sendEmails && selectedEmailTemplateId ? parseInt(selectedEmailTemplateId) : null,
     });
     setShowConfirmation(false);
   };
@@ -207,32 +246,30 @@ The VAMP Team`
             {sendEmails && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="contract-template">Contract Template</Label>
+                  <Label htmlFor="email-template">Email Template</Label>
                   <Select 
-                    value={selectedTemplateId} 
-                    onValueChange={setSelectedTemplateId}
+                    value={selectedEmailTemplateId} 
+                    onValueChange={setSelectedEmailTemplateId}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a monthly contract template" />
+                      <SelectValue placeholder="Select an email template" />
                     </SelectTrigger>
                     <SelectContent>
                       {isLoadingTemplates ? (
                         <SelectItem value="loading" disabled>Loading templates...</SelectItem>
-                      ) : contractTemplates.filter(template => template.isMonthly).length > 0 ? (
-                        contractTemplates
-                          .filter(template => template.isMonthly)
-                          .map(template => (
-                            <SelectItem key={template.id} value={template.id.toString()}>
-                              {template.name}
-                            </SelectItem>
-                          ))
+                      ) : emailTemplates && emailTemplates.length > 0 ? (
+                        emailTemplates.map(template => (
+                          <SelectItem key={template.id} value={template.id.toString()}>
+                            {template.name}
+                          </SelectItem>
+                        ))
                       ) : (
-                        <SelectItem value="none" disabled>No monthly templates available</SelectItem>
+                        <SelectItem value="none" disabled>No email templates available</SelectItem>
                       )}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    Choose a monthly contract template that will be used for email notifications
+                    Choose an email template to send to musicians
                   </p>
                 </div>
                 
@@ -247,6 +284,14 @@ The VAMP Team`
                   <p className="text-xs text-muted-foreground">
                     This is the text that will be included in the email notification, not the actual contract. 
                     Keep it simple and concise.
+                  </p>
+                </div>
+
+                <div className="mt-4 p-4 bg-muted rounded-md">
+                  <h4 className="text-sm font-medium mb-2">Contract Selection</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    The default monthly contract template will be used for all musicians.
+                    {defaultContractTemplate ? " A valid template has been detected." : " No valid template found."}
                   </p>
                 </div>
               </div>
