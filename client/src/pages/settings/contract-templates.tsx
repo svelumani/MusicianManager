@@ -27,7 +27,10 @@ const templateFormSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters" }),
   description: z.string().optional(),
   content: z.string().min(10, { message: "Content must be at least 10 characters" }),
-  isDefault: z.boolean().optional()
+  isDefault: z.boolean().optional(),
+  templateType: z.enum(["event", "monthly"], {
+    description: "Type of contract template",
+  }).default("event")
 });
 
 type TemplateFormValues = z.infer<typeof templateFormSchema>;
@@ -142,6 +145,7 @@ export default function ContractTemplatesPage() {
       description: "",
       content: "",
       isDefault: false,
+      templateType: "event",
     },
   });
 
@@ -153,6 +157,7 @@ export default function ContractTemplatesPage() {
       description: "",
       content: "",
       isDefault: false,
+      templateType: "event",
     },
   });
 
@@ -172,7 +177,8 @@ export default function ContractTemplatesPage() {
       name: template.name,
       description: template.description || "",
       content: template.content,
-      isDefault: template.isDefault,
+      isDefault: template.isDefault || false,
+      templateType: template.templateType || "event",
     });
     setIsEditDialogOpen(true);
   };
