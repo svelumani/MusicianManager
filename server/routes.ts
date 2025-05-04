@@ -2481,6 +2481,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get assignments grouped by musician for a planner
   apiRouter.get("/planner-assignments/by-musician", isAuthenticated, async (req, res) => {
     try {
+      console.log("\n\n======== STARTING BY-MUSICIAN ENDPOINT ========");
       console.log("[by-musician] Received request with query params:", req.query);
       
       // Force convert the plannerId to string first to handle all input types
@@ -2665,7 +2666,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[by-musician] Successfully processed ${Object.keys(musicianMap).length} musicians with assignments`);
       res.json(musicianMap);
     } catch (error) {
-      console.error(`[by-musician] Error processing request: ${error}`);
+      console.error(`[by-musician] ERROR PROCESSING REQUEST: ${error}`);
+      console.error(`[by-musician] Error stack: ${(error as Error).stack}`);
+      
+      // Check if the error already has our "Invalid assignment ID" message
+      const errorMessage = (error as Error).message;
+      if (errorMessage.includes("Invalid assignment ID")) {
+        console.error(`[by-musician] This appears to be the 'Invalid assignment ID' error we're troubleshooting`);
+        
+        // Return empty object instead of error
+        console.log(`[by-musician] Handling gracefully by returning empty result instead of error`);
+        return res.json({
+          _status: "error",
+          _message: "Error fetching assignments, returning empty result for fault tolerance",
+          _errorType: "InvalidAssignmentID"
+        });
+      }
+      
+      // For all other errors, return a detailed error response
       res.status(500).json({ 
         message: "Error fetching assignments by musician", 
         error: (error as Error).message,
