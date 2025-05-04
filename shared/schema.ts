@@ -849,6 +849,7 @@ export const monthlyContractMusicians = pgTable("monthly_contract_musicians", {
   musicianNotes: text("musician_notes"), // Notes from the musician
   companySignature: text("company_signature"), // Company digital signature
   musicianSignature: text("musician_signature"), // Musician digital signature
+  ipAddress: text("ip_address"), // IP address captured during signature
 });
 
 export const insertMonthlyContractMusicianSchema = createInsertSchema(monthlyContractMusicians).pick({
@@ -860,6 +861,7 @@ export const insertMonthlyContractMusicianSchema = createInsertSchema(monthlyCon
   musicianNotes: true,
   companySignature: true,
   musicianSignature: true,
+  ipAddress: true,
 });
 
 export type MonthlyContractMusician = typeof monthlyContractMusicians.$inferSelect;

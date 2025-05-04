@@ -5239,7 +5239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.put("/monthly-contract-dates/:dateId/status", async (req, res) => {
     try {
       const dateId = parseInt(req.params.dateId);
-      const { status, notes } = req.body;
+      const { status, notes, ipAddress, musicianSignature } = req.body;
       
       if (!['accepted', 'rejected', 'pending'].includes(status)) {
         return res.status(400).json({ message: "Invalid status value" });
@@ -5271,10 +5271,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (allResponded) {
         const hasAccepted = allDates.some(d => d.status === 'accepted');
         
-        await storage.updateMonthlyContractMusician(musicianContract.id, {
+        const updateData: any = {
           status: hasAccepted ? 'signed' : 'rejected',
           respondedAt: new Date()
-        });
+        };
+        
+        // Include signature and IP if provided and at least one date was accepted
+        if (hasAccepted && musicianSignature) {
+          updateData.musicianSignature = musicianSignature;
+        }
+        
+        if (hasAccepted && ipAddress) {
+          updateData.ipAddress = ipAddress;
+        }
+        
+        await storage.updateMonthlyContractMusician(musicianContract.id, updateData);
         
         // Update the parent contract if all musicians have responded
         const allMusicians = await storage.getMonthlyContractMusicians(musicianContract.contractId);
