@@ -12,6 +12,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -62,7 +72,20 @@ const FinalizeMonthlyPlanner = ({
   const [sendEmails, setSendEmails] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [emailMessage, setEmailMessage] = useState(
-    `Dear musician,\n\nPlease find attached your scheduled performances for ${plannerMonth}. Please confirm your availability by clicking the confirmation link in this email.\n\nBest regards,\nThe VAMP Team`
+    `Dear {musician_name},
+
+We're pleased to share your ${plannerMonth} performance schedule with VAMP Productions.
+
+Please review the details of your scheduled performances in the attachment and confirm your availability for each date by clicking the link below:
+
+{confirmation_link}
+
+If you have any questions or need to discuss specific dates, please contact us directly.
+
+Thank you for your continued collaboration with VAMP Productions.
+
+Best regards,
+The VAMP Team`
   );
 
   // Query to get all musicians with assignments in this planner
@@ -132,132 +155,218 @@ const FinalizeMonthlyPlanner = ({
     }
   });
 
-  const handleFinalize = () => {
+  // State for confirmation dialog
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  
+  const handlePrepareFinalize = () => {
+    if (sendEmails && (!selectedTemplateId || selectedTemplateId === "none" || selectedTemplateId === "loading")) {
+      toast({
+        title: "Error",
+        description: "Please select a monthly contract template",
+        variant: "destructive",
+      });
+      return;
+    }
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmFinalize = () => {
     finalizeMutation.mutate({
       sendEmails,
       emailMessage: sendEmails ? emailMessage : null,
       contractTemplateId: sendEmails && selectedTemplateId ? parseInt(selectedTemplateId) : null,
     });
+    setShowConfirmation(false);
+  };
+  
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle>Finalize Monthly Planner - {plannerName}</DialogTitle>
-          <DialogDescription>
-            Review and send consolidated assignments to musicians.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Finalize Monthly Planner - {plannerName}</DialogTitle>
+            <DialogDescription>
+              Review and send consolidated assignments to musicians.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="send-emails" 
-              checked={sendEmails} 
-              onCheckedChange={(checked) => setSendEmails(!!checked)} 
-            />
-            <Label htmlFor="send-emails">Send consolidated assignment emails to musicians</Label>
-          </div>
-
-          {sendEmails && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="contract-template">Contract Template</Label>
-                <Select 
-                  value={selectedTemplateId} 
-                  onValueChange={setSelectedTemplateId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a monthly contract template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {isLoadingTemplates ? (
-                      <SelectItem value="loading" disabled>Loading templates...</SelectItem>
-                    ) : contractTemplates.filter(template => template.isMonthly).length > 0 ? (
-                      contractTemplates
-                        .filter(template => template.isMonthly)
-                        .map(template => (
-                          <SelectItem key={template.id} value={template.id.toString()}>
-                            {template.name}
-                          </SelectItem>
-                        ))
-                    ) : (
-                      <SelectItem value="none" disabled>No monthly templates available</SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Choose a monthly contract template that will be used for email notifications
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="email-message">Email Message</Label>
-                <Textarea
-                  id="email-message"
-                  value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)}
-                  rows={5}
-                />
-              </div>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="send-emails" 
+                checked={sendEmails} 
+                onCheckedChange={(checked) => setSendEmails(!!checked)} 
+              />
+              <Label htmlFor="send-emails">Send consolidated assignment emails to musicians</Label>
             </div>
-          )}
 
-          <div className="space-y-2">
-            <h3 className="text-lg font-medium">Musicians to be notified</h3>
-            
-            {isLoadingAssignments ? (
-              <Skeleton className="h-40 w-full" />
-            ) : musicianAssignments && Object.keys(musicianAssignments).length > 0 ? (
-              <Accordion type="multiple" className="w-full">
-                {Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => (
-                  <AccordionItem key={musicianId} value={musicianId}>
-                    <AccordionTrigger>
-                      {assignments.musicianName} ({assignments.assignments.length} assignments)
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2 pl-4">
-                        {assignments.assignments.map((assignment: any) => (
-                          <div key={assignment.id} className="grid grid-cols-3 text-sm">
-                            <div>{format(new Date(assignment.date), "MMM d, yyyy")}</div>
-                            <div>{assignment.venueName}</div>
-                            <div className="text-right">${assignment.fee || assignment.actualFee}</div>
-                          </div>
-                        ))}
-                        <div className="border-t pt-2 mt-2 font-medium flex justify-between">
-                          <span>Total</span>
-                          <span>${assignments.totalFee}</span>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            ) : (
-              <div className="text-center p-6 border rounded-md text-gray-500">
-                No musicians with assignments found for this month
+            {sendEmails && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contract-template">Contract Template</Label>
+                  <Select 
+                    value={selectedTemplateId} 
+                    onValueChange={setSelectedTemplateId}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a monthly contract template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isLoadingTemplates ? (
+                        <SelectItem value="loading" disabled>Loading templates...</SelectItem>
+                      ) : contractTemplates.filter(template => template.isMonthly).length > 0 ? (
+                        contractTemplates
+                          .filter(template => template.isMonthly)
+                          .map(template => (
+                            <SelectItem key={template.id} value={template.id.toString()}>
+                              {template.name}
+                            </SelectItem>
+                          ))
+                      ) : (
+                        <SelectItem value="none" disabled>No monthly templates available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Choose a monthly contract template that will be used for email notifications
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email-message">Email Message</Label>
+                  <Textarea
+                    id="email-message"
+                    value={emailMessage}
+                    onChange={(e) => setEmailMessage(e.target.value)}
+                    rows={5}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This is the text that will be included in the email notification, not the actual contract. 
+                    Keep it simple and concise.
+                  </p>
+                </div>
               </div>
             )}
-          </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleFinalize} 
-            disabled={
-              finalizeMutation.isPending || 
-              (sendEmails && (!selectedTemplateId || selectedTemplateId === "none" || selectedTemplateId === "loading"))
-            }
-          >
-            {finalizeMutation.isPending ? "Finalizing..." : "Finalize & Send"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">Musicians to be notified</h3>
+              
+              {isLoadingAssignments ? (
+                <Skeleton className="h-40 w-full" />
+              ) : musicianAssignments && Object.keys(musicianAssignments).length > 0 ? (
+                <Accordion type="multiple" className="w-full">
+                  {Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => (
+                    <AccordionItem key={musicianId} value={musicianId}>
+                      <AccordionTrigger>
+                        {assignments.musicianName} ({assignments.assignments.length} assignments)
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2 pl-4">
+                          {assignments.assignments.map((assignment: any) => (
+                            <div key={assignment.id} className="grid grid-cols-3 text-sm">
+                              <div>{format(new Date(assignment.date), "MMM d, yyyy")}</div>
+                              <div>{assignment.venueName}</div>
+                              <div className="text-right">${assignment.fee || assignment.actualFee}</div>
+                            </div>
+                          ))}
+                          <div className="border-t pt-2 mt-2 font-medium flex justify-between">
+                            <span>Total</span>
+                            <span>${assignments.totalFee}</span>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              ) : (
+                <div className="text-center p-6 border rounded-md text-gray-500">
+                  No musicians with assignments found for this month
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handlePrepareFinalize} 
+              disabled={
+                finalizeMutation.isPending || 
+                (sendEmails && (!selectedTemplateId || selectedTemplateId === "none" || selectedTemplateId === "loading"))
+              }
+            >
+              {finalizeMutation.isPending ? "Finalizing..." : "Review & Finalize"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent className="max-w-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Monthly Contract Finalization</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to finalize the {plannerMonth} monthly planner and send contract emails to the following musicians.
+              Please review the list carefully before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <div className="my-4 max-h-[50vh] overflow-auto border rounded-md p-4">
+            <div className="space-y-4">
+              {musicianAssignments && Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => (
+                <div key={musicianId} className="border-b pb-4 last:border-0">
+                  <h4 className="text-md font-semibold">{assignments.musicianName}</h4>
+                  <p className="text-sm text-muted-foreground">{assignments.email}</p>
+                  
+                  <div className="mt-2 space-y-1">
+                    <h5 className="text-sm font-medium">Performance Schedule:</h5>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2">Date</th>
+                          <th className="text-left py-2">Venue</th>
+                          <th className="text-right py-2">Fee</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assignments.assignments.map((assignment: any) => (
+                          <tr key={assignment.id} className="border-b border-dashed">
+                            <td className="py-2">{format(new Date(assignment.date), "MMM d, yyyy")}</td>
+                            <td className="py-2">{assignment.venueName}</td>
+                            <td className="py-2 text-right">${assignment.fee || assignment.actualFee}</td>
+                          </tr>
+                        ))}
+                        <tr className="font-medium">
+                          <td colSpan={2} className="py-2 text-right">Total:</td>
+                          <td className="py-2 text-right">${assignments.totalFee}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelConfirmation}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmFinalize}
+              disabled={finalizeMutation.isPending}
+            >
+              {finalizeMutation.isPending ? "Sending Contracts..." : "Confirm & Send Contracts"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
