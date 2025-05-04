@@ -2424,7 +2424,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sent: 0,
         failed: 0,
         skipped: 0,
-        emailSent: sendGridConfigured, // Flag to indicate if email sending is possible
+        emailSent: sendGridConfigured, // Flag to indicate if email sending was possible
+        emailsActuallySent: false, // Will be set to true if at least one email is successfully sent
         details: []
       };
       
@@ -2586,8 +2587,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             invitation = await storage.createInvitation(invitationData);
             console.log(`[DEBUG] Created invitation ID ${invitation.id} successfully`);
           
-            // Try to send the email
-            await sendMusicianAssignmentEmail(
+            // Try to send the email only if SendGrid is configured
+            // This function will internally check configuration and return false without throwing
+            // if SendGrid isn't properly set up
+            const emailSent = await sendMusicianAssignmentEmail(
               musician.email,
               musician.name,
               formattedMonth,
@@ -2596,7 +2599,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               emailTemplateId
             );
             
-            // Update contract and invitation status
+            if (emailSent) {
+              console.log(`[planner-contracts] Email successfully sent to ${musician.name} (ID: ${musicianId})`);
+              // Mark that at least one email was sent successfully
+              results.emailsActuallySent = true;
+            } else {
+              console.log(`[planner-contracts] Email could not be sent to ${musician.name} (ID: ${musicianId}) - SendGrid not configured`);
+            }
+            
+            // Update contract and invitation status - still mark as sent even if email wasn't sent
             await storage.updateMonthlyContract(contract.id, { status: "sent" });
             
             results.sent++;

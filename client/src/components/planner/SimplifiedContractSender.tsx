@@ -274,7 +274,7 @@ const SimplifiedContractSender = ({
       // Check if contracts were created but emails not sent (SendGrid issue)
       if (response.success && response.sent > 0) {
         // Show success toast with SendGrid warning if necessary
-        if (response.emailSent === false) {
+        if (response.emailSent === false || response.emailsActuallySent === false) {
           toast({
             title: "Partial Success",
             description: `Created ${response.sent} contracts but emails could not be sent. SendGrid is not configured properly. Go to Settings to set up email.`,
