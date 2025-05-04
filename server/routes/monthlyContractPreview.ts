@@ -20,7 +20,7 @@ router.get("/:id/preview", isAuthenticated, async (req, res) => {
     }
 
     // Get all musicians in the contract
-    const assignments = await storage.getMonthlyContractAssignments(contractId);
+    const assignments = await storage.getMonthlyContractMusicians(contractId);
     
     // Generate HTML for contract preview
     const html = `
@@ -185,7 +185,7 @@ router.get("/:contractId/musicians/:musicianContractId/preview", isAuthenticated
     }
 
     // Get the specific musician assignment
-    const assignments = await storage.getMonthlyContractAssignments(contractId);
+    const assignments = await storage.getMonthlyContractMusicians(contractId);
     const musicianContract = assignments.find(a => a.id === musicianContractId);
     
     if (!musicianContract) {
