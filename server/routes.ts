@@ -2577,6 +2577,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       for (const assignment of assignments) {
         try {
+          // Ensure assignment is valid
+          if (!assignment || !assignment.id) {
+            console.warn(`[by-musician] Invalid assignment object, skipping`);
+            continue;
+          }
+          
           // Ensure slot ID is valid
           if (!assignment.slotId || isNaN(assignment.slotId)) {
             console.warn(`[by-musician] Assignment ${assignment.id} has invalid slot ID: ${assignment.slotId}, skipping`);
