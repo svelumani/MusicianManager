@@ -98,9 +98,9 @@ async function runTests() {
     
     console.log('✅ Login successful');
     
-    // Replace these IDs with actual IDs from your database
-    const contractId = 36; // Replace with a valid monthly contract ID
-    const musicianContractId = 80; // Replace with a valid musician contract ID
+    // Use actual IDs from our database
+    const contractId = 36; // Valid monthly contract ID
+    const musicianContractId = 1; // Valid musician contract ID from our database query
     
     // Test contract response summary
     const summarySuccess = await testContractResponseSummary(contractId);

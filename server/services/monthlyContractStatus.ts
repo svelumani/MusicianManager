@@ -86,15 +86,21 @@ class MonthlyContractStatusService {
         .where(eq(monthlyContracts.id, contractId));
       
       // Record in entity status
-      await statusService.updateEntityStatus(
-        'monthly-contract',
-        contractId,
-        newStatus,
-        userId,
-        notes || `Status changed from ${currentStatus} to ${newStatus}`,
-        undefined,
-        { previousStatus: currentStatus }
-      );
+      try {
+        await statusService.updateEntityStatus(
+          'monthly-contract',
+          contractId,
+          newStatus,
+          userId,
+          notes || `Status changed from ${currentStatus} to ${newStatus}`,
+          undefined, // eventId - will be handled in the status service
+          { previousStatus: currentStatus }
+        );
+      } catch (error) {
+        console.error('Error updating entity status:', error);
+        // Continue execution even if the status update fails
+        // We've already updated the main record in the database
+      }
       
       return true;
     } catch (error) {
@@ -141,19 +147,25 @@ class MonthlyContractStatusService {
         .where(eq(monthlyContractMusicians.id, musicianContractId));
       
       // Record in entity status
-      await statusService.updateEntityStatus(
-        'monthly-contract-musician',
-        musicianContractId,
-        newStatus,
-        userId,
-        notes || `Status changed from ${currentStatus} to ${newStatus}`,
-        undefined,
-        { 
-          contractId,
-          musicianId,
-          previousStatus: currentStatus 
-        }
-      );
+      try {
+        await statusService.updateEntityStatus(
+          'monthly-contract-musician',
+          musicianContractId,
+          newStatus,
+          userId,
+          notes || `Status changed from ${currentStatus} to ${newStatus}`,
+          undefined, // eventId - will be handled in the status service
+          { 
+            contractId,
+            musicianId,
+            previousStatus: currentStatus 
+          }
+        );
+      } catch (error) {
+        console.error('Error updating entity status for musician contract:', error);
+        // Continue execution even if the status update fails
+        // We've already updated the main record in the database
+      }
       
       // Check if we need to update parent contract status
       await this.syncContractStatus(contractId, userId);
