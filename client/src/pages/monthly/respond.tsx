@@ -268,11 +268,14 @@ const MonthlyContractResponsePage = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'accepted':
+      case 'signed': // Legacy support
         return <div><Badge className="bg-green-500">Accepted</Badge></div>;
       case 'rejected':
         return <div><Badge className="bg-red-500">Declined</Badge></div>;
       case 'pending':
         return <div><Badge className="bg-yellow-500">Pending</Badge></div>;
+      case 'cancelled':
+        return <div><Badge className="bg-rose-500">Cancelled</Badge></div>;
       default:
         return <div><Badge className="bg-gray-500">{status}</Badge></div>;
     }
@@ -283,7 +286,10 @@ const MonthlyContractResponsePage = () => {
     if (!contractData || !contractData.dates) return 0;
     
     return contractData.dates
-      .filter((date: any) => date.status !== 'rejected')
+      .filter((date: any) => 
+        date.status !== 'rejected' && 
+        date.status !== 'cancelled'
+      )
       .reduce((total: number, date: any) => {
         return total + parseFloat(date.fee || 0);
       }, 0);
@@ -300,7 +306,8 @@ const MonthlyContractResponsePage = () => {
   const hasAcceptedDates = () => {
     if (!contractData || !contractData.dates) return false;
     
-    return contractData.dates.some((date: any) => date.status === 'accepted');
+    return contractData.dates.some((date: any) => 
+      date.status === 'accepted' || date.status === 'signed');
   };
 
   return (
@@ -417,11 +424,13 @@ const MonthlyContractResponsePage = () => {
                         <span className="font-medium mr-2">Status:</span>
                         <div>
                           <Badge className={`
-                            ${contractData.status === 'signed' ? 'bg-green-500' : 
+                            ${contractData.status === 'signed' || contractData.status === 'accepted' ? 'bg-green-500' : 
                               contractData.status === 'rejected' ? 'bg-red-500' : 
                                 contractData.status === 'sent' ? 'bg-blue-500' : 'bg-gray-500'}
                           `}>
-                            {contractData.status?.charAt(0).toUpperCase() + contractData.status?.slice(1)}
+                            {contractData.status === 'signed' 
+                              ? 'Accepted' 
+                              : contractData.status?.charAt(0).toUpperCase() + contractData.status?.slice(1)}
                           </Badge>
                         </div>
                       </div>
