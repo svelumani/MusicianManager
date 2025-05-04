@@ -847,14 +847,7 @@ export default function ViewEventPage() {
                                           
                                           return (
                                             <div className="flex items-center">
-                                              <span className="font-medium mr-2">{rateLabel}</span>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => navigate(`/events/rate-musician/${eventId}/${musicianId}?date=${dateStr}`)}
-                                              >
-                                                <Edit className="h-3 w-3" />
-                                              </Button>
+                                              <span className="font-medium">{rateLabel}</span>
                                             </div>
                                           );
                                         }
