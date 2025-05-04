@@ -31,7 +31,7 @@ const PlannerPage = () => {
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
   const currentYear = parseInt(selectedMonth.split("-")[0]);
 
-  // Query to get monthly planner with enhanced error handling
+  // Query to get monthly planner with better debug logging and error handling
   const {
     data: planner,
     isLoading: isPlannerLoading,
@@ -40,6 +40,8 @@ const PlannerPage = () => {
     queryKey: ['/api/planners/month', currentMonth, 'year', currentYear],
     queryFn: async ({ queryKey }) => {
       try {
+        console.log(`Fetching planner for month ${currentMonth} year ${currentYear}`);
+        
         // Use fetch directly with credentials to handle auth properly
         const response = await fetch(`/api/planners/month/${currentMonth}/year/${currentYear}`, {
           credentials: 'include',
@@ -47,6 +49,8 @@ const PlannerPage = () => {
             'Accept': 'application/json'
           }
         });
+
+        console.log(`Planner API response status: ${response.status}`);
 
         if (response.status === 401) {
           console.warn("Unauthorized access to planner. Please log in.");
@@ -68,17 +72,32 @@ const PlannerPage = () => {
         try {
           const result = await response.json();
           console.log("Planner result:", result);
+          
+          // If planner exists but is empty or invalid, log it clearly
+          if (!result || (typeof result === 'object' && Object.keys(result).length === 0)) {
+            console.error("Planner data is empty or invalid:", result);
+            return null;
+          }
+          
+          // Check essential fields to verify planner is valid
+          if (!result.id || !result.month || !result.year) {
+            console.error("Planner data is missing required fields:", result);
+            return null;
+          }
+          
           return result;
         } catch (e) {
-          console.warn("No JSON content in response");
+          console.warn("No JSON content in response", e);
           return null;
         }
       } catch (error) {
-        console.log("Planner error:", error);
+        console.error("Planner fetch error:", error);
         // If planner doesn't exist for this month, the error is expected
         return null;
       }
     },
+    retry: 2, // Add retry logic to handle potential temporary failures
+    retryDelay: 1000, // Retry after 1 second
   });
 
   // Query to get venues with improved error handling

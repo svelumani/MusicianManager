@@ -665,48 +665,73 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     }).format(amount);
   };
 
-  // Get slot status className with better error handling
+  // Get slot status className with robust error handling
   const getSlotStatusClass = (slot: any) => {
-    if (!slot) return STATUS_COLORS.open || "bg-white";
+    if (!slot) return "bg-white"; // Safe default if slot is missing
     
     try {
-      // Enhanced status detection logic
+      // Enhanced status detection logic with additional defensive checks
       console.log("Slot status:", slot.status, "Slot ID:", slot.id);
       
-      // Check slot contract status first
-      if (slot.status && STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS]) {
-        return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS];
+      // ---------- SAFE STATUS MAPPING ----------
+      // Check if the status exists AND is a valid key in our STATUS_COLORS map
+      const statusKey = slot.status || 'open';
+      
+      // Use type assertion for safety, with fallbacks
+      let statusColor = "bg-white"; // Default fallback
+      
+      // Safely access status color
+      if (statusKey in STATUS_COLORS) {
+        statusColor = STATUS_COLORS[statusKey as keyof typeof STATUS_COLORS];
+      } else if (statusKey === "scheduled" || statusKey === "confirmed") {
+        // Handle status values from database that aren't in our mapping
+        statusColor = STATUS_COLORS.draft; // Consider scheduled slots as draft
       }
       
+      // ---------- ASSIGNMENT STATUS CHECK ----------
       // Check if this slot has assignments
-      const slotAssignments = plannerAssignments?.filter((a: any) => a.slotId === slot.id) || [];
+      let slotAssignments: any[] = [];
+      if (plannerAssignments && Array.isArray(plannerAssignments)) {
+        slotAssignments = plannerAssignments.filter((a: any) => 
+          a && typeof a === 'object' && a.slotId === slot.id
+        );
+      }
       
       if (slotAssignments.length > 0) {
-        // Get the statuses of all assignments
-        const assignmentStatuses = slotAssignments.map((a: any) => a.status || "unknown");
+        // Safely extract assignment statuses, filtering out any invalid values
+        const assignmentStatuses = slotAssignments
+          .map((a: any) => (a && typeof a === 'object' && typeof a.status === 'string') ? a.status : "unknown")
+          .filter((s: string) => s !== "unknown"); // Filter out unknown statuses
         
-        // Check for contract statuses
-        if (assignmentStatuses.some(s => s === 'contract-signed' || s === 'signed' || s === 'accepted')) {
-          return STATUS_COLORS['contract-signed'];
+        // Apply coloring rules based on assignment statuses
+        if (assignmentStatuses.some(s => 
+          s === 'contract-signed' || 
+          s === 'signed' || 
+          s === 'accepted' || 
+          s === 'confirmed')) {
+          return STATUS_COLORS['contract-signed'] || "bg-green-100";
         }
         
-        if (assignmentStatuses.some(s => s === 'contract-sent' || s === 'pending')) {
-          return STATUS_COLORS['contract-sent'];
+        if (assignmentStatuses.some(s => 
+          s === 'contract-sent' || 
+          s === 'pending' || 
+          s === 'scheduled')) {
+          return STATUS_COLORS['contract-sent'] || "bg-blue-100";
         }
         
         if (assignmentStatuses.some(s => s === 'rejected')) {
-          return STATUS_COLORS['rejected'];
+          return STATUS_COLORS['rejected'] || "bg-red-100";
         }
         
-        // Slot has assignments but no contract status
-        return STATUS_COLORS.draft;
+        // Slot has assignments but no specific contract status
+        return STATUS_COLORS.draft || "bg-gray-100";
       }
       
-      // Default to open if no other condition is met
-      return STATUS_COLORS.open || "bg-white";
+      // Return the determined status color or fallback
+      return statusColor;
     } catch (error) {
       console.error("Error getting slot status:", error);
-      return "bg-white"; // Safe default
+      return "bg-white"; // Safe default on error
     }
   };
   
