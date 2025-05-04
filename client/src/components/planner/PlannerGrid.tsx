@@ -131,7 +131,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       console.log("DEBUG - All pay rates count:", rates.length);
       console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
       console.log("DEBUG - Club Performance (ID 7) rates:", clubRates);
-      console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
+      console.log("DEBUG - James Wilson Club Performance (ID 7) rates:", jamesClubRates);
       
       return rates;
     }
