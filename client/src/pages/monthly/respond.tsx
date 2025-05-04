@@ -268,13 +268,13 @@ const MonthlyContractResponsePage = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'accepted':
-        return <Badge className="bg-green-500">Accepted</Badge>;
+        return <div><Badge className="bg-green-500">Accepted</Badge></div>;
       case 'rejected':
-        return <Badge className="bg-red-500">Declined</Badge>;
+        return <div><Badge className="bg-red-500">Declined</Badge></div>;
       case 'pending':
-        return <Badge className="bg-yellow-500">Pending</Badge>;
+        return <div><Badge className="bg-yellow-500">Pending</Badge></div>;
       default:
-        return <Badge className="bg-gray-500">{status}</Badge>;
+        return <div><Badge className="bg-gray-500">{status}</Badge></div>;
     }
   };
   
@@ -413,16 +413,18 @@ const MonthlyContractResponsePage = () => {
                           ? format(new Date(contractData.contract.year, contractData.contract.month - 1), 'MMMM yyyy')
                           : 'N/A'}
                       </p>
-                      <p>
-                        <span className="font-medium">Status:</span>{' '}
-                        <Badge className={`
-                          ${contractData.status === 'signed' ? 'bg-green-500' : 
-                            contractData.status === 'rejected' ? 'bg-red-500' : 
-                              contractData.status === 'sent' ? 'bg-blue-500' : 'bg-gray-500'}
-                        `}>
-                          {contractData.status?.charAt(0).toUpperCase() + contractData.status?.slice(1)}
-                        </Badge>
-                      </p>
+                      <div className="flex items-center">
+                        <span className="font-medium mr-2">Status:</span>
+                        <div>
+                          <Badge className={`
+                            ${contractData.status === 'signed' ? 'bg-green-500' : 
+                              contractData.status === 'rejected' ? 'bg-red-500' : 
+                                contractData.status === 'sent' ? 'bg-blue-500' : 'bg-gray-500'}
+                          `}>
+                            {contractData.status?.charAt(0).toUpperCase() + contractData.status?.slice(1)}
+                          </Badge>
+                        </div>
+                      </div>
                       <p>
                         <span className="font-medium">Date Count:</span>{' '}
                         {contractData.dates?.length || 0} dates
@@ -548,9 +550,11 @@ const MonthlyContractResponsePage = () => {
                   You must respond to all dates to complete your contract
                 </div>
                 {allDatesResponded() && (
-                  <Badge className="bg-green-500 text-white px-3 py-1">
-                    All responses complete
-                  </Badge>
+                  <div>
+                    <Badge className="bg-green-500 text-white px-3 py-1">
+                      All responses complete
+                    </Badge>
+                  </div>
                 )}
               </CardFooter>
             </Card>
