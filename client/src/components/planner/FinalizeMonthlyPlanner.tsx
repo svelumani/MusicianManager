@@ -109,6 +109,7 @@ The VAMP Team`
   } = useQuery({
     queryKey: ['/api/planner-assignments/by-musician', plannerId],
     queryFn: async () => {
+      // Improved error handling to resolve the "Error retrieving musician data" issue
       // Enhanced logging to track what values are being sent
       console.log("FinalizeMonthlyPlanner - API request parameters:", {
         plannerId,
@@ -125,12 +126,16 @@ The VAMP Team`
         throw new Error("Invalid planner ID. Please try again with a valid monthly planner.");
       }
       
+      // Instead of throwing errors, we'll handle all errors gracefully to ensure the finalize dialog
+      // always loads, even if with limited data
+      
       // Ensure we're passing a number, not a string that looks like a number
       const numericPlannerId = typeof plannerId === 'number' ? plannerId : parseInt(String(plannerId), 10);
       const url = `/api/planner-assignments/by-musician?plannerId=${numericPlannerId}`;
       console.log("Making API request to:", url);
       
       try {
+        // Get the musician assignments first
         const response = await apiRequest(url);
         console.log("API response received:", {
           responseType: typeof response,
@@ -151,31 +156,41 @@ The VAMP Team`
             // Different error types require different handling
             if (response._errorType === "InvalidAssignmentID") {
               // For this specific error, we want to show a custom message
-              throw new Error(`Assignment validation error. Please check slot assignments and try again.`);
+              console.warn("Assignment validation error - using empty results structure");
             } else if (response._errorType === "AssignmentDataIntegrityError") {
               // Data integrity issue - we can use the dummy entry provided by the server
               console.warn("Assignment data integrity error - using server-provided dummy entry");
-              toast({
-                title: "Warning",
-                description: "Some musicians couldn't be loaded. The data shown may be incomplete.",
-                variant: "destructive",
-                duration: 5000
-              });
-              return response; // Return the response with the dummy entry
             } else if (response._errorType === "ServerError") {
               // General server error
               console.error("Server error occurred:", response._details || "Unknown server error");
-              toast({
-                title: "Server Error",
-                description: "The server encountered an error. Please try again later.",
-                variant: "destructive",
-                duration: 5000
-              });
-              return response; // Return the response with the dummy entry
             }
             
-            // For other unknown errors, throw the error message
-            throw new Error(response._message || "Unknown server error");
+            // All error types show the same toast and return a usable structure
+            toast({
+              title: "Musician data is incomplete",
+              description: "Some assignments might not be shown correctly. You can continue, but verify the musician list.",
+              variant: "default",
+              duration: 5000
+            });
+            
+            // Return the server response (which should include a dummy entry)
+            // or create our own if it doesn't
+            if (Object.keys(response).some(key => !key.startsWith('_'))) {
+              return response; // Return the response with any existing entries
+            }
+            
+            // Empty structure that matches what the component expects
+            return {
+              _status: "warning",
+              _message: "Limited musician data available",
+              // Add a dummy entry to ensure the component doesn't crash
+              999: {
+                musicianId: 999,
+                musicianName: "Unknown musician(s)",
+                assignments: [],
+                totalFee: 0
+              }
+            };
           }
           
           const musicianCount = Object.keys(response).filter(key => !key.startsWith('_')).length;
@@ -185,49 +200,61 @@ The VAMP Team`
             console.warn("Empty response received (no musicians) - adding diagnostic info");
             return {
               _status: "empty",
-              _message: "No musicians found in the response",
-              _originalResponse: response
+              _message: "No musicians with assignments found for this planner",
+              999: {
+                musicianId: 999,
+                musicianName: "No musicians with assignments",
+                assignments: [],
+                totalFee: 0
+              }
             };
           }
           
           return response;
         } else {
           console.error("Invalid response format:", response);
-          throw new Error("Invalid response format from server");
-        }
-      } catch (error) {
-        console.error("Error fetching musician assignments:", error);
-        
-        // Special handling for "Invalid assignment ID" error
-        const errorObj = error as Error;
-        const errorMessage = errorObj?.message || String(error);
-        if (errorMessage.includes("Invalid assignment ID")) {
-          console.warn("Handling Invalid assignment ID error gracefully");
-          
-          // Return an empty result with the expected structure of musician assignments
-          // This ensures the component can render without errors, while still showing a meaningful message
+          // Instead of throwing an error, return a usable structure
           toast({
-            title: "Error retrieving musician data",
-            description: "Some assignments could not be loaded properly. The data shown may be incomplete.",
-            duration: 7000,
-            variant: "destructive"
+            title: "Warning",
+            description: "The server returned an unexpected response. The musician list may be incomplete.",
+            variant: "destructive",
+            duration: 5000
           });
           
-          // Empty structure that matches what the component expects
           return {
-            _status: "warning",
-            _message: "Error retrieving musician data",
-            // Add a dummy entry to ensure the component doesn't crash
+            _status: "error",
+            _message: "Invalid server response format",
             999: {
               musicianId: 999,
-              musicianName: "Error retrieving musician data",
+              musicianName: "Error in server response",
               assignments: [],
               totalFee: 0
             }
           };
         }
+      } catch (error) {
+        console.error("Error fetching musician assignments:", error);
         
-        throw error;
+        // Return a usable structure for all error types
+        toast({
+          title: "Error retrieving musician data",
+          description: "The server encountered an issue. You can continue, but verify the musician list carefully.",
+          duration: 7000,
+          variant: "destructive"
+        });
+        
+        // Empty structure that matches what the component expects
+        return {
+          _status: "warning",
+          _message: "Error retrieving musician data",
+          // Add a dummy entry to ensure the component doesn't crash
+          999: {
+            musicianId: 999,
+            musicianName: "Please verify musician list",
+            assignments: [],
+            totalFee: 0
+          }
+        };
       }
     },
     enabled: open && !!plannerId && !isNaN(plannerId),
@@ -630,53 +657,78 @@ The VAMP Team`
               {isLoadingAssignments ? (
                 <Skeleton className="h-40 w-full" />
               ) : musicianAssignments && Object.keys(musicianAssignments).length > 0 ? (
-                <Accordion type="multiple" className="w-full">
-                  {Object.entries(musicianAssignments).map(([musicianId, assignments]: [string, any]) => {
-                    // Safety check to ensure assignments has the expected structure
-                    const hasValidAssignments = assignments && 
-                                             typeof assignments === 'object' && 
-                                             assignments.musicianName && 
-                                             Array.isArray(assignments.assignments);
-                                             
-                    // Get the assignments array safely
-                    const assignmentsArray = hasValidAssignments ? assignments.assignments : [];
-                    const assignmentCount = assignmentsArray.length;
-                    const musicianName = hasValidAssignments ? assignments.musicianName : 'Unknown Musician';
-                    const totalFee = hasValidAssignments ? (assignments.totalFee || 0) : 0;
-                    
-                    // Skip rendering if there are no valid assignments
-                    if (!hasValidAssignments && musicianId !== '999') { // Allow our special error entry
-                      console.warn(`Skipping invalid musician entry: ${musicianId}`);
-                      return null;
-                    }
-                    
-                    return (
-                      <AccordionItem key={musicianId} value={musicianId}>
-                        <AccordionTrigger>
-                          {musicianName} ({assignmentCount} assignments)
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="space-y-2 pl-4">
-                            {assignmentsArray.map((assignment: any) => (
-                              <div key={assignment.id} className="grid grid-cols-3 text-sm">
-                                <div>{assignment.date ? format(new Date(assignment.date), "MMM d, yyyy") : 'Unknown date'}</div>
-                                <div>{assignment.venueName || 'Unknown venue'}</div>
-                                <div className="text-right">${assignment.fee || assignment.actualFee || 0}</div>
+                <>
+                  {/* Show a warning if there's error status */}
+                  {musicianAssignments._status && musicianAssignments._status !== "success" && (
+                    <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 mb-4 rounded-md text-sm">
+                      {musicianAssignments._message || "There may be issues with the musician data. Please verify before sending."}
+                    </div>
+                  )}
+                  
+                  <Accordion type="multiple" className="w-full">
+                    {Object.entries(musicianAssignments)
+                      .filter(([key]) => !key.startsWith('_')) // Filter out metadata keys
+                      .map(([musicianId, assignments]: [string, any]) => {
+                        // Safety check to ensure assignments has the expected structure
+                        const hasValidAssignments = assignments && 
+                                               typeof assignments === 'object' && 
+                                               assignments.musicianName;
+                                               
+                        // Get the assignments array safely
+                        const assignmentsArray = hasValidAssignments && Array.isArray(assignments.assignments) 
+                          ? assignments.assignments 
+                          : [];
+                        const assignmentCount = assignmentsArray.length;
+                        const musicianName = hasValidAssignments ? assignments.musicianName : 'Unknown Musician';
+                        const totalFee = hasValidAssignments ? (assignments.totalFee || 0) : 0;
+                        
+                        // Skip rendering if there are no valid assignments
+                        if (!hasValidAssignments && musicianId !== '999') { // Allow our special error entry
+                          console.warn(`Skipping invalid musician entry: ${musicianId}`);
+                          return null;
+                        }
+                        
+                        return (
+                          <AccordionItem key={musicianId} value={musicianId}>
+                            <AccordionTrigger>
+                              {musicianName} ({assignmentCount} assignments)
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="space-y-2 pl-4">
+                                {assignmentsArray.length > 0 ? (
+                                  <>
+                                    {assignmentsArray.map((assignment: any) => (
+                                      <div key={assignment.id || `assignment-${Math.random()}`} className="grid grid-cols-3 text-sm">
+                                        <div>{assignment.date ? format(new Date(assignment.date), "MMM d, yyyy") : 'Unknown date'}</div>
+                                        <div>{assignment.venueName || 'Unknown venue'}</div>
+                                        <div className="text-right">${assignment.fee || assignment.actualFee || 0}</div>
+                                      </div>
+                                    ))}
+                                    <div className="border-t pt-2 mt-2 font-medium flex justify-between">
+                                      <span>Total</span>
+                                      <span>${totalFee}</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-gray-500">No assignment details available.</p>
+                                )}
                               </div>
-                            ))}
-                            <div className="border-t pt-2 mt-2 font-medium flex justify-between">
-                              <span>Total</span>
-                              <span>${totalFee}</span>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  })}
-                </Accordion>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                    })}
+                  </Accordion>
+                </>
               ) : (
-                <div className="text-center p-6 border rounded-md text-gray-500">
-                  No musicians with assignments found for this month
+                <div className="text-center p-6 border rounded-md text-gray-500 bg-gray-50">
+                  {musicianAssignments && musicianAssignments._message ? (
+                    <>
+                      <p className="font-medium text-amber-600">{musicianAssignments._message}</p>
+                      <p className="text-sm mt-2">Please try refreshing the page or contact support if this issue persists.</p>
+                    </>
+                  ) : (
+                    "No musicians with assignments found for this month"
+                  )}
                 </div>
               )}
             </div>

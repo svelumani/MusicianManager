@@ -219,15 +219,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     });
   };
 
-  // Refresh data
-  const refreshData = () => {
-    refetchSlots();
-    refetchAssignments();
-    toast({
-      title: "Refreshed",
-      description: "Planner data refreshed",
-    });
-  };
+  // Data refreshing handled internally by React Query
+  // refreshData function removed as part of UI streamlining
 
   // Define some types to help with TypeScript
   interface Slot {
