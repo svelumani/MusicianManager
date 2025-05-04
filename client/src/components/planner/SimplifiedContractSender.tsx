@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Check, X, Info } from "lucide-react";
+import { AlertCircle, Loader2, Check, X, Info } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -273,8 +273,9 @@ const SimplifiedContractSender = ({
       
       // Check if contracts were created but emails not sent (SendGrid issue)
       if (response.success && response.sent > 0) {
-        // Show success toast with SendGrid warning if necessary
-        if (response.emailSent === false || response.emailsActuallySent === false) {
+        // Force show SendGrid warning as we know it's not configured yet
+        // This is a temporary fix until proper SendGrid setup
+        if (true) { // Always show the warning for now
           toast({
             title: "Partial Success",
             description: `Created ${response.sent} contracts but emails could not be sent. SendGrid is not configured properly. Go to Settings to set up email.`,
@@ -554,6 +555,16 @@ const SimplifiedContractSender = ({
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold">Email Settings</h3>
                 
+                {/* SendGrid warning */}
+                <Alert className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Email Configuration Notice</AlertTitle>
+                  <AlertDescription>
+                    SendGrid is not configured yet. Contracts will be created but emails will not be sent to musicians. 
+                    Setup SendGrid in Settings to enable email sending.
+                  </AlertDescription>
+                </Alert>
+                
                 {/* Contract template selection */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Contract Template</label>
@@ -643,10 +654,19 @@ const SimplifiedContractSender = ({
             <div className="rounded-full bg-green-100 p-3 mb-4">
               <Check className="w-8 h-8 text-green-600" />
             </div>
-            <p className="text-lg font-medium">Contracts sent successfully!</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              The planner has been finalized and contracts have been sent to the selected musicians.
-            </p>
+            <p className="text-lg font-medium">Contracts created successfully!</p>
+            <div className="bg-amber-50 text-amber-800 border-amber-200 p-4 rounded-md mt-4 max-w-md mx-auto">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 mt-0.5 mr-2 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">Email Delivery Notice</p>
+                  <p className="text-sm mt-1">
+                    Contracts were created in the system, but emails could not be sent to musicians because SendGrid is not configured.
+                    To enable email sending, please set up your SendGrid API key in Settings.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </DialogContent>
