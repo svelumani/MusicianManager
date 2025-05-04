@@ -269,9 +269,11 @@ const ContractStatusPage = () => {
                         {getMonthName(contract.month)} {contract.year}
                       </div>
                       <div className="flex items-center mt-2">
-                        <Badge className={`${getStatusColor(contract.status)} text-white`}>
-                          {contract.status}
-                        </Badge>
+                        <div>
+                          <Badge className={`${getStatusColor(contract.status)} text-white`}>
+                            {contract.status}
+                          </Badge>
+                        </div>
                         <span className="ml-2 text-sm">
                           {contract.sentAt ? format(new Date(contract.sentAt), 'MMM d, yyyy') : 'Not sent'}
                         </span>
@@ -376,10 +378,12 @@ const ContractStatusPage = () => {
                                 {musician.musician.email}
                               </TableCell>
                               <TableCell>
-                                <Badge className={`${getStatusColor(musician.status)} text-white flex items-center w-fit`}>
-                                  {getStatusIcon(musician.status)}
-                                  {musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
-                                </Badge>
+                                <div>
+                                  <Badge className={`${getStatusColor(musician.status)} text-white flex items-center w-fit`}>
+                                    {getStatusIcon(musician.status)}
+                                    {musician.status.charAt(0).toUpperCase() + musician.status.slice(1)}
+                                  </Badge>
+                                </div>
                               </TableCell>
                               <TableCell>
                                 {musician.dates?.length || 0} dates
@@ -424,9 +428,11 @@ const ContractStatusPage = () => {
                   <div className="space-y-2">
                     <div className="flex items-center mb-2">
                       <div className="font-medium mr-2">Overall Status:</div>
-                      <Badge className={`${getStatusColor(selectedMusician.status)} text-white`}>
-                        {selectedMusician.status}
-                      </Badge>
+                      <div>
+                        <Badge className={`${getStatusColor(selectedMusician.status)} text-white`}>
+                          {selectedMusician.status}
+                        </Badge>
+                      </div>
                     </div>
                     {selectedMusician.sentAt && (
                       <div className="text-sm text-gray-500">
@@ -452,7 +458,7 @@ const ContractStatusPage = () => {
                         <span className="font-medium">IP Address:</span> {selectedMusician.ipAddress}
                       </div>
                     )}
-                    {selectedMusician.status === 'signed' && !selectedMusician.musicianSignature && (
+                    {(selectedMusician.status === 'signed' || selectedMusician.status === 'accepted') && !selectedMusician.musicianSignature && (
                       <div className="text-sm text-amber-500">
                         <span className="font-medium">Note:</span> No digital signature recorded
                       </div>
@@ -486,10 +492,12 @@ const ContractStatusPage = () => {
                           </TableCell>
                           <TableCell>${parseFloat(date.fee).toFixed(2)}</TableCell>
                           <TableCell>
-                            <Badge className={`${getStatusColor(date.status)} text-white flex items-center w-fit`}>
-                              {getStatusIcon(date.status)}
-                              {date.status.charAt(0).toUpperCase() + date.status.slice(1)}
-                            </Badge>
+                            <div>
+                              <Badge className={`${getStatusColor(date.status)} text-white flex items-center w-fit`}>
+                                {getStatusIcon(date.status)}
+                                {date.status.charAt(0).toUpperCase() + date.status.slice(1)}
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell>{date.notes || 'No notes'}</TableCell>
                         </TableRow>
