@@ -6,13 +6,15 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { 
   BarChart, Users, Music, Building, Calendar, 
   DollarSign, PieChart, Tag, Menu, Bell, LogOut,
-  CalendarRange, Settings
+  CalendarRange, Settings, CalendarDays, CalendarClock,
+  FileText, CheckCircle
 } from "lucide-react";
 
 type SidebarItem = {
   label: string;
   path: string;
   icon: ReactNode;
+  subItems?: SidebarItem[];
 };
 
 const sidebarItems: SidebarItem[] = [
@@ -20,6 +22,16 @@ const sidebarItems: SidebarItem[] = [
   { label: "Venues", path: "/venues", icon: <Building className="mr-3 h-5 w-5" /> },
   { label: "Musicians", path: "/musicians", icon: <Music className="mr-3 h-5 w-5" /> },
   { label: "Events", path: "/events", icon: <Calendar className="mr-3 h-5 w-5" /> },
+  { 
+    label: "Monthly Management", 
+    path: "/monthly", 
+    icon: <Calendar className="mr-3 h-5 w-5" />,
+    subItems: [
+      { label: "Monthly Planner", path: "/planner", icon: <Calendar className="mr-3 h-5 w-5" /> },
+      { label: "Monthly Contracts", path: "/monthly/contracts", icon: <Calendar className="mr-3 h-5 w-5" /> },
+      { label: "Contract Status", path: "/monthly/status", icon: <Calendar className="mr-3 h-5 w-5" /> },
+    ]
+  },
   { label: "Payments", path: "/payments", icon: <DollarSign className="mr-3 h-5 w-5" /> },
   { label: "Reports", path: "/reports", icon: <PieChart className="mr-3 h-5 w-5" /> },
   { label: "Categories", path: "/categories", icon: <Tag className="mr-3 h-5 w-5" /> },
@@ -71,16 +83,37 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             {/* Sidebar Navigation */}
             <nav className="mt-5 px-2 space-y-1">
               {sidebarItems.map((item) => (
-                <Link key={item.path} href={item.path}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-md group ${
-                    location === item.path 
-                      ? 'text-white bg-primary-600' 
-                      : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </Link>
+                <div key={item.path} className="mb-2">
+                  <Link href={item.path}
+                    className={`flex items-center px-4 py-3 text-sm font-medium rounded-md group ${
+                      location === item.path || (item.subItems && item.subItems.some(subItem => location === item.path + subItem.path))
+                        ? 'text-white bg-primary-600' 
+                        : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                    }`}
+                  >
+                    {item.icon}
+                    {item.label}
+                  </Link>
+                  
+                  {/* SubItems menu for large, clear navigation */}
+                  {item.subItems && (
+                    <div className="ml-8 mt-2 space-y-1">
+                      {item.subItems.map((subItem) => (
+                        <Link key={item.path + subItem.path} 
+                          href={item.path + subItem.path}
+                          className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${
+                            location === item.path + subItem.path
+                              ? 'text-white bg-primary-500'
+                              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                          }`}
+                        >
+                          <span className="mr-2 h-5 w-5">{subItem.icon}</span>
+                          <span className="text-base">{subItem.label}</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </nav>
           </div>
