@@ -11,6 +11,11 @@ import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "
 import { sendMusicianAssignmentEmail, initializeSendGrid, isSendGridConfigured } from "./services/email";
 import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
+
+// Utility function to generate a random token
+function generateRandomToken(length = 32) {
+  return crypto.randomBytes(length).toString('hex');
+}
 import pgSession from 'connect-pg-simple';
 import { pool, db } from './db';
 import { isAuthenticated } from './auth';
@@ -2129,6 +2134,526 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // NEW ENDPOINT: Get planner musicians with assignments
+  apiRouter.get("/planner-musicians/:plannerId", isAuthenticated, async (req, res) => {
+    try {
+      console.log("\n===== GET PLANNER MUSICIANS =====");
+      const { plannerId } = req.params;
+      const plannerIdInt = parseInt(plannerId);
+      
+      if (isNaN(plannerIdInt)) {
+        console.error(`[planner-musicians] Invalid planner ID: ${plannerId}`);
+        return res.json({ 
+          success: false, 
+          error: "InvalidPlannerID",
+          message: "Invalid planner ID provided" 
+        });
+      }
+      
+      // 1. Get the planner
+      const planner = await storage.getMonthlyPlanner(plannerIdInt);
+      if (!planner) {
+        console.error(`[planner-musicians] Planner not found: ${plannerId}`);
+        return res.json({ 
+          success: false, 
+          error: "PlannerNotFound",
+          message: "Planner not found" 
+        });
+      }
+      
+      // 2. Get all slots for this planner
+      const slots = await storage.getPlannerSlots(plannerIdInt);
+      if (!slots || slots.length === 0) {
+        console.warn(`[planner-musicians] No slots found for planner: ${plannerId}`);
+        return res.json({ 
+          success: false, 
+          error: "NoSlotsFound",
+          message: "No slots found for this planner" 
+        });
+      }
+      
+      console.log(`[planner-musicians] Found ${slots.length} slots for planner ${plannerId}`);
+      
+      // 3. Build a map of all musicians with their assignments
+      const musicianMap = {};
+      const processedSlots = [];
+      
+      // First, get all the assignments for each slot
+      for (const slot of slots) {
+        try {
+          // Get venue info
+          let venueName = "Unknown Venue";
+          if (slot.venueId) {
+            try {
+              const venue = await storage.getVenue(slot.venueId);
+              if (venue) venueName = venue.name;
+            } catch (venueErr) {
+              console.error(`[planner-musicians] Error fetching venue ${slot.venueId}:`, venueErr);
+            }
+          }
+          
+          // Get assignments for this slot
+          const assignments = await storage.getPlannerAssignments(slot.slotId || slot.id);
+          
+          if (assignments && assignments.length > 0) {
+            processedSlots.push({
+              slotId: slot.id,
+              date: slot.date,
+              venueId: slot.venueId,
+              venueName,
+              startTime: slot.startTime || "19:00",
+              endTime: slot.endTime || "21:00",
+              assignments
+            });
+            
+            // Process each assignment
+            for (const assignment of assignments) {
+              const musicianId = assignment.musicianId;
+              
+              // Skip if no musician ID
+              if (!musicianId) continue;
+              
+              // Create entry for this musician if it doesn't exist
+              if (!musicianMap[musicianId]) {
+                musicianMap[musicianId] = {
+                  musicianId,
+                  assignments: [],
+                  totalFee: 0
+                };
+              }
+              
+              // Calculate fee for this assignment
+              let fee = assignment.actualFee || 0;
+              
+              if (!fee && slot.categoryIds && slot.categoryIds.length > 0) {
+                // Try to find a pay rate for this musician and category
+                try {
+                  const rates = await storage.getMusicianPayRatesByMusicianId(musicianId);
+                  const category = slot.categoryIds[0];
+                  
+                  if (rates && rates.length > 0) {
+                    const matchingRate = rates.find(r => r.eventCategoryId === category);
+                    
+                    if (matchingRate && matchingRate.hourlyRate) {
+                      // Default to 2 hours if not specified
+                      const duration = slot.duration || 2;
+                      fee = matchingRate.hourlyRate * duration;
+                    } else {
+                      // Fallback to default rate
+                      fee = 150;
+                    }
+                  } else {
+                    fee = 150; // Default fallback
+                  }
+                } catch (err) {
+                  console.error(`[planner-musicians] Error calculating fee:`, err);
+                  fee = 150; // Default fallback
+                }
+              } else if (!fee) {
+                fee = 150; // Default fallback if no category
+              }
+              
+              // Add this assignment to the musician's list
+              musicianMap[musicianId].assignments.push({
+                id: assignment.id,
+                slotId: slot.id,
+                date: format(new Date(slot.date), 'MMM d, yyyy'),
+                venueName,
+                venueId: slot.venueId,
+                startTime: slot.startTime || "19:00",
+                endTime: slot.endTime || "21:00",
+                fee,
+                status: assignment.status || "pending"
+              });
+              
+              // Add to total fee
+              musicianMap[musicianId].totalFee += fee;
+            }
+          }
+        } catch (slotError) {
+          console.error(`[planner-musicians] Error processing slot ${slot.id}:`, slotError);
+          // Continue with the next slot
+        }
+      }
+      
+      // 4. Add musician details to each entry
+      const musicians = Object.keys(musicianMap);
+      
+      console.log(`[planner-musicians] Found ${musicians.length} musicians with assignments`);
+      
+      for (const musicianId of musicians) {
+        try {
+          const musician = await storage.getMusician(parseInt(musicianId));
+          if (musician) {
+            musicianMap[musicianId].musicianName = musician.name;
+            musicianMap[musicianId].email = musician.email;
+            musicianMap[musicianId].phone = musician.phone;
+          } else {
+            musicianMap[musicianId].musicianName = "Unknown Musician";
+          }
+        } catch (musicianError) {
+          console.error(`[planner-musicians] Error fetching musician ${musicianId}:`, musicianError);
+          musicianMap[musicianId].musicianName = "Unknown Musician";
+        }
+      }
+      
+      // 5. Return all musicians with assignments
+      return res.json({
+        success: true,
+        planner,
+        musicians: musicianMap,
+        totalMusicians: musicians.length,
+        totalSlots: slots.length,
+        processedSlots: processedSlots.length
+      });
+      
+    } catch (error) {
+      console.error("[planner-musicians] Error:", error);
+      return res.json({ 
+        success: false, 
+        error: "ServerError",
+        message: "An error occurred while fetching musician data for this planner" 
+      });
+    }
+  });
+  
+  // NEW ENDPOINT: Send planner contracts to musicians
+  apiRouter.post("/planner-contracts/:plannerId", isAuthenticated, async (req, res) => {
+    try {
+      console.log("\n\n======== STARTING SEND PLANNER CONTRACTS ========");
+      
+      // 1. Extract and validate parameters
+      const plannerId = parseInt(req.params.plannerId);
+      if (isNaN(plannerId) || plannerId <= 0) {
+        console.error(`[planner-contracts] Invalid planner ID: ${req.params.plannerId}`);
+        return res.status(200).json({ 
+          success: false, 
+          error: "InvalidPlannerID",
+          message: "The planner ID provided is not valid."
+        });
+      }
+      
+      const { 
+        emailMessage, 
+        contractTemplateId, 
+        emailTemplateId,
+        musicians = [] // Array of musician IDs to include
+      } = req.body;
+      
+      // 2. Validate required fields
+      if (!contractTemplateId) {
+        return res.status(200).json({ 
+          success: false, 
+          error: "MissingContractTemplate",
+          message: "Contract template ID is required." 
+        });
+      }
+      
+      if (!emailTemplateId) {
+        return res.status(200).json({ 
+          success: false, 
+          error: "MissingEmailTemplate",
+          message: "Email template ID is required." 
+        });
+      }
+      
+      if (!emailMessage || emailMessage.trim() === '') {
+        return res.status(200).json({ 
+          success: false, 
+          error: "MissingEmailMessage",
+          message: "Email message is required." 
+        });
+      }
+      
+      if (!musicians || !Array.isArray(musicians) || musicians.length === 0) {
+        return res.status(200).json({ 
+          success: false, 
+          error: "NoMusiciansSelected",
+          message: "No musicians were selected to receive contracts." 
+        });
+      }
+      
+      // 3. Check if SendGrid is configured
+      if (!isSendGridConfigured()) {
+        if (!process.env.SENDGRID_API_KEY) {
+          return res.status(200).json({ 
+            success: false, 
+            error: "SendGridNotConfigured",
+            message: "SendGrid API key not configured. Please set the SENDGRID_API_KEY environment variable."
+          });
+        }
+      }
+      
+      // 4. Get planner data
+      const planner = await storage.getMonthlyPlanner(plannerId);
+      if (!planner) {
+        return res.status(200).json({ 
+          success: false, 
+          error: "PlannerNotFound",
+          message: "The monthly planner could not be found."
+        });
+      }
+      
+      // 5. Validate contract template exists
+      const contractTemplate = await storage.getContractTemplate(parseInt(contractTemplateId));
+      if (!contractTemplate) {
+        return res.status(200).json({ 
+          success: false, 
+          error: "ContractTemplateNotFound",
+          message: "The selected contract template could not be found." 
+        });
+      }
+      
+      // 6. Validate email template exists
+      const emailTemplate = await storage.getEmailTemplate(parseInt(emailTemplateId));
+      if (!emailTemplate) {
+        return res.status(200).json({ 
+          success: false, 
+          error: "EmailTemplateNotFound",
+          message: "The selected email template could not be found." 
+        });
+      }
+      
+      // 7. Get slots for this planner
+      const slots = await storage.getPlannerSlots(plannerId);
+      if (!slots || slots.length === 0) {
+        return res.status(200).json({
+          success: false,
+          error: "NoSlots",
+          message: "No slots found for this planner."
+        });
+      }
+      
+      // 8. Process each selected musician
+      const results = {
+        success: true,
+        totalMusicians: musicians.length,
+        sent: 0,
+        failed: 0,
+        skipped: 0,
+        details: []
+      };
+      
+      const formattedMonth = new Date(planner.month).toLocaleString('default', { month: 'long', year: 'numeric' });
+      
+      // Process each musician
+      for (const musicianId of musicians) {
+        try {
+          // Validate musician exists
+          const musician = await storage.getMusician(parseInt(musicianId));
+          if (!musician) {
+            results.skipped++;
+            results.details.push({
+              musicianId,
+              status: "skipped",
+              reason: "Musician not found"
+            });
+            continue;
+          }
+          
+          // Validate musician has email
+          if (!musician.email) {
+            results.skipped++;
+            results.details.push({
+              musicianId,
+              musicianName: musician.name,
+              status: "skipped",
+              reason: "No email address"
+            });
+            continue;
+          }
+          
+          // Get musician's assignments for this planner
+          const assignments = [];
+          let totalFee = 0;
+          
+          for (const slot of slots) {
+            const slotAssignments = await storage.getPlannerAssignments(slot.id);
+            const musicianAssignments = slotAssignments.filter(a => a.musicianId === parseInt(musicianId));
+            
+            for (const assignment of musicianAssignments) {
+              // Get venue info
+              let venueName = "Unknown Venue";
+              if (slot.venueId) {
+                try {
+                  const venue = await storage.getVenue(slot.venueId);
+                  if (venue) venueName = venue.name;
+                } catch (err) {
+                  console.error(`[planner-contracts] Error fetching venue ${slot.venueId}:`, err);
+                }
+              }
+              
+              // Calculate fee
+              let fee = assignment.actualFee || 0;
+              if (!fee) {
+                try {
+                  const rates = await storage.getMusicianPayRatesByMusicianId(parseInt(musicianId));
+                  const category = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
+                  const matchingRate = rates.find(r => r.eventCategoryId === category);
+                  
+                  if (matchingRate && matchingRate.hourlyRate) {
+                    // Default to 2 hours if not specified
+                    const duration = 2; 
+                    fee = matchingRate.hourlyRate * duration;
+                  } else {
+                    fee = 150; // Default fallback
+                  }
+                } catch (err) {
+                  console.error(`[planner-contracts] Error calculating fee:`, err);
+                  fee = 150; // Default fallback
+                }
+              }
+              
+              // Add to assignments list
+              assignments.push({
+                id: assignment.id,
+                date: format(new Date(slot.date), 'MMM d, yyyy'),
+                venueName: venueName,
+                venueId: slot.venueId,
+                fee: fee,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                status: assignment.status || "pending"
+              });
+              
+              totalFee += fee;
+            }
+          }
+          
+          // Skip if no assignments
+          if (assignments.length === 0) {
+            results.skipped++;
+            results.details.push({
+              musicianId,
+              musicianName: musician.name,
+              status: "skipped",
+              reason: "No assignments found"
+            });
+            continue;
+          }
+          
+          // Create a monthly contract
+          const contract = await storage.createMonthlyContract({
+            plannerId: plannerId,
+            month: planner.month,
+            year: planner.year,
+            name: `${formattedMonth} - ${musician.name}`,
+            templateId: parseInt(contractTemplateId),
+            status: "draft"
+          });
+          
+          if (!contract) {
+            results.failed++;
+            results.details.push({
+              musicianId,
+              musicianName: musician.name,
+              status: "failed",
+              reason: "Failed to create contract"
+            });
+            continue;
+          }
+          
+          // Create contract invitations for the musician
+          const invitation = await storage.createContractInvitation({
+            musicianId: parseInt(musicianId),
+            token: generateRandomToken(32),
+            contractId: contract.id,
+            status: "sent",
+            notes: null
+          });
+          
+          if (!invitation) {
+            results.failed++;
+            results.details.push({
+              musicianId,
+              musicianName: musician.name,
+              status: "failed",
+              reason: "Failed to create invitation"
+            });
+            continue;
+          }
+          
+          // Try to send the email
+          try {
+            await sendMusicianAssignmentEmail(
+              musician.email,
+              musician.name,
+              formattedMonth,
+              assignments,
+              emailMessage,
+              emailTemplateId
+            );
+            
+            // Update contract and invitation status
+            await storage.updateMonthlyContract(contract.id, { status: "sent" });
+            
+            results.sent++;
+            results.details.push({
+              musicianId,
+              musicianName: musician.name,
+              status: "sent",
+              contractId: contract.id,
+              invitationId: invitation.id,
+              assignmentCount: assignments.length,
+              totalFee: totalFee
+            });
+          } catch (emailError) {
+            console.error(`[planner-contracts] Error sending email to ${musician.name} (${musician.email}):`, emailError);
+            
+            results.failed++;
+            results.details.push({
+              musicianId,
+              musicianName: musician.name,
+              status: "failed",
+              reason: "Email sending failed",
+              contractId: contract.id,
+              invitationId: invitation.id
+            });
+          }
+        } catch (musicianError) {
+          console.error(`[planner-contracts] Error processing musician ${musicianId}:`, musicianError);
+          
+          results.failed++;
+          results.details.push({
+            musicianId,
+            status: "failed",
+            reason: "Processing error",
+            error: musicianError.message
+          });
+        }
+      }
+      
+      // 9. Update planner status to finalized
+      await storage.updateMonthlyPlanner(plannerId, { status: "finalized" });
+      
+      // 10. Create activity log entry
+      await storage.createActivity({
+        userId: (req.user as any).id,
+        action: "finalize_planner_and_send_contracts",
+        entityType: "planner",
+        entityId: plannerId,
+        details: { 
+          description: `Finalized monthly planner: ${planner.name}`,
+          sentCount: results.sent,
+          failedCount: results.failed,
+          skippedCount: results.skipped
+        },
+        timestamp: new Date()
+      });
+      
+      // Return detailed results
+      return res.status(200).json(results);
+      
+    } catch (error) {
+      console.error("[planner-contracts] Unexpected error:", error);
+      return res.status(200).json({
+        success: false,
+        error: "ServerError",
+        message: "An unexpected error occurred while sending contracts."
+      });
+    }
+  });
+  
   // Planner Slots routes
   apiRouter.get("/planner-slots", isAuthenticated, async (req, res) => {
     try {
