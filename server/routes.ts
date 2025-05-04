@@ -5095,16 +5095,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Musician contract ID:", musicianContractId);
       
       // Parse the date data
-      const dateData = insertMonthlyContractDateSchema.parse({
-        ...req.body,
-        musicianContractId
-      });
+      const { date, fee, status = 'pending', notes = '' } = req.body;
       
-      console.log("Parsed date data:", dateData);
-      
-      // Add the date to the contract
-      const contractDate = await storage.createMonthlyContractDate(dateData);
-      res.status(201).json(contractDate);
+      // Use direct SQL to insert (more reliable in this case)
+      try {
+        const result = await db.execute(sql`
+          INSERT INTO monthly_contract_dates 
+            (musician_contract_id, date, status, fee, notes, created_at, updated_at)
+          VALUES 
+            (${musicianContractId}, ${new Date(date)}, ${status}, ${fee}, ${notes}, NOW(), NOW())
+          RETURNING *
+        `);
+        
+        if (result && result.rows && result.rows.length > 0) {
+          console.log("Date added successfully:", result.rows[0]);
+          
+          // Log activity
+          const dateStr = format(new Date(date), 'yyyy-MM-dd');
+          const musician = await storage.getMusician(musicianContract.musician_id);
+          const musicianName = musician ? musician.name : "Unknown";
+          
+          await storage.createActivity({
+            entityType: 'monthlyContractDate',
+            entityId: result.rows[0].id,
+            action: 'create',
+            userId: 1,
+            timestamp: new Date(),
+            details: JSON.stringify({
+              message: `Date ${dateStr} added to monthly contract for ${musicianName}`,
+              status: result.rows[0].status
+            })
+          });
+          
+          res.status(201).json(result.rows[0]);
+        } else {
+          throw new Error("Insert returned no results");
+        }
+      } catch (sqlError) {
+        console.error("SQL error:", sqlError);
+        throw sqlError;
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid contract date data", errors: error.errors });

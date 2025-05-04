@@ -3574,46 +3574,81 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate> {
-    const [newDate] = await db.insert(monthlyContractDates)
-      .values({
-        musician_contract_id: contractDate.musicianContractId,
-        date: contractDate.date,
-        fee: contractDate.fee,
-        status: contractDate.status || 'pending',
-        notes: contractDate.notes || null,
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .returning();
+    console.log("Creating monthly contract date with data:", contractDate);
     
-    // Get musician contract and musician for activity log
+    // Before attempting insertion, check if the musician contract exists
     const musicianContract = await this.getMonthlyContractMusician(contractDate.musicianContractId);
-    let musicianName = "Unknown";
+    console.log("Found musician contract:", musicianContract);
     
-    if (musicianContract) {
-      const musician = await this.getMusician(musicianContract.musician_id); // Use snake case
-      if (musician) {
-        musicianName = musician.name;
+    const insertData = {
+      musician_contract_id: contractDate.musicianContractId,
+      date: contractDate.date,
+      fee: contractDate.fee,
+      status: contractDate.status || 'pending',
+      notes: contractDate.notes || null,
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+    console.log("Insert data:", insertData);
+    
+    // Try direct SQL insertion as a fallback if necessary
+    try {
+      const [newDate] = await db.insert(monthlyContractDates)
+        .values(insertData)
+        .returning();
+    
+      console.log("New date created:", newDate);
+    
+      // Get musician information for activity log
+      let musicianName = "Unknown";
+      if (musicianContract) {
+        const musician = await this.getMusician(musicianContract.musician_id); // Use snake case
+        if (musician) {
+          musicianName = musician.name;
+        }
+      }
+      
+      // Format date for the log
+      const dateStr = format(contractDate.date, 'yyyy-MM-dd');
+      
+      // Log activity
+      await this.createActivity({
+        entityType: 'monthlyContractDate',
+        entityId: newDate.id,
+        action: 'create',
+        userId: 1, // Assuming admin user
+        timestamp: new Date(),
+        details: JSON.stringify({
+          message: `Date ${dateStr} added to monthly contract for ${musicianName}`,
+          status: newDate.status
+        })
+      });
+      
+      return newDate;
+    } catch (error) {
+      console.error("Error in createMonthlyContractDate:", error);
+      
+      // Try direct SQL as a fallback if ORM fails
+      console.log("Attempting direct SQL insert as fallback");
+      
+      try {
+        const result = await db.execute(sql`
+          INSERT INTO monthly_contract_dates (musician_contract_id, date, status, fee, notes, created_at, updated_at)
+          VALUES (${insertData.musician_contract_id}, ${insertData.date}, ${insertData.status}, ${insertData.fee}, ${insertData.notes}, ${insertData.created_at}, ${insertData.updated_at})
+          RETURNING *
+        `);
+        
+        if (result && result.rows && result.rows.length > 0) {
+          console.log("Direct SQL insert succeeded:", result.rows[0]);
+          return result.rows[0];
+        } else {
+          throw new Error("Direct SQL insert returned no results");
+        }
+      } catch (sqlError) {
+        console.error("Direct SQL insert also failed:", sqlError);
+        throw error; // Throw the original error
       }
     }
-    
-    // Format date for the log
-    const dateStr = format(contractDate.date, 'yyyy-MM-dd');
-    
-    // Log activity
-    await this.createActivity({
-      entityType: 'monthlyContractDate',
-      entityId: newDate.id,
-      action: 'create',
-      userId: 1, // Assuming admin user
-      timestamp: new Date(),
-      details: JSON.stringify({
-        message: `Date ${dateStr} added to monthly contract for ${musicianName}`,
-        status: newDate.status
-      })
-    });
-    
-    return newDate;
   }
 
   async updateMonthlyContractDate(id: number, data: Partial<InsertMonthlyContractDate>): Promise<MonthlyContractDate | undefined> {
