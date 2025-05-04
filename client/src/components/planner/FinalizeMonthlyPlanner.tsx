@@ -143,11 +143,38 @@ The VAMP Team`
         if (response && typeof response === 'object') {
           // Special handling for _status fields returned by our enhanced error handling
           if (response._status === "error") {
-            console.warn(`Server returned error status: ${response._message}`);
+            console.warn(`Server returned error status: ${response._message}`, {
+              errorType: response._errorType,
+              details: response._details
+            });
+            
+            // Different error types require different handling
             if (response._errorType === "InvalidAssignmentID") {
               // For this specific error, we want to show a custom message
               throw new Error(`Assignment validation error. Please check slot assignments and try again.`);
+            } else if (response._errorType === "AssignmentDataIntegrityError") {
+              // Data integrity issue - we can use the dummy entry provided by the server
+              console.warn("Assignment data integrity error - using server-provided dummy entry");
+              toast({
+                title: "Warning",
+                description: "Some musicians couldn't be loaded. The data shown may be incomplete.",
+                variant: "destructive",
+                duration: 5000
+              });
+              return response; // Return the response with the dummy entry
+            } else if (response._errorType === "ServerError") {
+              // General server error
+              console.error("Server error occurred:", response._details || "Unknown server error");
+              toast({
+                title: "Server Error",
+                description: "The server encountered an error. Please try again later.",
+                variant: "destructive",
+                duration: 5000
+              });
+              return response; // Return the response with the dummy entry
             }
+            
+            // For other unknown errors, throw the error message
             throw new Error(response._message || "Unknown server error");
           }
           

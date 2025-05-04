@@ -2492,9 +2492,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!plannerId || isNaN(plannerId)) {
         console.error(`[by-musician] Invalid plannerId: ${req.query.plannerId}`);
-        return res.status(400).json({ 
-          message: "Valid plannerId is required",
-          details: `Provided value: '${req.query.plannerId}' is not a valid number` 
+        // Use more graceful error handling instead of throwing a 400 error
+        // Return a structured response that the client can handle
+        return res.json({
+          _status: "error",
+          _message: "Invalid planner ID provided",
+          _details: `Provided value: '${req.query.plannerId}' is not a valid number`,
+          // Add a dummy entry to ensure the client doesn't crash
+          999: {
+            musicianId: 999,
+            musicianName: "Error: Invalid planner ID",
+            assignments: [],
+            totalFee: 0
+          }
         });
       }
       
@@ -2504,9 +2514,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[by-musician] Found ${slots.length} slots for planner ID: ${plannerId}`);
       
       if (!slots || slots.length === 0) {
-        console.log(`[by-musician] No slots found for planner ID: ${plannerId}, returning empty result`);
-        // Return empty object instead of error
-        return res.json({});
+        console.log(`[by-musician] No slots found for planner ID: ${plannerId}, returning empty result with status`);
+        // Return structured response with status information instead of empty object
+        return res.json({
+          _status: "empty",
+          _message: "No slots found for this planner",
+          // Add a dummy entry to ensure the client doesn't crash
+          999: {
+            musicianId: 999,
+            musicianName: "No slots available",
+            assignments: [],
+            totalFee: 0
+          }
+        });
       }
       
       // Show slot details for debugging
@@ -2564,10 +2584,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[by-musician] Total assignments found: ${assignments.length}`);
       if (assignments.length === 0) {
         console.log(`[by-musician] No assignments found for planner ID: ${plannerId}, returning empty result`);
-        // Return empty object with a specific message in the response
+        // Return empty object with a specific message and dummy entry in the response
         return res.json({
           _status: "empty",
-          _message: "No assignments found for this planner"
+          _message: "No assignments found for this planner",
+          // Add a dummy entry to ensure the client doesn't crash
+          999: {
+            musicianId: 999,
+            musicianName: "No assignments available",
+            assignments: [],
+            totalFee: 0
+          }
         });
       }
       
@@ -2690,7 +2717,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[by-musician] No valid musician assignments found after processing, returning empty result`);
         return res.json({
           _status: "empty",
-          _message: "No valid musician assignments could be processed"
+          _message: "No valid musician assignments could be processed",
+          // Add a dummy entry to ensure the client doesn't crash
+          999: {
+            musicianId: 999,
+            musicianName: "No valid musicians available",
+            assignments: [],
+            totalFee: 0
+          }
         });
       }
       
@@ -2725,11 +2759,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // For all other errors, return a detailed error response
-      res.status(500).json({ 
-        message: "Error fetching assignments by musician", 
-        error: (error as Error).message,
-        stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+      // For all other errors, return a detailed error response as a regular JSON
+      // object with a status code of 200 but internal _status of "error" to allow client-side handling
+      console.log(`[by-musician] Returning structured error response for client-side handling`);
+      return res.json({
+        _status: "error",
+        _message: "Error fetching assignments. Please try again.",
+        _errorType: "ServerError",
+        _details: (error as Error).message,
+        _stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined,
+        // Add a dummy entry to ensure the client doesn't crash on undefined access
+        999: {
+          musicianId: 999,
+          musicianName: "Server error occurred",
+          assignments: [],
+          totalFee: 0
+        }
       });
     }
   });
