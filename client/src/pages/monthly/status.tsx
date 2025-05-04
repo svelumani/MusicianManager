@@ -58,7 +58,9 @@ interface MusicianContractStatus {
   };
   status: string;
   sentAt?: string;
-  signedAt?: string;
+  respondedAt?: string;
+  musicianSignature?: string;
+  ipAddress?: string;
   dates: ContractDateStatus[];
 }
 
@@ -416,23 +418,47 @@ const ContractStatusPage = () => {
             </DialogHeader>
             
             <div className="py-4">
-              <div className="mb-4">
-                <div className="flex items-center mb-2">
-                  <div className="font-medium mr-2">Overall Status:</div>
-                  <Badge className={`${getStatusColor(selectedMusician.status)} text-white`}>
-                    {selectedMusician.status}
-                  </Badge>
+              <div className="mb-6">
+                {/* Musician status info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center mb-2">
+                      <div className="font-medium mr-2">Overall Status:</div>
+                      <Badge className={`${getStatusColor(selectedMusician.status)} text-white`}>
+                        {selectedMusician.status}
+                      </Badge>
+                    </div>
+                    {selectedMusician.sentAt && (
+                      <div className="text-sm text-gray-500">
+                        <span className="font-medium">Sent:</span> {format(new Date(selectedMusician.sentAt), 'MMMM d, yyyy h:mm a')}
+                      </div>
+                    )}
+                    {selectedMusician.respondedAt && (
+                      <div className="text-sm text-gray-500">
+                        <span className="font-medium">Responded:</span> {format(new Date(selectedMusician.respondedAt), 'MMMM d, yyyy h:mm a')}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Digital signature info */}
+                  <div className="space-y-2 border-l pl-4">
+                    {selectedMusician.musicianSignature && (
+                      <div className="text-sm">
+                        <span className="font-medium">Digital Signature:</span> {selectedMusician.musicianSignature}
+                      </div>
+                    )}
+                    {selectedMusician.ipAddress && (
+                      <div className="text-sm">
+                        <span className="font-medium">IP Address:</span> {selectedMusician.ipAddress}
+                      </div>
+                    )}
+                    {selectedMusician.status === 'signed' && !selectedMusician.musicianSignature && (
+                      <div className="text-sm text-amber-500">
+                        <span className="font-medium">Note:</span> No digital signature recorded
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {selectedMusician.sentAt && (
-                  <div className="text-sm text-gray-500">
-                    Sent: {format(new Date(selectedMusician.sentAt), 'MMMM d, yyyy h:mm a')}
-                  </div>
-                )}
-                {selectedMusician.signedAt && (
-                  <div className="text-sm text-gray-500">
-                    Responded: {format(new Date(selectedMusician.signedAt), 'MMMM d, yyyy h:mm a')}
-                  </div>
-                )}
               </div>
               
               <div className="border rounded-md">

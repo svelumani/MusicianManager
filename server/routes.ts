@@ -4984,9 +4984,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const enrichedMusicians = await Promise.all(
         contractMusicians.map(async (cm) => {
           const musician = await storage.getMusician(cm.musicianId);
+          const dates = await storage.getMonthlyContractDates(cm.id);
+          
           return {
-            ...cm,
-            musician
+            id: cm.id,
+            status: cm.status,
+            sentAt: cm.sentAt,
+            respondedAt: cm.respondedAt,
+            musicianSignature: cm.musicianSignature,
+            ipAddress: cm.ipAddress,
+            musician: {
+              id: musician.id,
+              name: musician.name,
+              email: musician.email,
+              phone: musician.phone
+            },
+            dates: dates.map(date => ({
+              id: date.id,
+              date: date.date,
+              status: date.status,
+              fee: date.fee?.toString() || "0",
+              notes: date.notes
+            }))
           };
         })
       );
