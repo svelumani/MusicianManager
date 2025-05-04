@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import { 
@@ -6,11 +6,17 @@ import {
   monthlyContractMusicians,
   monthlyContractDates,
   musicians,
-  type MonthlyContractDate
+  type MonthlyContractDate,
+  type User
 } from '@shared/schema';
 import { eq, and } from 'drizzle-orm';
 import { monthlyContractStatusService } from '../services/monthlyContractStatus';
 import { isAuthenticated } from '../auth';
+
+// Extend Express Request type to include user property
+interface AuthenticatedRequest extends Request {
+  user?: User;
+}
 
 const router = express.Router();
 

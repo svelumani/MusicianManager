@@ -372,11 +372,11 @@ class MonthlyContractStatusService {
           musicianContractId, 
           newStatus, 
           userId,
-          `Status automatically updated based on date responses (${acceptedDates} accepted, ${rejectedDates} rejected, ${pendingDates} pending)`
+          `Status automatically updated based on date responses (${accepted} accepted, ${rejected} rejected, ${pending} pending)`
         );
         
         // Also update the completedAt timestamp if all dates have been responded to
-        if (pendingDates === 0 && totalDates > 0) {
+        if (pending === 0 && total > 0) {
           await db
             .update(monthlyContractMusicians)
             .set({ completedAt: new Date() })
