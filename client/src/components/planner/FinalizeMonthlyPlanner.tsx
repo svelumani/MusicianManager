@@ -205,6 +205,33 @@ The VAMP Team`
         console.error("Invalid plannerId for finalize:", plannerId);
         return Promise.reject(new Error("Invalid planner ID"));
       }
+      
+      // Validate data completeness if sending emails
+      if (data.sendEmails) {
+        if (!data.emailTemplateId || data.emailTemplateId === "none" || data.emailTemplateId === "loading") {
+          console.error("Missing email template for email sending");
+          return Promise.reject(new Error("Email template is required when sending emails"));
+        }
+        
+        if (!data.contractTemplateId) {
+          console.error("Missing contract template for email sending");
+          return Promise.reject(new Error("Contract template is required when sending emails"));
+        }
+        
+        if (!data.emailMessage || data.emailMessage.trim() === "") {
+          console.error("Missing email message for email sending");
+          return Promise.reject(new Error("Email message is required when sending emails"));
+        }
+      }
+      
+      console.log("Finalizing planner with data:", {
+        plannerId,
+        sendEmails: data.sendEmails,
+        hasEmailTemplate: !!data.emailTemplateId,
+        hasContractTemplate: !!data.contractTemplateId,
+        emailMessageLength: data.emailMessage ? data.emailMessage.length : 0
+      });
+      
       return apiRequest(`/api/planners/${plannerId}/finalize`, "POST", data);
     },
     onSuccess: () => {
@@ -217,13 +244,24 @@ The VAMP Team`
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
       onClose();
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      // Handle specific error messages from the API
+      let errorMessage = "Failed to finalize planner";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.error) {
+        errorMessage = error.error;
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to finalize planner",
+        description: errorMessage,
         variant: "destructive",
       });
-      console.error(error);
+      console.error("Finalize error:", error);
     }
   });
 
@@ -231,31 +269,140 @@ The VAMP Team`
   const [showConfirmation, setShowConfirmation] = useState(false);
   
   const handlePrepareFinalize = () => {
-    if (sendEmails && (!selectedEmailTemplateId || selectedEmailTemplateId === "none" || selectedEmailTemplateId === "loading")) {
+    // First check if there are any musicians with assignments
+    if (!musicianAssignments || Object.keys(musicianAssignments).length === 0) {
       toast({
         title: "Error",
-        description: "Please select an email template",
+        description: "No musicians with assignments found for this month. Cannot finalize empty planner.",
         variant: "destructive",
       });
       return;
     }
     
+    // Validate email template if sending emails
+    if (sendEmails) {
+      if (!selectedEmailTemplateId || selectedEmailTemplateId === "none" || selectedEmailTemplateId === "loading") {
+        toast({
+          title: "Error",
+          description: "Please select an email template",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate contract template if sending emails
+      if (!contractTemplateId && !defaultContractTemplate) {
+        toast({
+          title: "Error",
+          description: "No contract template available. Please configure a default monthly contract template in Settings",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Validate email message content
+      if (!emailMessage || emailMessage.trim() === "") {
+        toast({
+          title: "Error",
+          description: "Email message cannot be empty",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
     // If no contract template is selected, use the default one
     if (!contractTemplateId && defaultContractTemplate) {
       setContractTemplateId(defaultContractTemplate);
+      console.log(`Using default contract template: ${defaultContractTemplate}`);
     }
+    
+    // Check for any musician without email if sending emails
+    if (sendEmails && musicianAssignments) {
+      const missingEmails = Object.values(musicianAssignments).filter(
+        (musician: any) => !musician.email || musician.email.trim() === ""
+      );
+      
+      if (missingEmails.length > 0) {
+        const musicianNames = missingEmails.map((m: any) => m.musicianName).join(", ");
+        toast({
+          title: "Warning",
+          description: `These musicians have no email address: ${musicianNames}. They will not receive notifications.`,
+          // Using default variant since "warning" is not supported in the current UI
+        });
+      }
+    }
+    
+    console.log("Preparing to finalize planner", {
+      plannerId,
+      sendEmails,
+      hasEmailTemplate: !!selectedEmailTemplateId,
+      hasContractTemplate: !!(contractTemplateId || defaultContractTemplate),
+      musicianCount: musicianAssignments ? Object.keys(musicianAssignments).length : 0
+    });
     
     setShowConfirmation(true);
   };
 
   const handleConfirmFinalize = () => {
-    finalizeMutation.mutate({
-      sendEmails,
-      emailMessage: sendEmails ? emailMessage : null,
-      contractTemplateId: sendEmails && contractTemplateId ? parseInt(contractTemplateId) : 
-                        defaultContractTemplate ? parseInt(defaultContractTemplate) : null,
-      emailTemplateId: sendEmails && selectedEmailTemplateId ? parseInt(selectedEmailTemplateId) : null,
-    });
+    // Extra validation to ensure we have valid data
+    const finalData: {
+      sendEmails: boolean;
+      emailMessage?: string | null;
+      contractTemplateId?: number | null;
+      emailTemplateId?: number | null;
+    } = {
+      sendEmails
+    };
+    
+    if (sendEmails) {
+      // Add email-related data only if sending emails
+      finalData.emailMessage = emailMessage || null;
+      
+      // Try to parse contract template ID
+      try {
+        finalData.contractTemplateId = contractTemplateId ? parseInt(contractTemplateId) : 
+                          defaultContractTemplate ? parseInt(defaultContractTemplate) : null;
+      } catch (e) {
+        console.error("Invalid contract template ID:", contractTemplateId || defaultContractTemplate);
+        toast({
+          title: "Error",
+          description: "Invalid contract template selected",
+          variant: "destructive",
+        });
+        setShowConfirmation(false);
+        return;
+      }
+      
+      // Try to parse email template ID
+      try {
+        finalData.emailTemplateId = selectedEmailTemplateId ? parseInt(selectedEmailTemplateId) : null;
+      } catch (e) {
+        console.error("Invalid email template ID:", selectedEmailTemplateId);
+        toast({
+          title: "Error",
+          description: "Invalid email template selected",
+          variant: "destructive",
+        });
+        setShowConfirmation(false);
+        return;
+      }
+      
+      // Final validation checks
+      if (!finalData.emailTemplateId) {
+        toast({
+          title: "Error",
+          description: "Email template is required when sending emails",
+          variant: "destructive",
+        });
+        setShowConfirmation(false);
+        return;
+      }
+    }
+    
+    console.log("Finalizing planner with data:", finalData);
+    
+    finalizeMutation.mutate(finalData);
     setShowConfirmation(false);
   };
   
