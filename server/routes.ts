@@ -2526,7 +2526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/planners/:id/finalize", isAuthenticated, async (req, res) => {
     try {
       const plannerId = parseInt(req.params.id);
-      const { sendEmails, emailMessage } = req.body;
+      const { sendEmails, emailMessage, contractTemplateId, emailTemplateId } = req.body;
       
       // Update planner status to finalized
       const planner = await storage.updateMonthlyPlanner(plannerId, { status: "finalized" });

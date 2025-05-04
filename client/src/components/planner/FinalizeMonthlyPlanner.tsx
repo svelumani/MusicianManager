@@ -343,7 +343,7 @@ The VAMP Team`
               onClick={handlePrepareFinalize} 
               disabled={
                 finalizeMutation.isPending || 
-                (sendEmails && (!selectedTemplateId || selectedTemplateId === "none" || selectedTemplateId === "loading"))
+                (sendEmails && (!selectedEmailTemplateId || selectedEmailTemplateId === "none" || selectedEmailTemplateId === "loading"))
               }
             >
               {finalizeMutation.isPending ? "Finalizing..." : "Review & Finalize"}

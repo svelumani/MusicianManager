@@ -120,13 +120,19 @@ function formatAssignmentsToText(assignments: MusicianAssignment[]): string {
  * Send an email with musician assignments
  * @param to Email recipient
  * @param musicianName Name of the musician
+ * @param month Month of the assignments (formatted string)
  * @param assignments List of assignments
+ * @param customMessage Optional custom message to include in the email
+ * @param emailTemplateId Optional email template ID to use
  * @returns True if email sent successfully, false otherwise
  */
 export async function sendMusicianAssignmentEmail(
   to: string,
   musicianName: string,
-  assignments: MusicianAssignment[]
+  month: string,
+  assignments: MusicianAssignment[],
+  customMessage?: string | null,
+  emailTemplateId?: number | null
 ): Promise<boolean> {
   try {
     // Check if SendGrid is configured
@@ -139,33 +145,82 @@ export async function sendMusicianAssignmentEmail(
     // Set API key
     initializeSendGrid(emailSettings.data.apiKey);
 
-    // Prepare email content
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
-        <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Your Monthly Performance Schedule</h2>
-        
-        <p>Dear ${musicianName},</p>
-        
-        <p>We are pleased to confirm your upcoming performances for this month. Please review the details below:</p>
-        
-        ${formatAssignmentsToHtml(assignments)}
-        
-        <p>If you have any questions or need to make changes, please contact us as soon as possible.</p>
-        
-        <p>Thank you for your continued collaboration!</p>
-        
-        <p>Best regards,<br>VAMP Management Team</p>
-        
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777;">
-          <p>This is an automated email. Please do not reply directly to this message.</p>
-        </div>
-      </div>
-    `;
+    let subject = `Your ${month} Performance Schedule`;
+    let htmlContent = '';
+    let textContent = '';
 
-    const textContent = `
+    // If an email template ID is provided, try to get it
+    if (emailTemplateId) {
+      try {
+        // Import dynamically to avoid circular dependencies
+        const { storage } = await import('../DatabaseStorage');
+        const template = await storage.getEmailTemplate(emailTemplateId);
+        
+        if (template) {
+          // Replace template variables
+          const processedSubject = template.subject
+            .replace(/{month}/g, month)
+            .replace(/{musician_name}/g, musicianName)
+            .replace(/{year}/g, new Date().getFullYear().toString())
+            .replace(/{company_name}/g, 'VAMP Productions');
+          
+          // Set the subject from the template
+          subject = processedSubject;
+          
+          // Create HTML content from the template
+          htmlContent = template.htmlContent
+            .replace(/{month}/g, month)
+            .replace(/{musician_name}/g, musicianName)
+            .replace(/{year}/g, new Date().getFullYear().toString())
+            .replace(/{company_name}/g, 'VAMP Productions')
+            .replace(/{assignments_table}/g, formatAssignmentsToHtml(assignments))
+            .replace(/{message}/g, customMessage || '');
+          
+          // Create text content from the template
+          textContent = template.textContent
+            .replace(/{month}/g, month)
+            .replace(/{musician_name}/g, musicianName)
+            .replace(/{year}/g, new Date().getFullYear().toString())
+            .replace(/{company_name}/g, 'VAMP Productions')
+            .replace(/{assignments_text}/g, formatAssignmentsToText(assignments))
+            .replace(/{message}/g, customMessage || '');
+        }
+      } catch (error) {
+        console.error('Error getting email template:', error);
+        // Fall back to default template if there's an error
+      }
+    }
+
+    // If no template was found or there was an error, use the default
+    if (!htmlContent || !textContent) {
+      // Prepare default email content
+      htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px;">
+          <h2 style="color: #333; border-bottom: 1px solid #eee; padding-bottom: 10px;">Your ${month} Performance Schedule</h2>
+          
+          <p>Dear ${musicianName},</p>
+          
+          ${customMessage ? `<p>${customMessage.replace(/\n/g, '<br>')}</p>` : 
+            `<p>We are pleased to confirm your upcoming performances for ${month}. Please review the details below:</p>`}
+          
+          ${formatAssignmentsToHtml(assignments)}
+          
+          <p>If you have any questions or need to make changes, please contact us as soon as possible.</p>
+          
+          <p>Thank you for your continued collaboration!</p>
+          
+          <p>Best regards,<br>VAMP Management Team</p>
+          
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: #777;">
+            <p>This is an automated email. Please do not reply directly to this message.</p>
+          </div>
+        </div>
+      `;
+
+      textContent = `
 Dear ${musicianName},
 
-We are pleased to confirm your upcoming performances for this month. Please review the details below:
+${customMessage || `We are pleased to confirm your upcoming performances for ${month}. Please review the details below:`}
 
 ${formatAssignmentsToText(assignments)}
 
@@ -177,13 +232,14 @@ Best regards,
 VAMP Management Team
 
 This is an automated email. Please do not reply directly to this message.
-    `;
+      `;
+    }
 
     // Send email
     const msg: any = {
       to,
       from: emailSettings.data.from,
-      subject: 'Your Monthly Performance Schedule',
+      subject,
       text: textContent,
       html: htmlContent,
     };
