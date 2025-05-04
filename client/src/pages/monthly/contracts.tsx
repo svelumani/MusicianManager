@@ -320,7 +320,6 @@ const MonthlyContractsPage = () => {
                         <TableHead>Name</TableHead>
                         <TableHead>Month</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Number of Days</TableHead>
                         <TableHead>Created</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -338,19 +337,6 @@ const MonthlyContractsPage = () => {
                               {getStatusIcon(contract.status)}
                               {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
                             </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {contract.dateCount || 0} days
-                            {contract.dateList && contract.dateList.length > 0 && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {contract.dateList.map((date: any, index: number) => (
-                                  <span key={index}>
-                                    {format(new Date(date.date), 'MMM d')}: ${date.fee || 0}
-                                    {index < contract.dateList.length - 1 ? ', ' : ''}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
                           </TableCell>
                           <TableCell>
                             {contract.createdAt ? format(new Date(contract.createdAt), 'MMM d, yyyy') : 'N/A'}
