@@ -433,6 +433,122 @@ export class StatusService {
             colorClass: 'border-red-600 text-red-800'
           }
         ]
+      },
+      
+      'monthly-contract': {
+        entityType: 'monthly-contract',
+        statuses: [
+          {
+            value: 'draft',
+            label: 'Draft',
+            description: 'Contract is in draft state',
+            colorType: 'secondary',
+            colorClass: 'border-gray-500 text-gray-700'
+          },
+          {
+            value: 'sent',
+            label: 'Sent',
+            description: 'Contract has been sent to musicians',
+            colorType: 'info',
+            colorClass: 'border-blue-500 text-blue-700'
+          },
+          {
+            value: 'in-progress',
+            label: 'In Progress',
+            description: 'Some musicians have responded',
+            colorType: 'info',
+            colorClass: 'border-indigo-500 text-indigo-700'
+          },
+          {
+            value: 'completed',
+            label: 'Completed',
+            description: 'All musicians have responded',
+            colorType: 'success',
+            colorClass: 'border-green-600 text-green-800'
+          },
+          {
+            value: 'cancelled',
+            label: 'Cancelled',
+            description: 'Contract has been cancelled',
+            colorType: 'error',
+            colorClass: 'border-red-600 text-red-800'
+          }
+        ]
+      },
+      
+      'monthly-contract-musician': {
+        entityType: 'monthly-contract-musician',
+        statuses: [
+          {
+            value: 'pending',
+            label: 'Pending',
+            description: 'Waiting for musician response',
+            colorType: 'warning',
+            colorClass: 'border-amber-500 text-amber-700'
+          },
+          {
+            value: 'accepted',
+            label: 'Accepted',
+            description: 'Musician has accepted all dates',
+            colorType: 'success',
+            colorClass: 'border-green-600 text-green-800'
+          },
+          {
+            value: 'partially-accepted',
+            label: 'Partially Accepted',
+            description: 'Musician has accepted some dates',
+            colorType: 'info',
+            colorClass: 'border-orange-500 text-orange-700'
+          },
+          {
+            value: 'rejected',
+            label: 'Rejected',
+            description: 'Musician has rejected all dates',
+            colorType: 'error',
+            colorClass: 'border-red-600 text-red-800'
+          },
+          {
+            value: 'needs-attention',
+            label: 'Needs Attention',
+            description: 'Response requires admin attention',
+            colorType: 'error',
+            colorClass: 'border-red-400 text-red-600 bg-red-50'
+          }
+        ]
+      },
+      
+      'monthly-contract-date': {
+        entityType: 'monthly-contract-date',
+        statuses: [
+          {
+            value: 'pending',
+            label: 'Pending',
+            description: 'Awaiting musician response',
+            colorType: 'warning',
+            colorClass: 'border-amber-500 text-amber-700'
+          },
+          {
+            value: 'accepted',
+            label: 'Accepted',
+            description: 'Date has been accepted',
+            colorType: 'success',
+            colorClass: 'border-green-600 text-green-800'
+          },
+          {
+            value: 'rejected',
+            label: 'Rejected',
+            description: 'Date has been rejected',
+            colorType: 'error',
+            colorClass: 'border-red-600 text-red-800'
+          },
+          {
+            value: 'reassigned',
+            label: 'Reassigned',
+            description: 'Date has been reassigned to another musician',
+            colorType: 'info',
+            colorClass: 'border-purple-500 text-purple-700'
+          }
+        ]
       }
     };
     
