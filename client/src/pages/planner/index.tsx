@@ -23,9 +23,9 @@ const PlannerPage = () => {
   // Default to current date, but we'll allow creating future planners
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Initialize with current month, or March 2025 as requested
-  const marchDate = new Date(2025, 2, 1); // March is month 2 (zero-indexed)
-  const [selectedMonth, setSelectedMonth] = useState(format(marchDate, "yyyy-MM"));
+  // Initialize with current month
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(format(currentDate, "yyyy-MM"));
   
   // Get current month and year from selected month string
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
@@ -149,10 +149,7 @@ const PlannerPage = () => {
                 </span>
               ) : (
                 <>
-                  {currentMonth === 3 && currentYear === 2025 ? 
-                    "Create March 2025 Planner" : 
-                    `Create ${format(new Date(currentYear, currentMonth - 1), 'MMM yyyy')} Planner`
-                  }
+                  Create {format(new Date(currentYear, currentMonth - 1), 'MMM yyyy')} Planner
                 </>
               )}
             </Button>
@@ -177,17 +174,8 @@ const PlannerPage = () => {
           <CardHeader>
             <CardTitle>No Planner Found for {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}</CardTitle>
             <CardDescription>
-              {currentMonth === 3 && currentYear === 2025 ? (
-                <>
-                  <span className="font-semibold text-blue-600">March 2025 planner</span> needs to be created for VAMP schedule management. 
-                  Create it now to start adding venues and musicians.
-                </>
-              ) : (
-                <>
-                  There is no planner for {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}. 
-                  Create one to get started with scheduling for this month.
-                </>
-              )}
+              There is no planner for {format(new Date(currentYear, currentMonth - 1), 'MMMM yyyy')}. 
+              Create one to get started with scheduling for this month.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
