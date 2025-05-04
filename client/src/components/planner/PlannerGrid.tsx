@@ -66,7 +66,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
-    queryKey: ['/api/planner-assignments', planner?.id, plannerSlots ? plannerSlots.map((s: any) => s.id).join('-') : ''],
+    queryKey: ['/api/planner-assignments', planner?.id],
     queryFn: () => {
       if (!plannerSlots || plannerSlots.length === 0) {
         console.log("No planner slots available, skipping assignment fetch");
@@ -200,10 +200,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const handleMusicianAssigned = () => {
     // First, make sure the slots are refreshed
     refetchSlots().then(updatedSlots => {
+      console.log("Slots refreshed after musician assignment");
+      
       // Now use the updated slots info to refresh assignments
       // Invalidate the query cache first
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/planner-assignments', planner?.id] 
+        queryKey: ['/api/planner-assignments'] 
       });
       
       // Then manually trigger refetches to ensure fresh data
