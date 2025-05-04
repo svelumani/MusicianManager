@@ -28,9 +28,7 @@ const templateFormSchema = z.object({
   description: z.string().optional(),
   content: z.string().min(10, { message: "Content must be at least 10 characters" }),
   isDefault: z.boolean().optional(),
-  templateType: z.enum(["event", "monthly"], {
-    description: "Type of contract template",
-  }).default("event")
+  isMonthly: z.boolean().optional().default(false)
 });
 
 type TemplateFormValues = z.infer<typeof templateFormSchema>;
@@ -145,7 +143,7 @@ export default function ContractTemplatesPage() {
       description: "",
       content: "",
       isDefault: false,
-      templateType: "event",
+      isMonthly: false,
     },
   });
 
@@ -157,7 +155,7 @@ export default function ContractTemplatesPage() {
       description: "",
       content: "",
       isDefault: false,
-      templateType: "event",
+      isMonthly: false,
     },
   });
 
@@ -178,7 +176,7 @@ export default function ContractTemplatesPage() {
       description: template.description || "",
       content: template.content,
       isDefault: template.isDefault || false,
-      templateType: template.templateType || "event",
+      isMonthly: template.isMonthly || false,
     });
     setIsEditDialogOpen(true);
   };
@@ -247,9 +245,14 @@ export default function ContractTemplatesPage() {
                     <CardTitle>{template.name}</CardTitle>
                     <CardDescription>{template.description}</CardDescription>
                   </div>
-                  {template.isDefault && (
-                    <Badge variant="secondary">Default</Badge>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {template.isDefault && (
+                      <Badge variant="secondary">Default</Badge>
+                    )}
+                    {template.isMonthly && (
+                      <Badge variant="outline" className="bg-blue-50">Monthly</Badge>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="flex-grow">
@@ -357,26 +360,49 @@ export default function ContractTemplatesPage() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={addForm.control}
-                    name="isDefault"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Set as Default Template</FormLabel>
-                          <FormDescription>
-                            This template will be used by default when creating new contracts
-                          </FormDescription>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={addForm.control}
+                      name="isDefault"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Set as Default Template</FormLabel>
+                            <FormDescription>
+                              This template will be used by default when creating new contracts
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={addForm.control}
+                      name="isMonthly"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Monthly Contract Template</FormLabel>
+                            <FormDescription>
+                              This template is for monthly contract emails sent to musicians
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </TabsContent>
                 <TabsContent value="content">
                   <FormField
@@ -463,29 +489,52 @@ This agreement is made between {client_name} and {musician_name}..."
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={editForm.control}
-                    name="isDefault"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={editingTemplate?.isDefault}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Set as Default Template</FormLabel>
-                          <FormDescription>
-                            {editingTemplate?.isDefault
-                              ? "This template is already set as default"
-                              : "This template will be used by default when creating new contracts"}
-                          </FormDescription>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={editForm.control}
+                      name="isDefault"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={editingTemplate?.isDefault}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Set as Default Template</FormLabel>
+                            <FormDescription>
+                              {editingTemplate?.isDefault
+                                ? "This template is already set as default"
+                                : "This template will be used by default when creating new contracts"}
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={editForm.control}
+                      name="isMonthly"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Monthly Contract Template</FormLabel>
+                            <FormDescription>
+                              This template is for monthly contract emails sent to musicians
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </TabsContent>
                 <TabsContent value="content">
                   <FormField
