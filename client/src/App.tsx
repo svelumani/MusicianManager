@@ -47,6 +47,7 @@ import ContractsPage from "@/pages/contracts/index";
 import ContractViewPage from "@/pages/contracts/view";
 import ContractResponsePage from "@/pages/contracts/respond";
 import ContractDetailPage from "@/pages/contracts/[id]";
+import TestContractPage from "@/pages/test-contract";
 
 function Router() {
   const [location] = useLocation();
@@ -281,6 +282,11 @@ function Router() {
       </Route>
       <Route path="/monthly/respond">
         <MonthlyContractResponsePage />
+      </Route>
+      
+      {/* Test routes */}
+      <Route path="/test-contract">
+        <TestContractPage />
       </Route>
 
       {/* Fallback to 404 */}
