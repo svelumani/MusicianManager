@@ -2414,40 +2414,79 @@ export class DatabaseStorage implements IStorage {
   
   // Planner Assignments management
   async getPlannerAssignments(slotId?: number, musicianId?: number): Promise<PlannerAssignment[]> {
-    // Validate parameters
-    if ((slotId !== undefined && isNaN(slotId)) || (musicianId !== undefined && isNaN(musicianId))) {
-      console.warn(`Invalid parameters in getPlannerAssignments: slotId=${slotId}, musicianId=${musicianId}`);
-      return []; // Return empty array instead of querying with invalid params
+    // Enhanced validation of parameters - strictly check for valid numbers
+    if (slotId !== undefined) {
+      // Convert to number and validate
+      const numericSlotId = Number(slotId);
+      if (isNaN(numericSlotId) || !Number.isInteger(numericSlotId) || numericSlotId <= 0) {
+        console.warn(`Invalid slotId parameter in getPlannerAssignments: ${slotId} (type: ${typeof slotId})`);
+        return []; // Return empty array instead of querying with invalid params
+      }
+      // Normalize to ensure it's a number
+      slotId = numericSlotId;
+    }
+
+    if (musicianId !== undefined) {
+      // Convert to number and validate
+      const numericMusicianId = Number(musicianId);
+      if (isNaN(numericMusicianId) || !Number.isInteger(numericMusicianId) || numericMusicianId <= 0) {
+        console.warn(`Invalid musicianId parameter in getPlannerAssignments: ${musicianId} (type: ${typeof musicianId})`);
+        return []; // Return empty array instead of querying with invalid params
+      }
+      // Normalize to ensure it's a number
+      musicianId = numericMusicianId;
     }
 
     let query = db.select().from(plannerAssignments);
     
-    if (slotId !== undefined && !isNaN(slotId) && musicianId !== undefined && !isNaN(musicianId)) {
-      query = query.where(and(
-        eq(plannerAssignments.slotId, slotId),
-        eq(plannerAssignments.musicianId, musicianId)
-      ));
-    } else if (slotId !== undefined && !isNaN(slotId)) {
-      query = query.where(eq(plannerAssignments.slotId, slotId));
-    } else if (musicianId !== undefined && !isNaN(musicianId)) {
-      query = query.where(eq(plannerAssignments.musicianId, musicianId));
+    try {
+      // Apply filters based on parameters
+      if (slotId !== undefined && musicianId !== undefined) {
+        query = query.where(and(
+          eq(plannerAssignments.slotId, slotId),
+          eq(plannerAssignments.musicianId, musicianId)
+        ));
+      } else if (slotId !== undefined) {
+        query = query.where(eq(plannerAssignments.slotId, slotId));
+      } else if (musicianId !== undefined) {
+        query = query.where(eq(plannerAssignments.musicianId, musicianId));
+      }
+      
+      // Execute query and catch any database errors
+      return await query;
+    } catch (error) {
+      console.error(`Database error in getPlannerAssignments:`, error);
+      console.error(`Query parameters: slotId=${slotId}, musicianId=${musicianId}`);
+      // Return empty array instead of throwing
+      return [];
     }
-    
-    return await query;
   }
   
   async getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined> {
-    // Check for valid numeric ID
-    if (!id || isNaN(id)) {
-      console.warn(`Invalid planner assignment ID: ${id}`);
+    // Enhanced validation of numeric ID
+    if (id === undefined || id === null) {
+      console.warn(`Missing planner assignment ID`);
       return undefined;
     }
     
-    const [assignment] = await db.select()
-      .from(plannerAssignments)
-      .where(eq(plannerAssignments.id, id));
+    // Force convert to number and validate
+    const numericId = Number(id);
+    if (isNaN(numericId) || !Number.isInteger(numericId) || numericId <= 0) {
+      console.warn(`Invalid planner assignment ID format: ${id} (type: ${typeof id})`);
+      return undefined;
+    }
     
-    return assignment;
+    try {
+      const [assignment] = await db.select()
+        .from(plannerAssignments)
+        .where(eq(plannerAssignments.id, numericId));
+      
+      return assignment;
+    } catch (error) {
+      console.error(`Database error in getPlannerAssignment:`, error);
+      console.error(`Query parameters: id=${numericId}`);
+      return undefined;
+    }
   }
   
   async createPlannerAssignment(assignment: InsertPlannerAssignment): Promise<PlannerAssignment> {

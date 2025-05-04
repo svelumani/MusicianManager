@@ -2540,31 +2540,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assignments = [];
       const assignmentErrors = [];
       
+      // Check if we have no slots at all
+      if (slotIds.length === 0) {
+        console.warn(`[by-musician] No valid slots found for planner ID: ${plannerId}`);
+        return res.json({
+          _status: "empty",
+          _message: "No valid slots found for this planner",
+          _errorType: "EmptySlotList",
+          // Add a dummy entry to ensure the client doesn't crash
+          999: {
+            musicianId: 999,
+            musicianName: "No valid slots available",
+            assignments: [],
+            totalFee: 0
+          }
+        });
+      }
+      
       for (const slotId of slotIds) {
-        if (!slotId || isNaN(slotId)) {
-          console.warn(`[by-musician] Invalid slot ID: ${slotId}, skipping`);
-          assignmentErrors.push(`Invalid slot ID: ${slotId}`);
+        // Enhanced slot ID validation
+        if (slotId === undefined || slotId === null) {
+          console.warn(`[by-musician] Missing slot ID, skipping`);
+          assignmentErrors.push(`Missing slot ID in slots list`);
+          continue;
+        }
+        
+        // Convert to number and validate
+        const numericSlotId = Number(slotId);
+        if (isNaN(numericSlotId) || !Number.isInteger(numericSlotId) || numericSlotId <= 0) {
+          console.warn(`[by-musician] Invalid slot ID format: ${slotId} (type: ${typeof slotId}), skipping`);
+          assignmentErrors.push(`Invalid slot ID format: ${slotId}`);
           continue;
         }
         
         try {
-          const slotAssignments = await storage.getPlannerAssignments(slotId);
-          console.log(`[by-musician] Found ${slotAssignments.length} assignments for slot ID: ${slotId}`);
+          const slotAssignments = await storage.getPlannerAssignments(numericSlotId);
+          console.log(`[by-musician] Found ${slotAssignments.length} assignments for slot ID: ${numericSlotId}`);
           
-          // Log details about each assignment
+          // Log details about each assignment for debugging
           slotAssignments.forEach(assignment => {
             console.log(`[by-musician] Assignment ID: ${assignment.id}, Musician ID: ${assignment.musicianId}, Status: ${assignment.status || 'none'}`);
           });
           
-          // Validate each assignment's musician ID
+          // Validate each assignment's musician ID with enhanced validation
           const validAssignments = [];
           for (const assignment of slotAssignments) {
-            if (!assignment.musicianId || isNaN(assignment.musicianId)) {
-              console.warn(`[by-musician] Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}, skipping`);
+            if (assignment.musicianId === undefined || assignment.musicianId === null) {
+              console.warn(`[by-musician] Assignment ${assignment.id} is missing musician ID, skipping`);
+              assignmentErrors.push(`Assignment ${assignment.id} is missing musician ID`);
+              continue;
+            }
+            
+            // Convert to number and validate
+            const numericMusicianId = Number(assignment.musicianId);
+            if (isNaN(numericMusicianId) || !Number.isInteger(numericMusicianId) || numericMusicianId <= 0) {
+              console.warn(`[by-musician] Assignment ${assignment.id} has invalid musician ID format: ${assignment.musicianId} (type: ${typeof assignment.musicianId}), skipping`);
               assignmentErrors.push(`Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}`);
               continue;
             }
-            validAssignments.push(assignment);
+            
+            // Make a copy with the validated musicianId to ensure it's a proper number
+            validAssignments.push({
+              ...assignment,
+              musicianId: numericMusicianId
+            });
           }
           
           assignments.push(...validAssignments);
