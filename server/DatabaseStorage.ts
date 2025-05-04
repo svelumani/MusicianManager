@@ -3230,33 +3230,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMonthlyContract(contract: InsertMonthlyContract): Promise<MonthlyContract> {
-    const [newContract] = await db.insert(monthlyContracts)
-      .values({
-        planner_id: contract.plannerId,
-        month: contract.month,
-        year: contract.year,
-        template_id: contract.templateId,
-        name: contract.name, 
-        status: contract.status || 'draft',
-        created_at: new Date(),
-        updated_at: new Date()
-      })
-      .returning();
+    console.log("Creating monthly contract with data:", contract);
     
-    // Log activity
-    await this.createActivity({
-      entityType: 'monthlyContract',
-      entityId: newContract.id,
-      action: 'create',
-      userId: 1, // Assuming admin user
-      timestamp: new Date(),
-      details: JSON.stringify({
-        message: `Monthly contract created for planner: ${newContract.plannerId}`,
-        status: newContract.status
-      })
-    });
-    
-    return newContract;
+    // Let's try a more direct approach using raw SQL
+    try {
+      const result = await db.execute(`
+        INSERT INTO monthly_contracts (
+          planner_id, month, year, template_id, name, status, created_at, updated_at
+        ) VALUES (
+          ${contract.plannerId}, ${contract.month}, ${contract.year}, ${contract.templateId}, 
+          '${contract.name}', '${contract.status || 'draft'}', 
+          NOW(), NOW()
+        )
+        RETURNING *
+      `);
+      
+      console.log("SQL insert result:", result);
+      
+      if (result.rows && result.rows.length > 0) {
+        const newContract = result.rows[0];
+        console.log("Created new contract:", newContract);
+        
+        // Log activity
+        await this.createActivity({
+          entityType: 'monthlyContract',
+          entityId: newContract.id,
+          action: 'create',
+          userId: 1, // Assuming admin user
+          timestamp: new Date(),
+          details: JSON.stringify({
+            message: `Monthly contract created for planner: ${contract.plannerId}`,
+            status: newContract.status
+          })
+        });
+        
+        return newContract;
+      } else {
+        throw new Error("No contract was returned from insert operation");
+      }
+    } catch (error) {
+      console.error("Error in createMonthlyContract:", error);
+      throw error;
+    }
   }
 
   async updateMonthlyContract(id: number, data: Partial<InsertMonthlyContract>): Promise<MonthlyContract | undefined> {

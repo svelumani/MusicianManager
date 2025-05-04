@@ -4927,7 +4927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   apiRouter.post("/monthly-contracts", isAuthenticated, async (req, res) => {
     try {
+      console.log("Request body for monthly contract:", req.body);
       const contractData = insertMonthlyContractSchema.parse(req.body);
+      console.log("Parsed contract data:", contractData);
       const contract = await storage.createMonthlyContract(contractData);
       
       res.status(201).json(contract);
@@ -4935,7 +4937,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Invalid contract data", errors: error.errors });
       }
-      console.error(error);
+      console.error("Monthly contract creation error:", error);
       res.status(500).json({ message: "Error creating monthly contract" });
     }
   });
