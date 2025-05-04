@@ -36,6 +36,7 @@ import PlannerInvoicePage from "@/pages/planner/invoice";
 import MonthlyManagementPage from "@/pages/monthly/index";
 import MonthlyContractsPage from "@/pages/monthly/contracts";
 import ContractStatusPage from "@/pages/monthly/status";
+import MonthlyContractResponsePage from "@/pages/monthly/respond";
 import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
@@ -277,6 +278,9 @@ function Router() {
       {/* Public routes - no auth required */}
       <Route path="/availability/:token">
         <SharedAvailabilityView />
+      </Route>
+      <Route path="/monthly/respond">
+        <MonthlyContractResponsePage />
       </Route>
 
       {/* Fallback to 404 */}
