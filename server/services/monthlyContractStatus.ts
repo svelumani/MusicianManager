@@ -257,23 +257,54 @@ class MonthlyContractStatusService {
    */
   async updateMusicianResponseCounts(musicianContractId: number) {
     try {
-      // Get counts of different status types
-      const countQuery = await db
+      // Get counts of different status types using separate queries since filterWhere isn't available
+      const acceptedCount = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .where(and(
+          eq(monthlyContractDates.musicianContractId, musicianContractId),
+          eq(monthlyContractDates.status, 'accepted')
+        ));
+        
+      const rejectedCount = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .where(and(
+          eq(monthlyContractDates.musicianContractId, musicianContractId),
+          eq(monthlyContractDates.status, 'rejected')
+        ));
+        
+      const pendingCount = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .where(and(
+          eq(monthlyContractDates.musicianContractId, musicianContractId),
+          eq(monthlyContractDates.status, 'pending')
+        ));
+        
+      const totalCount = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .where(eq(monthlyContractDates.musicianContractId, musicianContractId));
+        
+      const totalFeeQuery = await db
         .select({
-          accepted: count(monthlyContractDates.id).filterWhere(eq(monthlyContractDates.status, 'accepted')),
-          rejected: count(monthlyContractDates.id).filterWhere(eq(monthlyContractDates.status, 'rejected')),
-          pending: count(monthlyContractDates.id).filterWhere(eq(monthlyContractDates.status, 'pending')),
-          total: count(monthlyContractDates.id),
-          totalFee: sql<number>`COALESCE(SUM(CASE WHEN ${monthlyContractDates.status} = 'accepted' THEN ${monthlyContractDates.fee} ELSE 0 END), 0)`,
+          totalFee: sql<number>`COALESCE(SUM(CASE WHEN status = 'accepted' THEN fee ELSE 0 END), 0)`
         })
         .from(monthlyContractDates)
         .where(eq(monthlyContractDates.musicianContractId, musicianContractId));
       
-      if (!countQuery || countQuery.length === 0) {
+      if (!acceptedCount || !rejectedCount || !pendingCount || !totalCount || !totalFeeQuery || 
+          acceptedCount.length === 0 || rejectedCount.length === 0 || pendingCount.length === 0 || 
+          totalCount.length === 0 || totalFeeQuery.length === 0) {
         return false;
       }
       
-      const { accepted, rejected, pending, total, totalFee } = countQuery[0];
+      const accepted = acceptedCount[0].count;
+      const rejected = rejectedCount[0].count;
+      const pending = pendingCount[0].count;
+      const total = totalCount[0].count;
+      const totalFee = totalFeeQuery[0].totalFee;
       
       // Update the musician contract with the new counts
       await db
@@ -315,13 +346,21 @@ class MonthlyContractStatusService {
       // Determine new status based on the date counts
       let newStatus = currentStatus;
       
-      if (acceptedDates === totalDates) {
+      // Handle null values safely
+      const accepted = acceptedDates || 0;
+      const rejected = rejectedDates || 0;
+      const pending = pendingDates || 0;
+      const total = totalDates || 0;
+      
+      if (total === 0) {
+        newStatus = 'pending'; // No dates to respond to
+      } else if (accepted === total) {
         newStatus = 'accepted';
-      } else if (rejectedDates === totalDates) {
+      } else if (rejected === total) {
         newStatus = 'rejected';
-      } else if (acceptedDates > 0 && rejectedDates > 0) {
+      } else if (accepted > 0 && rejected > 0) {
         newStatus = 'partially-accepted';
-      } else if (rejectedDates > 0) {
+      } else if (rejected > 0) {
         newStatus = 'needs-attention';
       } else {
         newStatus = 'pending';
@@ -447,13 +486,58 @@ class MonthlyContractStatusService {
       const rejectedMusicians = musicianContracts.filter(mc => mc.status === 'rejected').length;
       const needsAttentionMusicians = musicianContracts.filter(mc => mc.status === 'needs-attention').length;
       
-      // Get date counts by status
-      const dateCountsQuery = await db
+      // Get accepted dates count
+      const acceptedDatesQuery = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .innerJoin(
+          monthlyContractMusicians, 
+          eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
+        )
+        .where(and(
+          eq(monthlyContractMusicians.contractId, contractId),
+          eq(monthlyContractDates.status, 'accepted')
+        ));
+        
+      // Get rejected dates count
+      const rejectedDatesQuery = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .innerJoin(
+          monthlyContractMusicians, 
+          eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
+        )
+        .where(and(
+          eq(monthlyContractMusicians.contractId, contractId),
+          eq(monthlyContractDates.status, 'rejected')
+        ));
+        
+      // Get pending dates count
+      const pendingDatesQuery = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .innerJoin(
+          monthlyContractMusicians, 
+          eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
+        )
+        .where(and(
+          eq(monthlyContractMusicians.contractId, contractId),
+          eq(monthlyContractDates.status, 'pending')
+        ));
+        
+      // Get total dates count
+      const totalDatesQuery = await db
+        .select({ count: count() })
+        .from(monthlyContractDates)
+        .innerJoin(
+          monthlyContractMusicians, 
+          eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
+        )
+        .where(eq(monthlyContractMusicians.contractId, contractId));
+        
+      // Get total fee
+      const totalFeeQuery = await db
         .select({
-          acceptedDates: count(monthlyContractDates.id).filterWhere(eq(monthlyContractDates.status, 'accepted')),
-          rejectedDates: count(monthlyContractDates.id).filterWhere(eq(monthlyContractDates.status, 'rejected')),
-          pendingDates: count(monthlyContractDates.id).filterWhere(eq(monthlyContractDates.status, 'pending')),
-          totalDates: count(monthlyContractDates.id),
           totalFee: sql<number>`COALESCE(SUM(CASE WHEN ${monthlyContractDates.status} = 'accepted' THEN ${monthlyContractDates.fee} ELSE 0 END), 0)`,
         })
         .from(monthlyContractDates)
@@ -462,6 +546,12 @@ class MonthlyContractStatusService {
           eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
         )
         .where(eq(monthlyContractMusicians.contractId, contractId));
+      
+      const acceptedDates = acceptedDatesQuery[0].count;
+      const rejectedDates = rejectedDatesQuery[0].count;
+      const pendingDates = pendingDatesQuery[0].count;
+      const totalDates = totalDatesQuery[0].count;
+      const totalFee = totalFeeQuery[0].totalFee;
       
       // Create the summary object
       return {
@@ -476,16 +566,14 @@ class MonthlyContractStatusService {
           needsAttentionMusicians,
           responseRate: totalMusicians > 0 ? (respondedMusicians / totalMusicians) * 100 : 0,
         },
-        dateStatistics: dateCountsQuery.length > 0 ? {
-          acceptedDates: dateCountsQuery[0].acceptedDates,
-          rejectedDates: dateCountsQuery[0].rejectedDates,
-          pendingDates: dateCountsQuery[0].pendingDates,
-          totalDates: dateCountsQuery[0].totalDates,
-          totalFee: dateCountsQuery[0].totalFee,
-          rejectionRate: dateCountsQuery[0].totalDates > 0 
-            ? (dateCountsQuery[0].rejectedDates / dateCountsQuery[0].totalDates) * 100 
-            : 0,
-        } : null
+        dateStatistics: {
+          acceptedDates,
+          rejectedDates,
+          pendingDates,
+          totalDates,
+          totalFee,
+          rejectionRate: totalDates > 0 ? (rejectedDates / totalDates) * 100 : 0,
+        }
       };
     } catch (error) {
       console.error('Error getting contract response summary:', error);

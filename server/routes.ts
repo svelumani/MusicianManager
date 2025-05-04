@@ -22,6 +22,7 @@ import { isAuthenticated } from './auth';
 import { and, eq, sql } from "drizzle-orm";
 import { availability } from "@shared/schema";
 import statusRouter from './routes/status';
+import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -6684,6 +6685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount the status router
   apiRouter.use("/status", statusRouter);
+  
+  // Mount the monthly contract response router
+  apiRouter.use("/monthly-contract-responses", monthlyContractResponseRouter);
   
   // Mount the API router
   app.use("/api", apiRouter);
