@@ -2374,15 +2374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 3. Check if SendGrid is configured
-      if (!isSendGridConfigured()) {
-        if (!process.env.SENDGRID_API_KEY) {
-          return res.status(200).json({ 
-            success: false, 
-            error: "SendGridNotConfigured",
-            message: "SendGrid API key not configured. Please set the SENDGRID_API_KEY environment variable."
-          });
-        }
-      }
+      // We'll store this in the response but not block the process
+      const sendGridConfigured = await isSendGridConfigured();
       
       // 4. Get planner data
       const planner = await storage.getMonthlyPlanner(plannerId);
@@ -2431,6 +2424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sent: 0,
         failed: 0,
         skipped: 0,
+        emailSent: sendGridConfigured, // Flag to indicate if email sending is possible
         details: []
       };
       
