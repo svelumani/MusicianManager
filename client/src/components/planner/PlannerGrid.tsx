@@ -60,13 +60,14 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     enabled: !!planner?.id,
   });
 
-  // Query to get planner assignments
+  // Query to get planner assignments - simplified with a single queryKey
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
-    queryKey: ['/api/planner-assignments', planner?.id],
+    // Use a simpler queryKey that's easier to invalidate
+    queryKey: ['plannerAssignments', planner?.id],
     queryFn: () => {
       if (!plannerSlots || plannerSlots.length === 0) {
         console.log("No planner slots available, skipping assignment fetch");
@@ -91,6 +92,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       });
     },
     enabled: !!plannerSlots && plannerSlots.length > 0,
+    // Stale time set to 0 to ensure fresh data on every render
+    staleTime: 0
   });
 
   // Query to get musicians with proper typing
@@ -196,28 +199,26 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     queryClient.invalidateQueries({ queryKey: ['/api/planner-slots', planner?.id] });
   };
 
-  // Handle musician assignment
+  // Handle musician assignment - simplified with direct invalidation
   const handleMusicianAssigned = () => {
     // First, make sure the slots are refreshed
-    refetchSlots().then(updatedSlots => {
+    refetchSlots().then(() => {
       console.log("Slots refreshed after musician assignment");
       
-      // Now use the updated slots info to refresh assignments
-      // Invalidate the query cache first
+      // Now invalidate the assignments data to trigger a refetch
+      // Use the simplified key for reliable invalidation
       queryClient.invalidateQueries({ 
-        queryKey: ['/api/planner-assignments'] 
+        queryKey: ['plannerAssignments', planner?.id] 
       });
       
-      // Then manually trigger refetches to ensure fresh data
-      setTimeout(() => {
-        console.log("Refreshing assignments after musician assignment");
-        refetchAssignments().then(() => {
-          toast({
-            title: "Success",
-            description: "Musician assignments updated in grid view",
-          });
+      // Directly trigger a refetch for immediate feedback
+      refetchAssignments().then(() => {
+        // Success notification
+        toast({
+          title: "Success",
+          description: "Musician assignments updated",
         });
-      }, 500); // Longer delay to ensure backend processing completes
+      });
     });
   };
 
