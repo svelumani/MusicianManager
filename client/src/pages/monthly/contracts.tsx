@@ -28,7 +28,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, FileText, CheckCircle, Clock, Send, Search, AlertTriangle } from "lucide-react";
+import { 
+  Calendar, 
+  FileText, 
+  CheckCircle, 
+  CheckCircle2, 
+  Clock, 
+  Send, 
+  Search, 
+  AlertTriangle,
+  XCircle,
+  Hourglass 
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import {
@@ -112,12 +123,17 @@ const MonthlyContractsPage = () => {
         return 'bg-gray-500';
       case 'sent':
         return 'bg-blue-500';
-      case 'signed':
+      case 'signed': // Legacy support
+      case 'accepted':
         return 'bg-green-500';
       case 'rejected':
         return 'bg-red-500';
       case 'cancelled':
+        return 'bg-rose-500'; // Changed from amber to rose for consistency
+      case 'in-progress':
         return 'bg-amber-500';
+      case 'completed':
+        return 'bg-emerald-600';
       default:
         return 'bg-gray-500';
     }
@@ -130,10 +146,17 @@ const MonthlyContractsPage = () => {
         return <Clock className="h-4 w-4 mr-1" />;
       case 'sent':
         return <Send className="h-4 w-4 mr-1" />;
-      case 'signed':
+      case 'signed': // Legacy support
+      case 'accepted':
         return <CheckCircle className="h-4 w-4 mr-1" />;
       case 'rejected':
         return <AlertTriangle className="h-4 w-4 mr-1" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 mr-1" />;
+      case 'in-progress':
+        return <HourglassMedium className="h-4 w-4 mr-1" />;
+      case 'completed':
+        return <CheckCircle2 className="h-4 w-4 mr-1" />;
       default:
         return <Clock className="h-4 w-4 mr-1" />;
     }
