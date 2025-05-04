@@ -5,11 +5,15 @@ import { getSettings } from './settings';
  * Interface for musician assignment
  */
 interface MusicianAssignment {
+  id: number;
   date: string;
-  venue: string;
+  venue?: string;
+  venueName?: string;
+  venueId?: number;
   startTime: string;
   endTime: string;
   fee: number;
+  status?: string;
 }
 
 /**
@@ -68,10 +72,13 @@ function formatAssignmentsToHtml(assignments: MusicianAssignment[]): string {
 
   let totalFee = 0;
   assignments.forEach((assignment) => {
+    // Determine which venue field to use
+    const venueDisplay = assignment.venueName || assignment.venue || 'TBD';
+    
     tableHtml += `
       <tr>
         <td style="padding: 10px; border: 1px solid #ddd;">${assignment.date}</td>
-        <td style="padding: 10px; border: 1px solid #ddd;">${assignment.venue}</td>
+        <td style="padding: 10px; border: 1px solid #ddd;">${venueDisplay}</td>
         <td style="padding: 10px; border: 1px solid #ddd;">${assignment.startTime} - ${assignment.endTime}</td>
         <td style="padding: 10px; border: 1px solid #ddd; text-align: right;">$${assignment.fee.toFixed(2)}</td>
       </tr>
@@ -105,8 +112,11 @@ function formatAssignmentsToText(assignments: MusicianAssignment[]): string {
   let totalFee = 0;
 
   assignments.forEach((assignment) => {
+    // Determine which venue field to use
+    const venueDisplay = assignment.venueName || assignment.venue || 'TBD';
+    
     text += `Date: ${assignment.date}\n`;
-    text += `Venue: ${assignment.venue}\n`;
+    text += `Venue: ${venueDisplay}\n`;
     text += `Time: ${assignment.startTime} - ${assignment.endTime}\n`;
     text += `Fee: $${assignment.fee.toFixed(2)}\n\n`;
     totalFee += assignment.fee;

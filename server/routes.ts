@@ -2556,12 +2556,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Create contract invitations for the musician
+          // Get current date/time
+          const now = new Date();
+          
+          // Create invitation with required fields
           const invitation = await storage.createInvitation({
+            eventId: 0, // We'll use a placeholder since this is a monthly contract
             musicianId: parseInt(musicianId),
-            token: generateRandomToken(32),
-            contractId: contract.id,
-            status: "sent",
-            notes: null
+            invitedAt: now,
+            email: musician.email,
+            messageSubject: `Contract for ${formattedMonth}`,
+            messageBody: emailMessage || `Please review your schedule for ${formattedMonth}`,
+            status: "invited"
           });
           
           if (!invitation) {
