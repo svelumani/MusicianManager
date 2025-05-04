@@ -105,10 +105,18 @@ The VAMP Team`
   const {
     data: musicianAssignments,
     isLoading: isLoadingAssignments,
+    error: assignmentsError,
   } = useQuery({
     queryKey: ['/api/planner-assignments/by-musician', plannerId],
-    queryFn: () => apiRequest(`/api/planner-assignments/by-musician?plannerId=${plannerId}`),
-    enabled: open && !!plannerId,
+    queryFn: () => {
+      // Ensure plannerId is a valid number
+      if (!plannerId || isNaN(plannerId)) {
+        console.error("Invalid plannerId:", plannerId);
+        return {}; // Return empty object instead of making API call with invalid ID
+      }
+      return apiRequest(`/api/planner-assignments/by-musician?plannerId=${plannerId}`);
+    },
+    enabled: open && !!plannerId && !isNaN(plannerId),
   });
   
   // Query to get all email templates
@@ -191,8 +199,14 @@ The VAMP Team`
 
   // Finalize planner mutation
   const finalizeMutation = useMutation({
-    mutationFn: (data: any) => 
-      apiRequest(`/api/planners/${plannerId}/finalize`, "POST", data),
+    mutationFn: (data: any) => {
+      // Ensure plannerId is valid before making the API call
+      if (!plannerId || isNaN(plannerId)) {
+        console.error("Invalid plannerId for finalize:", plannerId);
+        return Promise.reject(new Error("Invalid planner ID"));
+      }
+      return apiRequest(`/api/planners/${plannerId}/finalize`, "POST", data);
+    },
     onSuccess: () => {
       toast({
         title: "Success",
