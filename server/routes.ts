@@ -2484,130 +2484,185 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
       
       if (!plannerId || isNaN(plannerId)) {
-        return res.status(400).json({ message: "Valid plannerId is required" });
+        console.error(`[by-musician] Invalid plannerId: ${req.query.plannerId}`);
+        return res.status(400).json({ 
+          message: "Valid plannerId is required",
+          details: `Provided value: '${req.query.plannerId}' is not a valid number` 
+        });
       }
       
       // Get all slots for the planner with added logging
-      console.log(`Fetching slots for planner ID: ${plannerId}`);
+      console.log(`[by-musician] Fetching slots for planner ID: ${plannerId}`);
       const slots = await storage.getPlannerSlots(plannerId);
-      console.log(`Found ${slots.length} slots for planner ID: ${plannerId}`);
+      console.log(`[by-musician] Found ${slots.length} slots for planner ID: ${plannerId}`);
       
       if (!slots || slots.length === 0) {
-        console.log("No slots found for this planner, returning empty result");
+        console.log(`[by-musician] No slots found for planner ID: ${plannerId}, returning empty result`);
+        // Return empty object instead of error
         return res.json({});
       }
       
+      // Show slot details for debugging
+      slots.forEach(slot => {
+        console.log(`[by-musician] Slot ID: ${slot.id}, Date: ${slot.date}, Venue ID: ${slot.venueId}`);
+      });
+      
       // Get all assignments for these slots
       const slotIds = slots.map(slot => slot.id);
-      console.log(`Getting assignments for ${slotIds.length} slots: ${slotIds.join(', ')}`);
+      console.log(`[by-musician] Getting assignments for ${slotIds.length} slots: ${slotIds.join(', ')}`);
       const assignments = [];
       
       for (const slotId of slotIds) {
         if (!slotId || isNaN(slotId)) {
-          console.warn(`Invalid slot ID: ${slotId}, skipping`);
+          console.warn(`[by-musician] Invalid slot ID: ${slotId}, skipping`);
           continue;
         }
         
         const slotAssignments = await storage.getPlannerAssignments(slotId);
-        console.log(`Found ${slotAssignments.length} assignments for slot ID: ${slotId}`);
+        console.log(`[by-musician] Found ${slotAssignments.length} assignments for slot ID: ${slotId}`);
+        
+        // Log details about each assignment
+        slotAssignments.forEach(assignment => {
+          console.log(`[by-musician] Assignment ID: ${assignment.id}, Musician ID: ${assignment.musicianId}, Status: ${assignment.status || 'none'}`);
+        });
+        
         assignments.push(...slotAssignments);
       }
       
-      console.log(`Total assignments found: ${assignments.length}`);
+      console.log(`[by-musician] Total assignments found: ${assignments.length}`);
       if (assignments.length === 0) {
-        console.log("No assignments found for this planner, returning empty result");
-        return res.json({});
+        console.log(`[by-musician] No assignments found for planner ID: ${plannerId}, returning empty result`);
+        // Return empty object with a specific message in the response
+        return res.json({
+          _status: "empty",
+          _message: "No assignments found for this planner"
+        });
       }
       
-      // Group by musician ID
+      // Group by musician ID with detailed logging
       const musicianMap: Record<number, any> = {};
-      console.log("Grouping assignments by musician");
+      console.log("[by-musician] Grouping assignments by musician");
       
       for (const assignment of assignments) {
-        // Ensure slot ID is valid
-        if (!assignment.slotId || isNaN(assignment.slotId)) {
-          console.warn(`Assignment ${assignment.id} has invalid slot ID: ${assignment.slotId}, skipping`);
-          continue;
-        }
-        
-        const slot = slots.find(s => s.id === assignment.slotId);
-        if (!slot) {
-          console.warn(`Slot not found for assignment ${assignment.id} with slot ID ${assignment.slotId}, skipping`);
-          continue;
-        }
-        
-        // Ensure musician ID is valid
-        if (!assignment.musicianId || isNaN(assignment.musicianId)) {
-          console.warn(`Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}, skipping`);
-          continue;
-        }
-        
-        const musician = await storage.getMusician(assignment.musicianId);
-        if (!musician) {
-          console.warn(`Musician not found for assignment ${assignment.id} with musician ID ${assignment.musicianId}, skipping`);
-          continue;
-        }
-        
-        console.log(`Processing assignment for musician: ${musician.name} (ID: ${musician.id}) at slot: ${slot.id} on ${slot.date}`);
-        
-        // Venue might be optional, but let's log if it's missing
-        const venue = await storage.getVenue(slot.venueId);
-        if (!venue) {
-          console.warn(`Venue not found for slot ${slot.id} with venue ID ${slot.venueId}, using 'Unknown Venue'`);
-        }
-        
-        if (!musicianMap[musician.id]) {
-          musicianMap[musician.id] = {
-            musicianId: musician.id,
-            musicianName: musician.name,
-            assignments: [],
-            totalFee: 0
-          };
-        }
-        
-        // Calculate fee based on assignment details
-        // Try actualFee first, then calculate based on musician rates
-        let fee = assignment.actualFee;
-        console.log(`Starting fee calculation for assignment ${assignment.id}: actualFee = ${fee || "not set"}`);
-        
-        
-        if (!fee) {
-          // Get musician pay rates
-          const payRates = await storage.getMusicianPayRatesByMusicianId(musician.id);
-          
-          // Find rate for this event category (if available)
-          const slotCategory = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
-          const matchingRate = payRates.find(rate => rate.eventCategoryId === slotCategory);
-          
-          if (matchingRate) {
-            // Calculate hours between start and end time
-            const hours = 2; // Default to 2 hours if times not available
-            fee = matchingRate.hourlyRate ? matchingRate.hourlyRate * hours : 150; // Default to $150 if no rate found
-          } else {
-            // Fallback to default rate
-            fee = 150;
+        try {
+          // Ensure slot ID is valid
+          if (!assignment.slotId || isNaN(assignment.slotId)) {
+            console.warn(`[by-musician] Assignment ${assignment.id} has invalid slot ID: ${assignment.slotId}, skipping`);
+            continue;
           }
+          
+          const slot = slots.find(s => s.id === assignment.slotId);
+          if (!slot) {
+            console.warn(`[by-musician] Slot not found for assignment ${assignment.id} with slot ID ${assignment.slotId}, skipping`);
+            continue;
+          }
+          
+          // Ensure musician ID is valid
+          if (!assignment.musicianId || isNaN(assignment.musicianId)) {
+            console.warn(`[by-musician] Assignment ${assignment.id} has invalid musician ID: ${assignment.musicianId}, skipping`);
+            continue;
+          }
+          
+          // Get musician data with error catching
+          console.log(`[by-musician] Looking up musician ID: ${assignment.musicianId}`);
+          const musician = await storage.getMusician(assignment.musicianId);
+          
+          if (!musician) {
+            console.warn(`[by-musician] Musician not found for assignment ${assignment.id} with musician ID ${assignment.musicianId}, skipping`);
+            continue;
+          }
+          
+          console.log(`[by-musician] Processing assignment for musician: ${musician.name} (ID: ${musician.id}) at slot: ${slot.id} on ${slot.date}`);
+          
+          // Venue might be optional, but let's log if it's missing
+          let venueName = 'Unknown Venue';
+          try {
+            if (slot.venueId) {
+              const venue = await storage.getVenue(slot.venueId);
+              if (venue) {
+                venueName = venue.name;
+              } else {
+                console.warn(`[by-musician] Venue not found for slot ${slot.id} with venue ID ${slot.venueId}, using 'Unknown Venue'`);
+              }
+            }
+          } catch (venueError) {
+            console.error(`[by-musician] Error fetching venue: ${venueError}`);
+          }
+          
+          if (!musicianMap[musician.id]) {
+            musicianMap[musician.id] = {
+              musicianId: musician.id,
+              musicianName: musician.name,
+              assignments: [],
+              totalFee: 0
+            };
+          }
+          
+          // Calculate fee based on assignment details
+          // Try actualFee first, then calculate based on musician rates
+          let fee = assignment.actualFee;
+          console.log(`[by-musician] Starting fee calculation for assignment ${assignment.id}: actualFee = ${fee || "not set"}`);
+          
+          if (!fee) {
+            try {
+              // Get musician pay rates
+              const payRates = await storage.getMusicianPayRatesByMusicianId(musician.id);
+              
+              // Find rate for this event category (if available)
+              const slotCategory = slot.categoryIds && slot.categoryIds.length > 0 ? slot.categoryIds[0] : null;
+              const matchingRate = payRates.find(rate => rate.eventCategoryId === slotCategory);
+              
+              if (matchingRate) {
+                // Calculate hours between start and end time
+                const hours = 2; // Default to 2 hours if times not available
+                fee = matchingRate.hourlyRate ? matchingRate.hourlyRate * hours : 150; // Default to $150 if no rate found
+              } else {
+                // Fallback to default rate
+                fee = 150;
+              }
+            } catch (feeError) {
+              console.error(`[by-musician] Error calculating fee: ${feeError}`);
+              fee = 150; // Default fallback
+            }
+          }
+          
+          const assignmentDetails = {
+            id: assignment.id,
+            date: slot.date,
+            venueName: venueName,
+            venueId: slot.venueId,
+            fee: fee,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            status: assignment.status
+          };
+          
+          musicianMap[musician.id].assignments.push(assignmentDetails);
+          musicianMap[musician.id].totalFee += assignmentDetails.fee || 0;
+        } catch (assignmentError) {
+          console.error(`[by-musician] Error processing assignment ${assignment.id}: ${assignmentError}`);
+          // Continue to next assignment rather than failing the entire request
         }
-        
-        const assignmentDetails = {
-          id: assignment.id,
-          date: slot.date,
-          venueName: venue ? venue.name : 'Unknown Venue',
-          venueId: slot.venueId,
-          fee: fee,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          status: assignment.status
-        };
-        
-        musicianMap[musician.id].assignments.push(assignmentDetails);
-        musicianMap[musician.id].totalFee += assignmentDetails.fee || 0;
       }
       
+      // Check if we have any musicians in the map
+      if (Object.keys(musicianMap).length === 0) {
+        console.log(`[by-musician] No valid musician assignments found after processing, returning empty result`);
+        return res.json({
+          _status: "empty",
+          _message: "No valid musician assignments could be processed"
+        });
+      }
+      
+      console.log(`[by-musician] Successfully processed ${Object.keys(musicianMap).length} musicians with assignments`);
       res.json(musicianMap);
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: "Error fetching assignments by musician" });
+      console.error(`[by-musician] Error processing request: ${error}`);
+      res.status(500).json({ 
+        message: "Error fetching assignments by musician", 
+        error: (error as Error).message,
+        stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined
+      });
     }
   });
   

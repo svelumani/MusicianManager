@@ -270,7 +270,30 @@ The VAMP Team`
   
   const handlePrepareFinalize = () => {
     // First check if there are any musicians with assignments
-    if (!musicianAssignments || Object.keys(musicianAssignments).length === 0) {
+    if (!musicianAssignments) {
+      console.error("No musician assignments data received from API");
+      toast({
+        title: "Error",
+        description: "Unable to load musician assignments. Please try again or contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if musicianAssignments contains the special _status flag for an empty result
+    if (musicianAssignments._status === 'empty') {
+      console.warn(`Empty musician assignments: ${musicianAssignments._message || 'No reason provided'}`);
+      toast({
+        title: "Error",
+        description: "No musicians with assignments found for this month. Cannot finalize empty planner.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Check if there are actually any assignments (even if the API returned a non-empty object)
+    if (Object.keys(musicianAssignments).filter(key => !key.startsWith('_')).length === 0) {
+      console.warn("Musician assignments object is empty with no actual musicians");
       toast({
         title: "Error",
         description: "No musicians with assignments found for this month. Cannot finalize empty planner.",
