@@ -58,14 +58,34 @@ const MonthlyContractResponsePage = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState('');
   const [pendingAction, setPendingAction] = useState<{ dateId: number; status: string } | null>(null);
+  const [ipAddress, setIpAddress] = useState<string>('');
+  const [musicianInitials, setMusicianInitials] = useState<string>('');
+  const [showSignatureDialog, setShowSignatureDialog] = useState(false);
   
-  // Extract token from URL on component mount
+  // Extract token from URL and fetch IP address on component mount
   useEffect(() => {
+    // Get token from URL
     const urlParams = new URLSearchParams(window.location.search);
     const tokenParam = urlParams.get('token');
     if (tokenParam) {
       setToken(tokenParam);
     }
+    
+    // Fetch IP address
+    const getIPAddress = async () => {
+      try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        if (data.ip) {
+          setIpAddress(data.ip);
+        }
+      } catch (error) {
+        console.error('Error fetching IP address:', error);
+        setIpAddress('Unknown');
+      }
+    };
+    
+    getIPAddress();
   }, []);
   
   // Query to get musician contract details using token
@@ -122,17 +142,16 @@ const MonthlyContractResponsePage = () => {
   
   // Handle accept/reject for individual date
   const handleDateResponse = (dateId: number, status: string) => {
+    setPendingAction({ dateId, status });
+    
     if (status === 'rejected') {
       // For rejections, open note dialog to capture reason
       setSelectedDateId(dateId);
       setNoteValue('');
       setShowNoteDialog(true);
-      setPendingAction({ dateId, status });
     } else {
-      // For acceptances, show confirmation dialog
-      setConfirmMessage(`Are you sure you want to accept this date?`);
-      setShowConfirmDialog(true);
-      setPendingAction({ dateId, status });
+      // For acceptances, first ask for digital signature
+      setShowSignatureDialog(true);
     }
   };
   
@@ -150,8 +169,8 @@ const MonthlyContractResponsePage = () => {
   
   // Handle "Accept All" button
   const handleAcceptAll = () => {
-    setConfirmMessage("Are you sure you want to accept all dates in this contract?");
-    setShowConfirmDialog(true);
+    // Show signature dialog first
+    setShowSignatureDialog(true);
     setAllAccepted(true);
     setAllRejected(false);
   };
@@ -163,6 +182,28 @@ const MonthlyContractResponsePage = () => {
     setShowNoteDialog(true);
     setAllAccepted(false);
     setAllRejected(true);
+  };
+  
+  // Handle digital signature confirmation
+  const handleSignatureConfirm = () => {
+    if (!musicianInitials.trim()) {
+      toast({
+        title: "Signature Required",
+        description: "Please enter your initials to confirm acceptance",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // After signature is confirmed, show confirmation dialog
+    setShowSignatureDialog(false);
+    if (allAccepted) {
+      setConfirmMessage("Are you sure you want to accept all dates in this contract?");
+      setShowConfirmDialog(true);
+    } else if (pendingAction?.status === 'accepted') {
+      setConfirmMessage(`Are you sure you want to accept this date?`);
+      setShowConfirmDialog(true);
+    }
   };
   
   // Process bulk actions
