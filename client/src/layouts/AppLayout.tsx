@@ -28,9 +28,9 @@ const sidebarItems: SidebarItem[] = [
     path: "/monthly", 
     icon: <CalendarRange className="mr-3 h-5 w-5" />,
     subItems: [
-      { label: "Monthly Planner", path: "/monthly/planner", icon: <CalendarDays className="mr-3 h-5 w-5" /> },
-      { label: "Monthly Contracts", path: "/monthly/contracts", icon: <FileText className="mr-3 h-5 w-5" /> },
-      { label: "Contract Status", path: "/monthly/status", icon: <CheckCircle className="mr-3 h-5 w-5" /> },
+      { label: "Monthly Planner", path: "", icon: <CalendarDays className="mr-3 h-5 w-5" /> },
+      { label: "Monthly Contracts", path: "/contracts", icon: <FileText className="mr-3 h-5 w-5" /> },
+      { label: "Contract Status", path: "/status", icon: <CheckCircle className="mr-3 h-5 w-5" /> },
     ]
   },
   { label: "Payments", path: "/payments", icon: <DollarSign className="mr-3 h-5 w-5" /> },
