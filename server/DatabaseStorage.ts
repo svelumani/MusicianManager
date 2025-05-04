@@ -2342,9 +2342,15 @@ export class DatabaseStorage implements IStorage {
   
   // Planner Slots management
   async getPlannerSlots(plannerId?: number): Promise<PlannerSlot[]> {
+    // Validate plannerId if provided
+    if (plannerId !== undefined && isNaN(plannerId)) {
+      console.warn(`Invalid plannerId in getPlannerSlots: ${plannerId}`);
+      return []; // Return empty array for invalid input
+    }
+    
     let query = db.select().from(plannerSlots);
     
-    if (plannerId) {
+    if (plannerId !== undefined && !isNaN(plannerId)) {
       query = query.where(eq(plannerSlots.plannerId, plannerId));
     }
     
@@ -2352,6 +2358,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getPlannerSlot(id: number): Promise<PlannerSlot | undefined> {
+    // Validate id
+    if (!id || isNaN(id)) {
+      console.warn(`Invalid planner slot ID: ${id}`);
+      return undefined;
+    }
+    
     const [slot] = await db.select()
       .from(plannerSlots)
       .where(eq(plannerSlots.id, id));
@@ -2402,16 +2414,22 @@ export class DatabaseStorage implements IStorage {
   
   // Planner Assignments management
   async getPlannerAssignments(slotId?: number, musicianId?: number): Promise<PlannerAssignment[]> {
+    // Validate parameters
+    if ((slotId !== undefined && isNaN(slotId)) || (musicianId !== undefined && isNaN(musicianId))) {
+      console.warn(`Invalid parameters in getPlannerAssignments: slotId=${slotId}, musicianId=${musicianId}`);
+      return []; // Return empty array instead of querying with invalid params
+    }
+
     let query = db.select().from(plannerAssignments);
     
-    if (slotId && musicianId) {
+    if (slotId !== undefined && !isNaN(slotId) && musicianId !== undefined && !isNaN(musicianId)) {
       query = query.where(and(
         eq(plannerAssignments.slotId, slotId),
         eq(plannerAssignments.musicianId, musicianId)
       ));
-    } else if (slotId) {
+    } else if (slotId !== undefined && !isNaN(slotId)) {
       query = query.where(eq(plannerAssignments.slotId, slotId));
-    } else if (musicianId) {
+    } else if (musicianId !== undefined && !isNaN(musicianId)) {
       query = query.where(eq(plannerAssignments.musicianId, musicianId));
     }
     
@@ -2521,16 +2539,22 @@ export class DatabaseStorage implements IStorage {
   
   // Monthly Invoice management
   async getMonthlyInvoices(plannerId?: number, musicianId?: number): Promise<MonthlyInvoice[]> {
+    // Validate parameters
+    if ((plannerId !== undefined && isNaN(plannerId)) || (musicianId !== undefined && isNaN(musicianId))) {
+      console.warn(`Invalid parameters in getMonthlyInvoices: plannerId=${plannerId}, musicianId=${musicianId}`);
+      return []; // Return empty array for invalid input
+    }
+    
     let query = db.select().from(monthlyInvoices);
     
-    if (plannerId && musicianId) {
+    if (plannerId !== undefined && !isNaN(plannerId) && musicianId !== undefined && !isNaN(musicianId)) {
       query = query.where(and(
         eq(monthlyInvoices.plannerId, plannerId),
         eq(monthlyInvoices.musicianId, musicianId)
       ));
-    } else if (plannerId) {
+    } else if (plannerId !== undefined && !isNaN(plannerId)) {
       query = query.where(eq(monthlyInvoices.plannerId, plannerId));
-    } else if (musicianId) {
+    } else if (musicianId !== undefined && !isNaN(musicianId)) {
       query = query.where(eq(monthlyInvoices.musicianId, musicianId));
     }
     
@@ -2538,6 +2562,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getMonthlyInvoice(id: number): Promise<MonthlyInvoice | undefined> {
+    // Validate id
+    if (!id || isNaN(id)) {
+      console.warn(`Invalid monthly invoice ID: ${id}`);
+      return undefined;
+    }
+    
     const [invoice] = await db.select()
       .from(monthlyInvoices)
       .where(eq(monthlyInvoices.id, id));
