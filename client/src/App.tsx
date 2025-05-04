@@ -37,6 +37,7 @@ import MonthlyManagementPage from "@/pages/monthly/index";
 import MonthlyContractsPage from "@/pages/monthly/contracts";
 import ContractStatusPage from "@/pages/monthly/status";
 import MonthlyContractResponsePage from "@/pages/monthly/respond";
+import MonthlyContractDetailPage from "@/pages/monthly/contract-detail";
 import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
@@ -212,6 +213,13 @@ function Router() {
         <AppLayout>
           <MonthlyContractsPage />
         </AppLayout>
+      </Route>
+      <Route path="/monthly/contracts/:id">
+        {(params) => (
+          <AppLayout>
+            <MonthlyContractDetailPage />
+          </AppLayout>
+        )}
       </Route>
       <Route path="/monthly/status">
         <AppLayout>

@@ -407,7 +407,7 @@ const MonthlyContractsPage = () => {
               <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
                 Close
               </Button>
-              <Link href={`/contracts/${selectedContract.id}`}>
+              <Link href={`/monthly/contracts/${selectedContract.id}`}>
                 <Button onClick={() => setShowDetailsDialog(false)}>Go to Contract</Button>
               </Link>
             </DialogFooter>
