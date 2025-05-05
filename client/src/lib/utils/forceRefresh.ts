@@ -7,10 +7,29 @@
 import { queryClient } from "@/lib/queryClient";
 
 /**
+ * Handles any URL-related navigation to ensure it uses the correct paths
+ * This mapping function converts any old path patterns to the new correct ones
+ */
+function getCorrectPath(path: string): string {
+  // Map of old paths to new correct paths
+  const pathMappings: Record<string, string> = {
+    '/planner': '/events/planner',
+    '/planner/': '/events/planner/',
+    '/planner/index': '/events/planner',
+  };
+  
+  // Check if the path needs to be remapped
+  return pathMappings[path] || path;
+}
+
+/**
  * Forces a complete page reload to the planner view with the provided month/year context
  * and ensures all data is fresh via aggressive cache busting
  */
 export function forcePlannerReload(month: number, year: number) {
+  // Show a warning in the console first
+  console.warn('Initiating forced data refresh with cache clearing...');
+  
   // Step 1: Clear the entire cache
   queryClient.clear();
   
@@ -18,6 +37,7 @@ export function forcePlannerReload(month: number, year: number) {
   const timestamp = Date.now();
   
   // Step 3: Build the URL with all necessary context and forced refresh parameters
+  // Always use the correct path
   const url = `/events/planner?month=${month}&year=${year}&refresh=${timestamp}&force=true&nuclear=true`;
   
   // Step 4: Log the navigation for debugging
@@ -32,6 +52,9 @@ export function forcePlannerReload(month: number, year: number) {
  * and adds additional cache busting parameters
  */
 export function forceCurrentViewRefresh() {
+  // Show a warning in the console first
+  console.warn('Initiating forced data refresh of current view with cache clearing...');
+  
   // Step 1: Clear the entire cache
   queryClient.clear();
   
@@ -46,12 +69,20 @@ export function forceCurrentViewRefresh() {
   newParams.set('force', 'true');
   newParams.set('nuclear', 'true');
   
-  // Step 5: Build the new URL
-  const newUrl = `${window.location.pathname}?${newParams.toString()}`;
+  // Step 5: Get the correct path mapping in case we're on an old URL structure
+  const correctPath = getCorrectPath(window.location.pathname);
   
-  // Step 6: Log the navigation for debugging
+  // Step 6: Build the new URL with the correct path
+  const newUrl = `${correctPath}?${newParams.toString()}`;
+  
+  // Step 7: Log the navigation for debugging
   console.log(`🧨 NUCLEAR RELOAD: Forcing complete page reload with preserved params: ${newUrl}`);
   
-  // Step 7: Perform the actual navigation
+  // Step 8: Perform the actual navigation - note we only redirect if the path has changed
+  if (correctPath !== window.location.pathname) {
+    console.log(`Path correction: ${window.location.pathname} → ${correctPath}`);
+  }
+  
+  // Always navigate even if the path hasn't changed to ensure fresh data
   window.location.href = newUrl;
 }

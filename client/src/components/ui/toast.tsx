@@ -5,6 +5,9 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+// Increase the default timeout for toasts
+const DEFAULT_TOAST_TIMEOUT = 4000; // 4 seconds
+
 const ToastProvider = ToastPrimitives.Provider
 
 const ToastViewport = React.forwardRef<
