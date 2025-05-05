@@ -3818,74 +3818,51 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
       
-      // Build SET clause string for SQL query
-      const setClauses = [];
+      // Use Drizzle's ORM approach instead of manual SQL to avoid column issues
+      const updateData: any = {};
       
-      if (data.contractId !== undefined) setClauses.push(`contract_id = ${data.contractId}`);
-      if (data.musicianId !== undefined) setClauses.push(`musician_id = ${data.musicianId}`);
-      if (data.status !== undefined) setClauses.push(`status = '${data.status}'`);
-      if (data.respondedAt !== undefined) {
-        if (data.respondedAt) {
-          setClauses.push(`responded_at = '${data.respondedAt.toISOString()}'`);
-        } else {
-          setClauses.push(`responded_at = NULL`);
-        }
-      }
-      if (data.token !== undefined) setClauses.push(`token = '${data.token}'`);
-      if (data.notes !== undefined) {
-        if (data.notes) {
-          setClauses.push(`notes = '${data.notes}'`);
-        } else {
-          setClauses.push(`notes = NULL`);
-        }
-      }
-      if (data.musicianNotes !== undefined) {
-        if (data.musicianNotes) {
-          setClauses.push(`musician_notes = '${data.musicianNotes}'`);
-        } else {
-          setClauses.push(`musician_notes = NULL`);
-        }
-      }
-      if (data.companySignature !== undefined) {
-        if (data.companySignature) {
-          setClauses.push(`company_signature = '${data.companySignature}'`);
-        } else {
-          setClauses.push(`company_signature = NULL`);
-        }
-      }
-      if (data.musicianSignature !== undefined) {
-        if (data.musicianSignature) {
-          setClauses.push(`musician_signature = '${data.musicianSignature}'`);
-        } else {
-          setClauses.push(`musician_signature = NULL`);
-        }
-      }
-      // Don't add fields that might not exist in the database yet
-      // These need to be added via migrations
+      if (data.contractId !== undefined) updateData.contractId = data.contractId;
+      if (data.musicianId !== undefined) updateData.musicianId = data.musicianId;
+      if (data.status !== undefined) updateData.status = data.status;
+      if (data.token !== undefined) updateData.token = data.token;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.musicianNotes !== undefined) updateData.musicianNotes = data.musicianNotes;
+      if (data.companySignature !== undefined) updateData.companySignature = data.companySignature;
+      if (data.musicianSignature !== undefined) updateData.musicianSignature = data.musicianSignature;
+      if (data.sentAt !== undefined) updateData.sentAt = data.sentAt;
+      if (data.respondedAt !== undefined) updateData.respondedAt = data.respondedAt;
+      if (data.completedAt !== undefined) updateData.completedAt = data.completedAt;
+      if (data.lastReminderAt !== undefined) updateData.lastReminderAt = data.lastReminderAt;
+      if (data.reminderCount !== undefined) updateData.reminderCount = data.reminderCount;
+      if (data.ipAddress !== undefined) updateData.ipAddress = data.ipAddress;
+      if (data.acceptedDates !== undefined) updateData.acceptedDates = data.acceptedDates;
+      if (data.rejectedDates !== undefined) updateData.rejectedDates = data.rejectedDates;
+      if (data.pendingDates !== undefined) updateData.pendingDates = data.pendingDates;
+      if (data.totalDates !== undefined) updateData.totalDates = data.totalDates;
+      if (data.totalFee !== undefined) updateData.totalFee = data.totalFee;
+      if (data.responseUrl !== undefined) updateData.responseUrl = data.responseUrl;
+      if (data.rejectionReason !== undefined) updateData.rejectionReason = data.rejectionReason;
       
-      // Always update the updated_at timestamp
-      setClauses.push(`updated_at = NOW()`);
+      // Always update the updatedAt field
+      updateData.updatedAt = new Date();
       
-      if (setClauses.length === 0) {
+      if (Object.keys(updateData).length === 0) {
         return existingRecord; // Nothing to update
       }
       
-      const result = await db.execute(`
-        UPDATE monthly_contract_musicians
-        SET ${setClauses.join(', ')}
-        WHERE id = ${id}
-        RETURNING *
-      `);
+      // Update using the ORM approach
+      const [updated] = await db
+        .update(monthlyContractMusicians)
+        .set(updateData)
+        .where(eq(monthlyContractMusicians.id, id))
+        .returning();
       
-      console.log("SQL update result:", result);
-      
-      if (result.rows && result.rows.length > 0) {
-        const updated = result.rows[0];
+      if (updated) {
         console.log("Updated contract musician:", updated);
         
         // Get musician name for activity log
-        const musician = await this.getMusician(updated.musician_id);
-        const musicianName = musician ? musician.name : `Musician ID ${updated.musician_id}`;
+        const musician = await this.getMusician(updated.musicianId);
+        const musicianName = musician ? musician.name : `Musician ID ${updated.musicianId}`;
         
         // Log activity
         await this.createActivity({
