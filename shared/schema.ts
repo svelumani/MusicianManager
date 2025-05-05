@@ -842,7 +842,7 @@ export const monthlyContractMusicians = pgTable("monthly_contract_musicians", {
   id: serial("id").primaryKey(),
   contractId: integer("contract_id").notNull(), // Foreign key to monthly_contracts
   musicianId: integer("musician_id").notNull(), // Foreign key to musicians
-  status: text("status").notNull().default("pending"), // pending, accepted, rejected, partial
+  status: text("status").notNull().default("pending"), // pending, sent, signed, rejected
   token: text("token").notNull().unique(), // Unique token for musician to access contract
   sentAt: timestamp("sent_at"), // When the contract was sent to the musician
   respondedAt: timestamp("responded_at"), // When the musician first responded
@@ -859,6 +859,10 @@ export const monthlyContractMusicians = pgTable("monthly_contract_musicians", {
   pendingDates: integer("pending_dates").default(0), // Count of pending dates
   totalDates: integer("total_dates").default(0), // Total number of dates in this contract
   totalFee: doublePrecision("total_fee").default(0), // Total fee for all dates
+  responseUrl: text("response_url"), // Unique URL for contract response
+  emailSent: boolean("email_sent").default(false), // Flag indicating if email was sent successfully
+  emailError: text("email_error"), // Any error message from email sending attempt
+  rejectionReason: text("rejection_reason"), // If rejected, the reason provided by the musician
 });
 
 export const insertMonthlyContractMusicianSchema = createInsertSchema(monthlyContractMusicians).pick({
@@ -938,11 +942,13 @@ export type InsertMonthlyContractDate = z.infer<typeof insertMonthlyContractDate
 export const monthlyContractStatusHistory = pgTable("monthly_contract_status_history", {
   id: serial("id").primaryKey(),
   contractId: integer("contract_id").notNull(), // FK to monthly_contracts
+  musicianId: integer("musician_id").notNull(), // FK to musicians - which musician this status change applies to
   previousStatus: text("previous_status").notNull(),
   newStatus: text("new_status").notNull(),
   changedAt: timestamp("changed_at").notNull().defaultNow(),
   changedById: integer("changed_by_id"), // FK to users - who made the change
   notes: text("notes"), // Optional notes about this status change
+  reason: text("reason"), // Reason for rejection or cancellation
 });
 
 export const insertMonthlyContractStatusHistorySchema = createInsertSchema(monthlyContractStatusHistory)
