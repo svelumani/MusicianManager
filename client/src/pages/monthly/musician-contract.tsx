@@ -93,6 +93,8 @@ const MusicianContractPage = () => {
     queryKey: [`/api/monthly-contracts/musician`, musicianId],
     queryFn: async () => {
       try {
+        // We're now using the musicianId as the monthly_contract_musician ID
+        // not as the musician's ID
         const data = await apiRequest(`/api/monthly-contracts/musician/${musicianId}`);
         console.log('Musician contract data:', data);
         return data;
@@ -106,6 +108,7 @@ const MusicianContractPage = () => {
 
   // Mutations for contract actions
   const resendContractMutation = useMutation({
+    // The musicianId parameter is actually the monthly_contract_musician ID
     mutationFn: () => apiRequest(`/api/monthly-contracts/musician/${musicianId}/resend`, 'POST'),
     onSuccess: () => {
       toast({
@@ -125,6 +128,7 @@ const MusicianContractPage = () => {
   });
 
   const rejectContractMutation = useMutation({
+    // The musicianId parameter is actually the monthly_contract_musician ID
     mutationFn: () => apiRequest(`/api/monthly-contracts/musician/${musicianId}/reject`, 'POST'),
     onSuccess: () => {
       toast({
@@ -147,7 +151,7 @@ const MusicianContractPage = () => {
   const handleCopyLink = () => {
     if (!musicianContract) return;
     
-    const responseUrl = `${window.location.origin}/contracts/respond?token=${musicianContract.token}&id=${contractId}`;
+    const responseUrl = `${window.location.origin}/monthly/respond?token=${musicianContract.token}&id=${contractId}`;
     navigator.clipboard.writeText(responseUrl);
     toast({
       title: "Link Copied",
@@ -434,13 +438,17 @@ const MusicianContractPage = () => {
             <DialogTitle>Contract Response Link</DialogTitle>
             <DialogDescription>
               Share this link with {musicianContract.musicianName} to allow them to respond to their contract.
+              This link doesn't require a login.
             </DialogDescription>
           </DialogHeader>
           
           <div className="my-4">
-            <div className="p-2 bg-gray-100 rounded text-sm break-all">
-              {`${window.location.origin}/contracts/respond?token=${musicianContract.token}&id=${contractId}`}
+            <div className="p-3 bg-gray-50 rounded-md border text-sm font-mono break-all">
+              {`${window.location.origin}/monthly/respond?token=${musicianContract.token}&id=${contractId}`}
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Note: This is a secure, unique link that allows direct contract access.
+            </p>
             <div className="flex justify-between mt-4">
               <Button
                 size="sm"
@@ -458,7 +466,7 @@ const MusicianContractPage = () => {
                 asChild
               >
                 <a 
-                  href={`${window.location.origin}/contracts/respond?token=${musicianContract.token}&id=${contractId}`} 
+                  href={`${window.location.origin}/monthly/respond?token=${musicianContract.token}&id=${contractId}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
