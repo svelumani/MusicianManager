@@ -6976,13 +6976,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       });
       
-      // 4. Get all planner assignments for the month
-      const slots = await storage.getPlannerSlots(plannerId);
+      // 4. Get only the selected assignments for the contract
       const assignments = [];
       
-      for (const slot of slots) {
-        const slotAssignments = await storage.getPlannerAssignments(slot.id);
-        assignments.push(...slotAssignments);
+      if (assignmentIds && assignmentIds.length > 0) {
+        console.log(`Fetching specific assignments: ${assignmentIds.join(', ')}`);
+        
+        // Fetch only the specified assignments by ID
+        for (const assignmentId of assignmentIds) {
+          const assignment = await storage.getPlannerAssignment(assignmentId);
+          if (assignment) {
+            assignments.push(assignment);
+          } else {
+            console.warn(`Assignment ID ${assignmentId} not found`);
+          }
+        }
+      } else {
+        // Fallback to getting all assignments (this should rarely happen)
+        console.log("No specific assignments provided, fetching all assignments");
+        const slots = await storage.getPlannerSlots(plannerId);
+        for (const slot of slots) {
+          const slotAssignments = await storage.getPlannerAssignments(slot.id);
+          assignments.push(...slotAssignments);
+        }
       }
       
       // 5. Group assignments by musician

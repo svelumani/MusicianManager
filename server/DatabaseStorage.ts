@@ -4017,101 +4017,219 @@ export class DatabaseStorage implements IStorage {
   async updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined> {
     try {
       // First get the existing record
-      const [existingRecord] = await db.select()
-        .from(monthlyContractMusicians)
-        .where(eq(monthlyContractMusicians.id, id));
+      const existingRecord = await pool.query(`
+        SELECT * FROM monthly_contract_musicians WHERE id = $1
+      `, [id]);
       
-      if (!existingRecord) {
+      if (existingRecord.rows.length === 0) {
         return undefined;
       }
       
       // Create update data with only the fields that exist in the table
-      const updateData: Record<string, any> = {
-        updated_at: new Date()
-      };
+      const updateFields = [];
+      const updateValues = [];
+      let valueIndex = 1;
+      
+      // Always update the updated_at field
+      updateFields.push(`updated_at = $${valueIndex}`);
+      updateValues.push(new Date());
+      valueIndex++;
       
       // Only add fields that are provided in the data object
-      if (data.contractId !== undefined) updateData.contract_id = data.contractId;
-      if (data.musicianId !== undefined) updateData.musician_id = data.musicianId;
-      if (data.status !== undefined) updateData.status = data.status;
-      if (data.token !== undefined) updateData.token = data.token;
-      if (data.notes !== undefined) updateData.notes = data.notes;
-      if (data.musicianNotes !== undefined) updateData.musician_notes = data.musicianNotes;
-      if (data.companySignature !== undefined) updateData.company_signature = data.companySignature;
-      if (data.musicianSignature !== undefined) updateData.musician_signature = data.musicianSignature;
-      if (data.sentAt !== undefined) updateData.sent_at = data.sentAt;
-      if (data.respondedAt !== undefined) updateData.responded_at = data.respondedAt;
-      if (data.completedAt !== undefined) updateData.completed_at = data.completedAt;
-      if (data.lastReminderAt !== undefined) updateData.last_reminder_at = data.lastReminderAt;
-      if (data.reminderCount !== undefined) updateData.reminder_count = data.reminderCount;
-      if (data.ipAddress !== undefined) updateData.ip_address = data.ipAddress;
-      if (data.acceptedDates !== undefined) updateData.accepted_dates = data.acceptedDates;
-      if (data.rejectedDates !== undefined) updateData.rejected_dates = data.rejectedDates;
-      if (data.pendingDates !== undefined) updateData.pending_dates = data.pendingDates;
-      if (data.totalDates !== undefined) updateData.total_dates = data.totalDates;
-      if (data.totalFee !== undefined) updateData.total_fee = data.totalFee;
-      if (data.responseUrl !== undefined) updateData.response_url = data.responseUrl;
-      
-      // Execute the update using Drizzle ORM
-      const result = await db.update(monthlyContractMusicians)
-        .set(updateData)
-        .where(eq(monthlyContractMusicians.id, id))
-        .returning();
-      
-      const updated = result[0];
-      
-      if (updated) {
-        console.log("Updated contract musician:", updated);
-        
-        // Transform to camelCase for the return - Drizzle ORM already returns in camelCase
-        // so we don't need to manually map snake_case to camelCase
-        const camelCaseUpdated = {
-          id: updated.id,
-          contractId: updated.contractId,
-          musicianId: updated.musicianId,
-          status: updated.status,
-          token: updated.token,
-          notes: updated.notes,
-          musicianNotes: updated.musicianNotes,
-          companySignature: updated.companySignature,
-          musicianSignature: updated.musicianSignature,
-          sentAt: updated.sentAt,
-          respondedAt: updated.respondedAt,
-          completedAt: updated.completedAt,
-          lastReminderAt: updated.lastReminderAt,
-          reminderCount: updated.reminderCount,
-          ipAddress: updated.ipAddress,
-          acceptedDates: updated.acceptedDates,
-          rejectedDates: updated.rejectedDates,
-          pendingDates: updated.pendingDates,
-          totalDates: updated.totalDates,
-          totalFee: updated.totalFee,
-          responseUrl: updated.responseUrl,
-          createdAt: updated.createdAt,
-          updatedAt: updated.updatedAt
-        };
-        
-        // Get musician name for activity log
-        const musician = await this.getMusician(camelCaseUpdated.musicianId);
-        const musicianName = musician ? musician.name : `Musician ID ${camelCaseUpdated.musicianId}`;
-        
-        // Log activity
-        await this.createActivity({
-          entityType: 'monthlyContractMusician',
-          entityId: id,
-          action: 'update',
-          userId: 1, // Assuming admin user
-          timestamp: new Date(),
-          details: JSON.stringify({
-            message: `Monthly contract for ${musicianName} updated`,
-            status: data.status || camelCaseUpdated.status
-          })
-        });
-        
-        return camelCaseUpdated as any;
-      } else {
-        throw new Error("No updated record was returned");
+      if (data.contractId !== undefined) {
+        updateFields.push(`contract_id = $${valueIndex}`);
+        updateValues.push(data.contractId);
+        valueIndex++;
       }
+      
+      if (data.musicianId !== undefined) {
+        updateFields.push(`musician_id = $${valueIndex}`);
+        updateValues.push(data.musicianId);
+        valueIndex++;
+      }
+      
+      if (data.status !== undefined) {
+        updateFields.push(`status = $${valueIndex}`);
+        updateValues.push(data.status);
+        valueIndex++;
+      }
+      
+      if (data.token !== undefined) {
+        updateFields.push(`token = $${valueIndex}`);
+        updateValues.push(data.token);
+        valueIndex++;
+      }
+      
+      if (data.notes !== undefined) {
+        updateFields.push(`notes = $${valueIndex}`);
+        updateValues.push(data.notes);
+        valueIndex++;
+      }
+      
+      if (data.musicianNotes !== undefined) {
+        updateFields.push(`musician_notes = $${valueIndex}`);
+        updateValues.push(data.musicianNotes);
+        valueIndex++;
+      }
+      
+      if (data.companySignature !== undefined) {
+        updateFields.push(`company_signature = $${valueIndex}`);
+        updateValues.push(data.companySignature);
+        valueIndex++;
+      }
+      
+      if (data.musicianSignature !== undefined) {
+        updateFields.push(`musician_signature = $${valueIndex}`);
+        updateValues.push(data.musicianSignature);
+        valueIndex++;
+      }
+      
+      if (data.sentAt !== undefined) {
+        updateFields.push(`sent_at = $${valueIndex}`);
+        updateValues.push(data.sentAt);
+        valueIndex++;
+      }
+      
+      if (data.respondedAt !== undefined) {
+        updateFields.push(`responded_at = $${valueIndex}`);
+        updateValues.push(data.respondedAt);
+        valueIndex++;
+      }
+      
+      if (data.completedAt !== undefined) {
+        updateFields.push(`completed_at = $${valueIndex}`);
+        updateValues.push(data.completedAt);
+        valueIndex++;
+      }
+      
+      if (data.lastReminderAt !== undefined) {
+        updateFields.push(`last_reminder_at = $${valueIndex}`);
+        updateValues.push(data.lastReminderAt);
+        valueIndex++;
+      }
+      
+      if (data.reminderCount !== undefined) {
+        updateFields.push(`reminder_count = $${valueIndex}`);
+        updateValues.push(data.reminderCount);
+        valueIndex++;
+      }
+      
+      if (data.ipAddress !== undefined) {
+        updateFields.push(`ip_address = $${valueIndex}`);
+        updateValues.push(data.ipAddress);
+        valueIndex++;
+      }
+      
+      if (data.acceptedDates !== undefined) {
+        updateFields.push(`accepted_dates = $${valueIndex}`);
+        updateValues.push(data.acceptedDates);
+        valueIndex++;
+      }
+      
+      if (data.rejectedDates !== undefined) {
+        updateFields.push(`rejected_dates = $${valueIndex}`);
+        updateValues.push(data.rejectedDates);
+        valueIndex++;
+      }
+      
+      if (data.pendingDates !== undefined) {
+        updateFields.push(`pending_dates = $${valueIndex}`);
+        updateValues.push(data.pendingDates);
+        valueIndex++;
+      }
+      
+      if (data.totalDates !== undefined) {
+        updateFields.push(`total_dates = $${valueIndex}`);
+        updateValues.push(data.totalDates);
+        valueIndex++;
+      }
+      
+      if (data.totalFee !== undefined) {
+        updateFields.push(`total_fee = $${valueIndex}`);
+        updateValues.push(data.totalFee);
+        valueIndex++;
+      }
+      
+      if (data.responseUrl !== undefined) {
+        updateFields.push(`response_url = $${valueIndex}`);
+        updateValues.push(data.responseUrl);
+        valueIndex++;
+      }
+      
+      if (data.rejectionReason !== undefined) {
+        updateFields.push(`rejection_reason = $${valueIndex}`);
+        updateValues.push(data.rejectionReason);
+        valueIndex++;
+      }
+      
+      // No update fields, just return the existing record
+      if (updateFields.length === 0) {
+        return this.getMonthlyContractMusician(id);
+      }
+      
+      // Execute the update using parameterized query
+      const query = `
+        UPDATE monthly_contract_musicians 
+        SET ${updateFields.join(', ')} 
+        WHERE id = $${valueIndex}
+        RETURNING *
+      `;
+      updateValues.push(id);
+      
+      const result = await pool.query(query, updateValues);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const updated = result.rows[0];
+      
+      // Map DB column names to camelCase property names
+      const camelCaseUpdated = {
+        id: updated.id,
+        contractId: updated.contract_id,
+        musicianId: updated.musician_id,
+        status: updated.status,
+        token: updated.token,
+        notes: updated.notes,
+        musicianNotes: updated.musician_notes,
+        companySignature: updated.company_signature,
+        musicianSignature: updated.musician_signature,
+        sentAt: updated.sent_at,
+        respondedAt: updated.responded_at,
+        completedAt: updated.completed_at,
+        lastReminderAt: updated.last_reminder_at,
+        reminderCount: updated.reminder_count,
+        ipAddress: updated.ip_address,
+        acceptedDates: updated.accepted_dates,
+        rejectedDates: updated.rejected_dates,
+        pendingDates: updated.pending_dates,
+        totalDates: updated.total_dates,
+        totalFee: updated.total_fee,
+        responseUrl: updated.response_url,
+        rejectionReason: updated.rejection_reason,
+        createdAt: updated.created_at,
+        updatedAt: updated.updated_at
+      };
+      
+      // Get musician name for activity log
+      const musician = await this.getMusician(camelCaseUpdated.musicianId);
+      const musicianName = musician ? musician.name : `Musician ID ${camelCaseUpdated.musicianId}`;
+      
+      // Log activity
+      await this.createActivity({
+        entityType: 'monthlyContractMusician',
+        entityId: id,
+        action: 'update',
+        userId: 1, // Assuming admin user
+        timestamp: new Date(),
+        details: JSON.stringify({
+          message: `Monthly contract for ${musicianName} updated`,
+          status: data.status || camelCaseUpdated.status
+        })
+      });
+      
+      return camelCaseUpdated as any;
     } catch (error) {
       console.error("Error in updateMonthlyContractMusician:", error);
       throw error;
@@ -4119,26 +4237,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMonthlyContractMusician(id: number): Promise<boolean> {
-    // First get the musician to use in activity log
-    const [musician] = await db.select()
-      .from(monthlyContractMusicians)
-      .where(eq(monthlyContractMusicians.id, id));
-    
-    if (musician) {
+    try {
+      // First get the musician to use in activity log
+      const musicianResult = await pool.query(`
+        SELECT * FROM monthly_contract_musicians WHERE id = $1
+      `, [id]);
+      
+      if (musicianResult.rows.length === 0) {
+        return false;
+      }
+      
+      const musician = musicianResult.rows[0];
+      
       // First delete all associated dates
-      const dates = await this.getMonthlyContractDates(id);
-      for (const date of dates) {
-        await this.deleteMonthlyContractDate(date.id);
+      const datesResult = await pool.query(`
+        SELECT * FROM monthly_contract_dates WHERE musician_contract_id = $1
+      `, [id]);
+      
+      // Delete all associated dates
+      for (const date of datesResult.rows) {
+        await pool.query(`
+          DELETE FROM monthly_contract_dates WHERE id = $1
+        `, [date.id]);
       }
       
       // Delete the musician contract
-      const result = await db.delete(monthlyContractMusicians)
-        .where(eq(monthlyContractMusicians.id, id));
+      const result = await pool.query(`
+        DELETE FROM monthly_contract_musicians WHERE id = $1
+      `, [id]);
       
       if (result.rowCount > 0) {
         // Get musician name for activity log
-        const musicianData = await this.getMusician(musician.musicianId);
-        const musicianName = musicianData ? musicianData.name : `Musician ID ${musician.musicianId}`;
+        const musicianData = await this.getMusician(musician.musician_id);
+        const musicianName = musicianData ? musicianData.name : `Musician ID ${musician.musician_id}`;
         
         // Log activity
         await this.createActivity({
@@ -4151,12 +4282,15 @@ export class DatabaseStorage implements IStorage {
             message: `${musicianName} removed from monthly contract`
           })
         });
+        
+        return true;
       }
       
-      return result.rowCount > 0;
+      return false;
+    } catch (error) {
+      console.error("Error in deleteMonthlyContractMusician:", error);
+      throw error;
     }
-    
-    return false;
   }
 
   // Monthly Contract Dates management implementation
@@ -4324,35 +4458,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate> {
-    console.log("Creating monthly contract date with data:", contractDate);
-    
-    // Before attempting insertion, check if the musician contract exists
-    const musicianContract = await this.getMonthlyContractMusician(contractDate.musicianContractId);
-    console.log("Found musician contract:", musicianContract);
-    
-    const insertData = {
-      musician_contract_id: contractDate.musicianContractId,
-      date: contractDate.date,
-      fee: contractDate.fee,
-      status: contractDate.status || 'pending',
-      notes: contractDate.notes || null,
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-    console.log("Insert data:", insertData);
-    
-    // Try direct SQL insertion as a fallback if necessary
     try {
-      const [newDate] = await db.insert(monthlyContractDates)
-        .values(insertData)
-        .returning();
-    
+      console.log("Creating monthly contract date with data:", contractDate);
+      
+      // Before attempting insertion, check if the musician contract exists
+      const musicianContract = await this.getMonthlyContractMusician(contractDate.musicianContractId);
+      console.log("Found musician contract:", musicianContract);
+      
+      // Execute the insert using parameterized query
+      const query = `
+        INSERT INTO monthly_contract_dates 
+          (musician_contract_id, date, status, fee, notes, created_at, updated_at)
+        VALUES 
+          ($1, $2, $3, $4, $5, NOW(), NOW())
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, [
+        contractDate.musicianContractId,
+        contractDate.date,
+        contractDate.status || 'pending',
+        contractDate.fee,
+        contractDate.notes || null
+      ]);
+      
+      if (result.rows.length === 0) {
+        throw new Error("No new date was returned from insert");
+      }
+      
+      const newDate = result.rows[0];
       console.log("New date created:", newDate);
-    
+      
       // Get musician information for activity log
       let musicianName = "Unknown";
       if (musicianContract) {
-        const musician = await this.getMusician(musicianContract.musician_id); // Use snake case
+        const musician = await this.getMusician(musicianContract.musicianId);
         if (musician) {
           musicianName = musician.name;
         }
@@ -4374,59 +4514,133 @@ export class DatabaseStorage implements IStorage {
         })
       });
       
-      return newDate;
+      // Convert column names from snake_case to camelCase and format dates
+      return {
+        id: newDate.id,
+        musicianContractId: newDate.musician_contract_id,
+        date: new Date(newDate.date),
+        status: newDate.status,
+        fee: newDate.fee,
+        notes: newDate.notes,
+        responseNotes: newDate.response_notes,
+        eventId: newDate.event_id,
+        venueId: newDate.venue_id,
+        venueName: newDate.venue_name,
+        startTime: newDate.start_time,
+        endTime: newDate.end_time,
+        responseTimestamp: newDate.response_timestamp,
+        ipAddress: newDate.ip_address,
+        signatureData: newDate.signature_data,
+        createdAt: newDate.created_at,
+        updatedAt: newDate.updated_at
+      };
     } catch (error) {
       console.error("Error in createMonthlyContractDate:", error);
-      
-      // Try direct SQL as a fallback if ORM fails
-      console.log("Attempting direct SQL insert as fallback");
-      
-      try {
-        const result = await db.execute(sql`
-          INSERT INTO monthly_contract_dates (musician_contract_id, date, status, fee, notes, created_at, updated_at)
-          VALUES (${insertData.musician_contract_id}, ${insertData.date}, ${insertData.status}, ${insertData.fee}, ${insertData.notes}, ${insertData.created_at}, ${insertData.updated_at})
-          RETURNING *
-        `);
-        
-        if (result && result.rows && result.rows.length > 0) {
-          console.log("Direct SQL insert succeeded:", result.rows[0]);
-          return result.rows[0];
-        } else {
-          throw new Error("Direct SQL insert returned no results");
-        }
-      } catch (sqlError) {
-        console.error("Direct SQL insert also failed:", sqlError);
-        throw error; // Throw the original error
-      }
+      throw error;
     }
   }
 
   async updateMonthlyContractDate(id: number, data: Partial<InsertMonthlyContractDate>): Promise<MonthlyContractDate | undefined> {
-    // Build update object with only fields that exist in the database
-    const updateData: Record<string, any> = {};
-    
-    if (data.musicianContractId !== undefined) updateData.musician_contract_id = data.musicianContractId;
-    if (data.date !== undefined) updateData.date = data.date;
-    if (data.fee !== undefined) updateData.fee = data.fee;
-    if (data.status !== undefined) updateData.status = data.status;
-    if (data.notes !== undefined) updateData.notes = data.notes;
-    
-    // Add updated_at field
-    updateData.updated_at = new Date();
-    
-    const [updated] = await db.update(monthlyContractDates)
-      .set(updateData)
-      .where(eq(monthlyContractDates.id, id))
-      .returning();
-    
-    if (updated) {
+    try {
+      // First get the existing record
+      const existingRecord = await pool.query(`
+        SELECT * FROM monthly_contract_dates WHERE id = $1
+      `, [id]);
+      
+      if (existingRecord.rows.length === 0) {
+        return undefined;
+      }
+      
+      // Create update data with only the fields that exist in the table
+      const updateFields = [];
+      const updateValues = [];
+      let valueIndex = 1;
+      
+      // Always update the updated_at field
+      updateFields.push(`updated_at = $${valueIndex}`);
+      updateValues.push(new Date());
+      valueIndex++;
+      
+      // Only add fields that are provided in the data object
+      if (data.musicianContractId !== undefined) {
+        updateFields.push(`musician_contract_id = $${valueIndex}`);
+        updateValues.push(data.musicianContractId);
+        valueIndex++;
+      }
+      
+      if (data.date !== undefined) {
+        updateFields.push(`date = $${valueIndex}`);
+        updateValues.push(data.date);
+        valueIndex++;
+      }
+      
+      if (data.status !== undefined) {
+        updateFields.push(`status = $${valueIndex}`);
+        updateValues.push(data.status);
+        valueIndex++;
+      }
+      
+      if (data.fee !== undefined) {
+        updateFields.push(`fee = $${valueIndex}`);
+        updateValues.push(data.fee);
+        valueIndex++;
+      }
+      
+      if (data.notes !== undefined) {
+        updateFields.push(`notes = $${valueIndex}`);
+        updateValues.push(data.notes);
+        valueIndex++;
+      }
+      
+      if (data.responseNotes !== undefined) {
+        updateFields.push(`response_notes = $${valueIndex}`);
+        updateValues.push(data.responseNotes);
+        valueIndex++;
+      }
+      
+      if (data.responseTimestamp !== undefined) {
+        updateFields.push(`response_timestamp = $${valueIndex}`);
+        updateValues.push(data.responseTimestamp);
+        valueIndex++;
+      }
+      
+      // No update fields, just return the existing record
+      if (updateFields.length === 0) {
+        return this.getMonthlyContractDate(id);
+      }
+      
+      // Execute the update using parameterized query
+      const query = `
+        UPDATE monthly_contract_dates 
+        SET ${updateFields.join(', ')} 
+        WHERE id = $${valueIndex}
+        RETURNING *
+      `;
+      updateValues.push(id);
+      
+      const result = await pool.query(query, updateValues);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      const updated = result.rows[0];
+      
       // Get musician contract and musician for activity log
-      const musicianContract = await this.getMonthlyContractMusician(updated.musician_contract_id); // Use snake case field
+      const musicianContractResult = await pool.query(`
+        SELECT * FROM monthly_contract_musicians WHERE id = $1
+      `, [updated.musician_contract_id]);
+      
       let musicianName = "Unknown";
       
-      if (musicianContract) {
-        const musician = await this.getMusician(musicianContract.musician_id); // Use snake case field
-        if (musician) {
+      if (musicianContractResult.rows.length > 0) {
+        const musicianContract = musicianContractResult.rows[0];
+        const musicianResult = await pool.query(`
+          SELECT * FROM musicians WHERE id = $1
+        `, [musicianContract.musician_id]);
+        
+        if (musicianResult.rows.length > 0) {
+          const musician = musicianResult.rows[0];
           musicianName = musician.name;
         }
       }
@@ -4446,37 +4660,74 @@ export class DatabaseStorage implements IStorage {
           status: data.status || updated.status
         })
       });
+      
+      // Convert column names from snake_case to camelCase and format dates
+      return {
+        id: updated.id,
+        musicianContractId: updated.musician_contract_id,
+        date: new Date(updated.date),
+        status: updated.status,
+        fee: updated.fee,
+        notes: updated.notes,
+        responseNotes: updated.response_notes,
+        eventId: updated.event_id,
+        venueId: updated.venue_id,
+        venueName: updated.venue_name,
+        startTime: updated.start_time,
+        endTime: updated.end_time,
+        responseTimestamp: updated.response_timestamp,
+        ipAddress: updated.ip_address,
+        signatureData: updated.signature_data,
+        createdAt: updated.created_at,
+        updatedAt: updated.updated_at
+      };
+    } catch (error) {
+      console.error("Error in updateMonthlyContractDate:", error);
+      throw error;
     }
-    
-    return updated;
   }
 
   async deleteMonthlyContractDate(id: number): Promise<boolean> {
-    // First get the date info to use in activity log
-    const [contractDate] = await db.select()
-      .from(monthlyContractDates)
-      .where(eq(monthlyContractDates.id, id));
-    
-    if (contractDate) {
+    try {
+      // First get the date info to use in activity log
+      const dateResult = await pool.query(`
+        SELECT * FROM monthly_contract_dates WHERE id = $1
+      `, [id]);
+      
+      if (dateResult.rows.length === 0) {
+        return false;
+      }
+      
+      const contractDate = dateResult.rows[0];
+      
       // Get musician contract and musician for activity log
-      const musicianContract = await this.getMonthlyContractMusician(contractDate.musician_contract_id); // Use snake case field
+      const musicianContractResult = await pool.query(`
+        SELECT * FROM monthly_contract_musicians WHERE id = $1
+      `, [contractDate.musician_contract_id]);
+      
       let musicianName = "Unknown";
       
-      if (musicianContract) {
-        const musician = await this.getMusician(musicianContract.musician_id); // Use snake case field
-        if (musician) {
+      if (musicianContractResult.rows.length > 0) {
+        const musicianContract = musicianContractResult.rows[0];
+        const musicianResult = await pool.query(`
+          SELECT * FROM musicians WHERE id = $1
+        `, [musicianContract.musician_id]);
+        
+        if (musicianResult.rows.length > 0) {
+          const musician = musicianResult.rows[0];
           musicianName = musician.name;
         }
       }
       
       // Format date for the log
-      const dateStr = format(contractDate.date, 'yyyy-MM-dd');
+      const dateStr = format(new Date(contractDate.date), 'yyyy-MM-dd');
       
       // Delete the date
-      const result = await db.delete(monthlyContractDates)
-        .where(eq(monthlyContractDates.id, id));
+      const result = await pool.query(`
+        DELETE FROM monthly_contract_dates WHERE id = $1
+      `, [id]);
       
-      if (result.rowCount && result.rowCount > 0) {
+      if (result.rowCount > 0) {
         // Log activity
         await this.createActivity({
           entityType: 'monthlyContractDate',
@@ -4488,11 +4739,14 @@ export class DatabaseStorage implements IStorage {
             message: `Date ${dateStr} removed from monthly contract for ${musicianName}`
           })
         });
+        
+        return true;
       }
       
-      return result.rowCount ? result.rowCount > 0 : false;
+      return false;
+    } catch (error) {
+      console.error("Error in deleteMonthlyContractDate:", error);
+      throw error;
     }
-    
-    return false;
   }
 }
