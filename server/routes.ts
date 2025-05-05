@@ -3052,6 +3052,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get assignments grouped by musician for a planner
+  // Helper function to get planner assignments by musician
+  const getPlannerAssignmentsByMusician = async (plannerId: number) => {
+    console.log("Getting planner assignments for musicians with planner ID:", plannerId);
+    
+    try {
+      // 1. Get all the assignments for this planner
+      const assignments = await storage.getPlannerAssignmentsByPlanner(plannerId);
+      if (!assignments || assignments.length === 0) {
+        console.log("No assignments found for planner ID:", plannerId);
+        return { _status: "empty" };
+      }
+      
+      // 2. Get all musicians to look up names
+      const musicians = await storage.getAllMusicians();
+      
+      // 3. Create a musician name lookup map
+      const musicianMap = musicians.reduce((acc: {[key: number]: any}, musician) => {
+        acc[musician.id] = musician.name;
+        return acc;
+      }, {});
+      
+      // 4. Get venue and slot information for display
+      const slots = await storage.getPlannerSlotsByPlannerId(plannerId);
+      const venues = await storage.getAllVenues();
+      
+      // Create maps for quick lookups
+      const slotMap = slots.reduce((acc: {[key: number]: any}, slot) => {
+        acc[slot.id] = slot;
+        return acc;
+      }, {});
+      
+      const venueMap = venues.reduce((acc: {[key: number]: any}, venue) => {
+        acc[venue.id] = venue.name;
+        return acc;
+      }, {});
+      
+      // 5. Group assignments by musician
+      const groupedAssignments: {[key: number]: any} = {};
+      
+      for (const assignment of assignments) {
+        const { musicianId, slotId } = assignment;
+        
+        // Skip invalid data for robustness
+        if (!musicianId || !slotId || !slotMap[slotId]) continue;
+        
+        // Get the musician name
+        const musicianName = musicianMap[musicianId] || `Musician #${musicianId}`;
+        
+        // Get the slot info
+        const slot = slotMap[slotId];
+        const venueName = venueMap[slot.venueId] || 'Unknown Venue';
+        
+        // Initialize this musician's group if it doesn't exist
+        if (!groupedAssignments[musicianId]) {
+          groupedAssignments[musicianId] = {
+            musicianId,
+            musicianName,
+            assignments: [],
+            totalFee: 0
+          };
+        }
+        
+        // Add enriched assignment data
+        groupedAssignments[musicianId].assignments.push({
+          ...assignment,
+          slotDate: slot.date,
+          venueName,
+          startTime: slot.startTime,
+          endTime: slot.endTime
+        });
+        
+        // Update the total fee
+        if (assignment.actualFee) {
+          groupedAssignments[musicianId].totalFee += assignment.actualFee;
+        }
+      }
+      
+      return groupedAssignments;
+    } catch (error) {
+      console.error("Error in getPlannerAssignmentsByMusician:", error);
+      return { 
+        _status: "error",
+        _message: "Failed to process assignments",
+        _errorType: "ServerError",
+      };
+    }
+  };
+
+  // Endpoint that takes plannerId as a URL parameter (/:plannerId)
+  apiRouter.get("/planner-assignments/by-musician/:plannerId", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = parseInt(req.params.plannerId);
+      
+      if (isNaN(plannerId) || plannerId <= 0) {
+        return res.status(400).json({
+          _status: "error",
+          _message: "Invalid planner ID",
+          _errorType: "InvalidParameter"
+        });
+      }
+      
+      const result = await getPlannerAssignmentsByMusician(plannerId);
+      return res.json(result);
+    } catch (error) {
+      console.error("Error fetching assignments by musician:", error);
+      return res.status(500).json({
+        _status: "error",
+        _message: "Server error",
+        _errorType: "ServerError"
+      });
+    }
+  });
+
+  // Legacy endpoint that takes plannerId as a query parameter (?plannerId=X)
   apiRouter.get("/planner-assignments/by-musician", isAuthenticated, async (req, res) => {
     try {
       console.log("\n\n======== STARTING BY-MUSICIAN ENDPOINT ========");
