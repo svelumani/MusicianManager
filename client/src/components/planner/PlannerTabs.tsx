@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PlannerGrid from './PlannerGrid';
 import MusicianAssignmentsView from './MusicianAssignmentsView';
+import ContractsView from './ContractsView';
 import { Calendar, Users, FileText, DollarSign, BarChart } from 'lucide-react';
 
 interface PlannerTabsProps {
@@ -83,21 +84,11 @@ export default function PlannerTabs({ plannerId, month, year }: PlannerTabsProps
 
       {/* Contracts Tab */}
       <TabsContent value="contracts" className="w-full">
-        <div className="flex flex-col gap-4">
-          <h2 className="text-2xl font-bold">Contract Management</h2>
-          <p className="text-gray-500">
-            This tab will display a comprehensive view of all contracts for the selected month.
-            It will show contract status, payment status, and allow for contract generation and sending.
-          </p>
-          <div className="p-8 border rounded-lg flex flex-col items-center justify-center text-center">
-            <FileText className="h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Contract Management</h3>
-            <p className="text-gray-500 mb-4">
-              To manage contracts, please use the Musicians tab to select musicians and create contracts for them.
-              Once contracts are created, you can view and manage them here.
-            </p>
-          </div>
-        </div>
+        <ContractsView 
+          plannerId={plannerId} 
+          month={month} 
+          year={year}
+        />
       </TabsContent>
 
       {/* Financials Tab */}
