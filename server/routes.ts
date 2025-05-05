@@ -3105,6 +3105,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Invoice not found" });
       }
+      
+      // Increment version counters for monthly-related data
+      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -3115,6 +3120,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/planners/:id/generate-invoices", isAuthenticated, async (req, res) => {
     try {
       const invoices = await storage.generateMonthlyInvoices(parseInt(req.params.id));
+      
+      // Increment version counters for both planner and monthly-related data
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
       res.status(201).json(invoices);
     } catch (error) {
       console.error(error);

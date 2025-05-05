@@ -18,6 +18,8 @@ export const VERSION_KEYS = {
   CATEGORIES: "categories",
   EVENTS: "events",
   MONTHLY_CONTRACTS: "monthly_contracts",
+  MONTHLY: "monthly_data",
+  MONTHLY_INVOICES: "monthly_invoices",
   // Add more as needed
 };
 
