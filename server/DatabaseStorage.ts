@@ -4035,6 +4035,39 @@ export class DatabaseStorage implements IStorage {
     
     return result.rows[0];
   }
+  
+  async getMonthlyContractMusicianByMusicianId(musicianId: number): Promise<MonthlyContractMusician | undefined> {
+    try {
+      // Find the most recent contract for this musician
+      const result = await pool.query(`
+        SELECT mcm.id, mcm.contract_id as "contractId", mcm.musician_id as "musicianId", 
+               mcm.status, mcm.token, mcm.sent_at as "sentAt", mcm.responded_at as "respondedAt", 
+               mcm.completed_at as "completedAt", mcm.last_reminder_at as "lastReminderAt", 
+               mcm.reminder_count as "reminderCount", mcm.notes, mcm.musician_notes as "musicianNotes",
+               mcm.company_signature as "companySignature", mcm.musician_signature as "musicianSignature", 
+               mcm.ip_address as "ipAddress", mcm.accepted_dates as "acceptedDates", 
+               mcm.rejected_dates as "rejectedDates", mcm.pending_dates as "pendingDates", 
+               mcm.total_dates as "totalDates", mcm.total_fee as "totalFee", 
+               mcm.response_url as "responseUrl", mcm.created_at as "createdAt", 
+               mcm.updated_at as "updatedAt",
+               m.name as "musicianName"
+        FROM monthly_contract_musicians mcm
+        LEFT JOIN musicians m ON mcm.musician_id = m.id
+        WHERE mcm.musician_id = $1
+        ORDER BY mcm.created_at DESC
+        LIMIT 1
+      `, [musicianId]);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      return result.rows[0];
+    } catch (error) {
+      console.error("Error in getMonthlyContractMusicianByMusicianId:", error);
+      return undefined;
+    }
+  }
 
   async createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician> {
     // Generate a unique token if not provided

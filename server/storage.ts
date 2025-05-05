@@ -212,6 +212,7 @@ export interface IStorage {
   // Monthly Contract Musicians management
   getMonthlyContractMusicians(contractId: number): Promise<MonthlyContractMusician[]>;
   getMonthlyContractMusician(id: number): Promise<MonthlyContractMusician | undefined>;
+  getMonthlyContractMusicianByMusicianId(musicianId: number): Promise<MonthlyContractMusician | undefined>;
   createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician>;
   updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined>;
   deleteMonthlyContractMusician(id: number): Promise<boolean>;
