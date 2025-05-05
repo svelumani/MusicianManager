@@ -2589,6 +2589,149 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount > 0;
   }
   
+  async getPlannerAssignmentsByMusician(plannerId: number): Promise<Record<number, {
+    musicianId: number;
+    musicianName: string;
+    assignments: Array<{
+      id: number;
+      slotId: number;
+      date: Date;
+      venueName: string;
+      fee: number;
+      attendance: string;
+      contractStatus: string;
+      contractId?: number;
+    }>;
+    totalFee: number;
+    contractStatus?: string;
+  }>> {
+    try {
+      // Get all assignments for this planner
+      const assignments = await this.getPlannerAssignmentsByPlannerId(plannerId);
+      
+      if (assignments.length === 0) {
+        return {};
+      }
+      
+      // Get all slots for these assignments
+      const slotIds = [...new Set(assignments.map(a => a.slotId))];
+      const slots = await db.select()
+        .from(plannerSlots)
+        .where(inArray(plannerSlots.id, slotIds));
+      
+      // Create a map of slot ID to slot data for easy lookup
+      const slotMap = new Map(slots.map(slot => [slot.id, slot]));
+      
+      // Get all musicians involved
+      const musicianIds = [...new Set(assignments.map(a => a.musicianId))];
+      const musicians = await db.select()
+        .from(schema.musicians)
+        .where(inArray(schema.musicians.id, musicianIds));
+      
+      // Create a map of musician ID to musician data for easy lookup
+      const musicianMap = new Map(musicians.map(m => [m.id, m]));
+      
+      // Get all venues for these slots
+      const venueIds = [...new Set(slots.map(s => s.venueId).filter(Boolean))];
+      let venues: any[] = [];
+      if (venueIds.length > 0) {
+        venues = await db.select()
+          .from(schema.venues)
+          .where(inArray(schema.venues.id, venueIds as number[]));
+      }
+      
+      // Create a map of venue ID to venue data for easy lookup
+      const venueMap = new Map(venues.map(v => [v.id, v]));
+      
+      // Group assignments by musician
+      const result: Record<number, {
+        musicianId: number;
+        musicianName: string;
+        assignments: Array<{
+          id: number;
+          slotId: number;
+          date: Date;
+          venueName: string;
+          fee: number;
+          attendance: string;
+          contractStatus: string;
+          contractId?: number;
+        }>;
+        totalFee: number;
+        contractStatus?: string;
+      }> = {};
+      
+      // Process each assignment and group by musician
+      for (const assignment of assignments) {
+        const musicianId = assignment.musicianId;
+        const slot = slotMap.get(assignment.slotId);
+        
+        if (!slot) continue; // Skip if slot not found
+        
+        const musician = musicianMap.get(musicianId);
+        if (!musician) continue; // Skip if musician not found
+        
+        const venue = slot.venueId ? venueMap.get(slot.venueId) : null;
+        const venueName = venue ? venue.name : 'No venue specified';
+        
+        // Initialize musician entry if it doesn't exist
+        if (!result[musicianId]) {
+          result[musicianId] = {
+            musicianId,
+            musicianName: musician.name,
+            assignments: [],
+            totalFee: 0,
+            contractStatus: assignment.contractStatus || 'pending'
+          };
+        }
+        
+        // Add this assignment to the musician's list
+        result[musicianId].assignments.push({
+          id: assignment.id,
+          slotId: assignment.slotId,
+          date: slot.date,
+          venueName,
+          fee: slot.fee || 0,
+          attendance: assignment.status,
+          contractStatus: assignment.contractStatus || 'pending',
+          contractId: assignment.contractId
+        });
+        
+        // Add fee to total
+        result[musicianId].totalFee += (slot.fee || 0);
+        
+        // Update contract status based on the "lowest common denominator"
+        // Priority: pending < included < sent < signed, rejected
+        const currentStatus = result[musicianId].contractStatus;
+        const newStatus = assignment.contractStatus || 'pending';
+        
+        // Simple priority logic - we want the "least progressed" status to be shown
+        if (currentStatus === 'signed' && newStatus !== 'signed') {
+          result[musicianId].contractStatus = newStatus;
+        } else if (currentStatus === 'sent' && (newStatus === 'pending' || newStatus === 'included')) {
+          result[musicianId].contractStatus = newStatus;
+        } else if (currentStatus === 'included' && newStatus === 'pending') {
+          result[musicianId].contractStatus = newStatus;
+        } else if (newStatus === 'rejected') {
+          // If any assignment is rejected, the overall status is rejected
+          result[musicianId].contractStatus = 'rejected';
+        }
+      }
+      
+      // Sort assignments by date for each musician
+      for (const musicianId in result) {
+        result[musicianId].assignments.sort((a, b) => {
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error(`Error in getPlannerAssignmentsByMusician:`, error);
+      return {};
+    }
+  }
+  
   async markAttendance(id: number, status: string, userId: number, notes?: string): Promise<PlannerAssignment | undefined> {
     const [updated] = await db.update(plannerAssignments)
       .set({

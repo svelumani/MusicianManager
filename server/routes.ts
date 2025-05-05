@@ -3055,7 +3055,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("\n\n======== STARTING BY-MUSICIAN ENDPOINT ========");
       console.log("[by-musician] Received request with query params:", req.query);
-      console.log("[by-musician] Request headers:", req.headers);
       
       // Check if plannerId exists
       if (!req.query.plannerId) {
@@ -3076,8 +3075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Force convert the plannerId to string first to handle all input types
       const plannerIdInput = req.query.plannerId ? String(req.query.plannerId) : undefined;
       
-      // There may be non-numeric characters in the query parameter (like "undefined", "null", etc.)
-      // So we need to parse it carefully and handle invalid inputs gracefully
+      // There may be non-numeric characters in the query parameter
       let plannerId = undefined;
       try {
         plannerId = plannerIdInput ? parseInt(plannerIdInput) : undefined;
@@ -3090,18 +3088,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         plannerId = undefined;
       }
       
-      console.log(`[by-musician] Parsed plannerId: ${plannerId}, raw value: ${plannerIdInput}, type: ${typeof req.query.plannerId}`);
+      console.log(`[by-musician] Parsed plannerId: ${plannerId}, raw value: ${plannerIdInput}`);
       
       if (!plannerId || isNaN(plannerId)) {
         console.error(`[by-musician] Invalid plannerId: ${req.query.plannerId}`);
-        // Use more graceful error handling instead of throwing a 400 error
-        // Return a structured response that the client can handle
         return res.json({
           _status: "error",
           _message: "Invalid planner ID provided",
           _details: `Provided value: '${req.query.plannerId}' is not a valid number`,
           _errorType: "InvalidPlannerID",
-          // Add a dummy entry to ensure the client doesn't crash
           999: {
             musicianId: 999,
             musicianName: "Error: Invalid planner ID",
@@ -3111,54 +3106,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Get all slots for the planner with added logging
-      console.log(`[by-musician] Fetching slots for planner ID: ${plannerId}`);
-      const slots = await storage.getPlannerSlots(plannerId);
-      console.log(`[by-musician] Found ${slots.length} slots for planner ID: ${plannerId}`);
+      // Use the new method to get assignments grouped by musician directly
+      console.log(`[by-musician] Fetching assignments by musician for planner ID: ${plannerId}`);
+      const musicianAssignments = await storage.getPlannerAssignmentsByMusician(plannerId);
       
-      if (!slots || slots.length === 0) {
-        console.log(`[by-musician] No slots found for planner ID: ${plannerId}, returning empty result with status`);
-        // Return structured response with status information instead of empty object
+      // Check if we have results
+      if (!musicianAssignments || Object.keys(musicianAssignments).length === 0) {
+        console.log(`[by-musician] No assignments found for planner ID: ${plannerId}`);
         return res.json({
           _status: "empty",
-          _message: "No slots found for this planner",
-          // Add a dummy entry to ensure the client doesn't crash
+          _message: "No assignments found for this planner",
           999: {
             musicianId: 999,
-            musicianName: "No slots available",
+            musicianName: "No assignments available",
             assignments: [],
             totalFee: 0
           }
         });
       }
       
-      // Show slot details for debugging
-      slots.forEach(slot => {
-        console.log(`[by-musician] Slot ID: ${slot.id}, Date: ${slot.date}, Venue ID: ${slot.venueId}`);
-      });
+      console.log(`[by-musician] Found assignments for ${Object.keys(musicianAssignments).length} musicians`);
       
-      // Get all assignments for these slots
-      const slotIds = slots.map(slot => slot.id);
-      console.log(`[by-musician] Getting assignments for ${slotIds.length} slots: ${slotIds.join(', ')}`);
-      const assignments = [];
-      const assignmentErrors = [];
-      
-      // Check if we have no slots at all
-      if (slotIds.length === 0) {
-        console.warn(`[by-musician] No valid slots found for planner ID: ${plannerId}`);
-        return res.json({
-          _status: "empty",
-          _message: "No valid slots found for this planner",
-          _errorType: "EmptySlotList",
-          // Add a dummy entry to ensure the client doesn't crash
-          999: {
-            musicianId: 999,
-            musicianName: "No valid slots available",
-            assignments: [],
-            totalFee: 0
-          }
-        });
-      }
+      // Return the grouped assignments
+      return res.json(musicianAssignments);
       
       for (const slotId of slotIds) {
         // Enhanced slot ID validation
