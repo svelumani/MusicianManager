@@ -271,20 +271,20 @@ const MusicianContractPage = () => {
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Created Date</p>
-                <p>{format(new Date(contract.createdAt), 'MMMM d, yyyy')}</p>
+                <p>{contract.createdAt ? format(new Date(contract.createdAt), 'MMMM d, yyyy') : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Month/Year</p>
-                <p>{format(new Date(contract.year, contract.month - 1), 'MMMM yyyy')}</p>
+                <p>{contract.year && contract.month ? format(new Date(contract.year, contract.month - 1), 'MMMM yyyy') : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Status</p>
                 <Badge
                   variant="outline"
-                  className={`${STATUS_COLORS[contract.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending} flex items-center`}
+                  className={`${(contract.status && STATUS_COLORS[contract.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.pending} flex items-center`}
                 >
-                  {STATUS_ICONS[contract.status as keyof typeof STATUS_ICONS] || STATUS_ICONS.pending}
-                  {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
+                  {(contract.status && STATUS_ICONS[contract.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.pending}
+                  {contract.status ? contract.status.charAt(0).toUpperCase() + contract.status.slice(1) : 'Pending'}
                 </Badge>
               </div>
             </div>
@@ -307,10 +307,10 @@ const MusicianContractPage = () => {
               <p className="text-sm font-semibold text-gray-500">Status</p>
               <Badge
                 variant="outline"
-                className={`${STATUS_COLORS[musicianContract.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending} flex items-center`}
+                className={`${(musicianContract.status && STATUS_COLORS[musicianContract.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.pending} flex items-center`}
               >
-                {STATUS_ICONS[musicianContract.status as keyof typeof STATUS_ICONS] || STATUS_ICONS.pending}
-                {musicianContract.status.charAt(0).toUpperCase() + musicianContract.status.slice(1)}
+                {(musicianContract.status && STATUS_ICONS[musicianContract.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.pending}
+                {musicianContract.status ? musicianContract.status.charAt(0).toUpperCase() + musicianContract.status.slice(1) : 'Pending'}
               </Badge>
             </div>
             <div>
