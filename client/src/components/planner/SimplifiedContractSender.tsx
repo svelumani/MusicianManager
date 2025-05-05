@@ -470,8 +470,16 @@ const SimplifiedContractSender = ({
           
           // Then do the page reload with cache-busting parameter
           setTimeout(() => {
+            // Get month and year from the URL
+            const params = new URLSearchParams(window.location.search);
+            const month = params.get('month') || '';
+            const year = params.get('year') || '';
+            
+            // Create cache-busting parameter
             const cacheBuster = Date.now();
-            window.location.href = window.location.pathname + '?refresh=' + cacheBuster;
+            
+            // Navigate to a URL that preserves context with fresh data
+            window.location.href = `/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
           }, 200);
         }, 1000);
       } else {
@@ -509,8 +517,16 @@ const SimplifiedContractSender = ({
         
         // Then do the page reload with cache-busting parameter
         setTimeout(() => {
+          // Get month and year from the URL
+          const params = new URLSearchParams(window.location.search);
+          const month = params.get('month') || '';
+          const year = params.get('year') || '';
+          
+          // Create cache-busting parameter
           const cacheBuster = Date.now();
-          window.location.href = window.location.pathname + '?refresh=' + cacheBuster;
+          
+          // Navigate to a URL that preserves context with fresh data
+          window.location.href = `/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
         }, 200);
       }, 2000);
     }

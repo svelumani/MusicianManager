@@ -215,10 +215,14 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         description: "You can now make changes to the planner. The status is now 'draft'.",
       });
       
-      // Force a complete page reload with cache busting
-      // This is the most reliable way to ensure we get fresh data
+      // Force a complete page reload with explicit month, year and cache busting parameters
+      // This is the most reliable way to ensure we get fresh data with correct date context
       const cacheBuster = new Date().getTime();
-      window.location.href = window.location.pathname + '?refresh=' + cacheBuster;
+      const year = planner.year;
+      const month = planner.month;
+      
+      // Navigate to a specific URL that includes all necessary context
+      window.location.href = `/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);
