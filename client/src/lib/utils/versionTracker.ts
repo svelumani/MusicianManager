@@ -1,12 +1,12 @@
 /**
- * Version Tracker System
+ * Version Tracking Utility
  * 
- * This module provides a more reliable way to track data freshness than HTTP caching.
- * It uses localStorage to store version hashes that are compared on data loads
- * to determine if fresh data is needed.
+ * This utility helps track data versions on the client-side to ensure
+ * the UI always displays the most up-to-date information, regardless
+ * of browser caching behavior.
  */
 
-// Define entity types that need version tracking
+// Define the types of entities we can track versions for
 export type VersionedEntity = 
   | 'planners'
   | 'plannerSlots'
@@ -16,34 +16,23 @@ export type VersionedEntity =
   | 'venues'
   | 'categories';
 
-// Storage key for the local version cache
-const VERSION_STORAGE_KEY = 'vamp_data_versions';
+const VERSION_STORAGE_KEY = 'data_versions';
 
 /**
  * Get the current stored version hash for an entity
  */
 export function getStoredVersion(entity: VersionedEntity): string {
-  try {
-    const versions = getVersions();
-    return versions[entity] || '';
-  } catch (e) {
-    console.error('Error getting stored version:', e);
-    return '';
-  }
+  const versions = getVersions();
+  return versions[entity] || '';
 }
 
 /**
  * Update the stored version hash for an entity
  */
 export function updateStoredVersion(entity: VersionedEntity, version: string): void {
-  try {
-    const versions = getVersions();
-    versions[entity] = version;
-    localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
-    console.log(`✅ Updated stored version for ${entity}: ${version}`);
-  } catch (e) {
-    console.error('Error updating stored version:', e);
-  }
+  const versions = getVersions();
+  versions[entity] = version;
+  localStorage.setItem(VERSION_STORAGE_KEY, JSON.stringify(versions));
 }
 
 /**
@@ -52,13 +41,7 @@ export function updateStoredVersion(entity: VersionedEntity, version: string): v
  */
 export function isDataFresh(entity: VersionedEntity, currentVersion: string): boolean {
   const storedVersion = getStoredVersion(entity);
-  const isFresh = storedVersion === currentVersion;
-  
-  if (!isFresh) {
-    console.log(`⚠️ Data is stale for ${entity}. Stored: ${storedVersion}, Current: ${currentVersion}`);
-  }
-  
-  return isFresh;
+  return storedVersion === currentVersion;
 }
 
 /**
@@ -66,32 +49,38 @@ export function isDataFresh(entity: VersionedEntity, currentVersion: string): bo
  * This creates a unique hash based on the content of the data
  */
 export function generateVersionHash(data: any): string {
-  // Simple implementation: use a combination of the data length and timestamp
-  // For production, you might want a more sophisticated hash function
   if (!data) return '';
   
   try {
-    // Create a hash from array length and a random ID from the first few items
+    // For arrays, sort by ID if possible and stringify
     if (Array.isArray(data)) {
-      const timestamp = Date.now();
-      const length = data.length;
-      const sampleData = data.slice(0, 3).map(item => item.id || item.name || '').join('');
-      return `${length}_${sampleData}_${timestamp}`;
+      // Try to sort by id to ensure consistent hashing
+      const sortedData = [...data].sort((a, b) => {
+        if (a.id && b.id) return a.id - b.id;
+        return 0;
+      });
+      
+      // Count items and include that in the hash
+      const itemCount = data.length;
+      
+      // Get the most recent updatedAt value if it exists
+      let latestUpdate = '';
+      data.forEach((item) => {
+        if (item.updatedAt && item.updatedAt > latestUpdate) {
+          latestUpdate = item.updatedAt;
+        }
+      });
+      
+      // Create a simple hash from the stringified data and additional metadata
+      return `${itemCount}_${latestUpdate}_${hashString(JSON.stringify(sortedData))}`;
     }
     
-    // Create a hash from object ID and timestamp
-    if (typeof data === 'object') {
-      const timestamp = Date.now();
-      const id = data.id || '';
-      const updatedAt = data.updatedAt || '';
-      return `${id}_${updatedAt}_${timestamp}`;
-    }
-    
-    // Fallback
-    return `${String(data).length}_${Date.now()}`;
-  } catch (e) {
-    console.error('Error generating version hash:', e);
-    return `${Date.now()}`;
+    // For objects, stringify and hash
+    return hashString(JSON.stringify(data));
+  } catch (error) {
+    console.error('Error generating version hash:', error);
+    // If anything goes wrong, return a unique timestamp-based hash
+    return `error_${Date.now()}`;
   }
 }
 
@@ -100,8 +89,8 @@ export function generateVersionHash(data: any): string {
  */
 function getVersions(): Record<string, string> {
   try {
-    const storedVersions = localStorage.getItem(VERSION_STORAGE_KEY);
-    return storedVersions ? JSON.parse(storedVersions) : {};
+    const stored = localStorage.getItem(VERSION_STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
   } catch (e) {
     console.error('Error parsing stored versions:', e);
     return {};
@@ -109,26 +98,28 @@ function getVersions(): Record<string, string> {
 }
 
 /**
+ * Simple string hashing function
+ */
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(16);
+}
+
+/**
  * Clear all stored versions (use when logging out)
  */
 export function clearStoredVersions(): void {
-  try {
-    localStorage.removeItem(VERSION_STORAGE_KEY);
-    console.log('Cleared all stored versions');
-  } catch (e) {
-    console.error('Error clearing stored versions:', e);
-  }
+  localStorage.removeItem(VERSION_STORAGE_KEY);
 }
 
 /**
  * Force refresh for a specific entity
  */
 export function forceRefreshEntity(entity: VersionedEntity): void {
-  try {
-    // Change the stored version to force a refresh next time
-    updateStoredVersion(entity, `force_refresh_${Date.now()}`);
-    console.log(`🔄 Forced refresh for ${entity}`);
-  } catch (e) {
-    console.error('Error forcing refresh:', e);
-  }
+  updateStoredVersion(entity, `force_${Date.now()}`);
 }
