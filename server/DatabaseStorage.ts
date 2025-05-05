@@ -3860,6 +3860,8 @@ export class DatabaseStorage implements IStorage {
           setClauses.push(`musician_signature = NULL`);
         }
       }
+      // Don't add fields that might not exist in the database yet
+      // These need to be added via migrations
       
       // Always update the updated_at timestamp
       setClauses.push(`updated_at = NOW()`);
