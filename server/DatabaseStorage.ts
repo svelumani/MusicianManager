@@ -3725,26 +3725,70 @@ export class DatabaseStorage implements IStorage {
 
   // Monthly Contract Musicians management implementation
   async getMonthlyContractMusicians(contractId: number): Promise<MonthlyContractMusician[]> {
-    return await db.select()
-      .from(monthlyContractMusicians)
-      .where(eq(monthlyContractMusicians.contractId, contractId))
-      .orderBy(asc(monthlyContractMusicians.musicianId));
+    // Use raw query to avoid issues with schema mismatch
+    const result = await pool.query(`
+      SELECT id, contract_id as "contractId", musician_id as "musicianId", 
+             status, token, sent_at as "sentAt", responded_at as "respondedAt", 
+             completed_at as "completedAt", last_reminder_at as "lastReminderAt", 
+             reminder_count as "reminderCount", notes, musician_notes as "musicianNotes",
+             company_signature as "companySignature", musician_signature as "musicianSignature", 
+             ip_address as "ipAddress", accepted_dates as "acceptedDates", 
+             rejected_dates as "rejectedDates", pending_dates as "pendingDates", 
+             total_dates as "totalDates", total_fee as "totalFee", 
+             response_url as "responseUrl", created_at as "createdAt", 
+             updated_at as "updatedAt"
+      FROM monthly_contract_musicians
+      WHERE contract_id = $1
+      ORDER BY musician_id ASC
+    `, [contractId]);
+    
+    return result.rows;
   }
 
   async getMonthlyContractMusician(id: number): Promise<MonthlyContractMusician | undefined> {
-    const [musician] = await db.select()
-      .from(monthlyContractMusicians)
-      .where(eq(monthlyContractMusicians.id, id));
+    const result = await pool.query(`
+      SELECT id, contract_id as "contractId", musician_id as "musicianId", 
+             status, token, sent_at as "sentAt", responded_at as "respondedAt", 
+             completed_at as "completedAt", last_reminder_at as "lastReminderAt", 
+             reminder_count as "reminderCount", notes, musician_notes as "musicianNotes",
+             company_signature as "companySignature", musician_signature as "musicianSignature", 
+             ip_address as "ipAddress", accepted_dates as "acceptedDates", 
+             rejected_dates as "rejectedDates", pending_dates as "pendingDates", 
+             total_dates as "totalDates", total_fee as "totalFee", 
+             response_url as "responseUrl", created_at as "createdAt", 
+             updated_at as "updatedAt"
+      FROM monthly_contract_musicians
+      WHERE id = $1
+    `, [id]);
     
-    return musician;
+    if (result.rows.length === 0) {
+      return undefined;
+    }
+    
+    return result.rows[0];
   }
   
   async getMonthlyContractMusicianByToken(token: string): Promise<MonthlyContractMusician | undefined> {
-    const [musician] = await db.select()
-      .from(monthlyContractMusicians)
-      .where(eq(monthlyContractMusicians.token, token));
+    const result = await pool.query(`
+      SELECT id, contract_id as "contractId", musician_id as "musicianId", 
+             status, token, sent_at as "sentAt", responded_at as "respondedAt", 
+             completed_at as "completedAt", last_reminder_at as "lastReminderAt", 
+             reminder_count as "reminderCount", notes, musician_notes as "musicianNotes",
+             company_signature as "companySignature", musician_signature as "musicianSignature", 
+             ip_address as "ipAddress", accepted_dates as "acceptedDates", 
+             rejected_dates as "rejectedDates", pending_dates as "pendingDates", 
+             total_dates as "totalDates", total_fee as "totalFee", 
+             response_url as "responseUrl", created_at as "createdAt", 
+             updated_at as "updatedAt"
+      FROM monthly_contract_musicians
+      WHERE token = $1
+    `, [token]);
     
-    return musician;
+    if (result.rows.length === 0) {
+      return undefined;
+    }
+    
+    return result.rows[0];
   }
 
   async createMonthlyContractMusician(contractMusician: InsertMonthlyContractMusician): Promise<MonthlyContractMusician> {
