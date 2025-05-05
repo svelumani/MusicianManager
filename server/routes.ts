@@ -3065,7 +3065,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // 2. Get all musicians to look up names
-      const musicians = await storage.getAllMusicians();
+      const musicians = await storage.getMusicians();
       
       // 3. Create a musician name lookup map
       const musicianMap = musicians.reduce((acc: {[key: number]: any}, musician) => {
@@ -3075,7 +3075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 4. Get venue and slot information for display
       const slots = await storage.getPlannerSlotsByPlannerId(plannerId);
-      const venues = await storage.getAllVenues();
+      const venues = await storage.getVenues();
       
       // Create maps for quick lookups
       const slotMap = slots.reduce((acc: {[key: number]: any}, slot) => {

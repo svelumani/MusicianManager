@@ -78,7 +78,7 @@ export default function GenerateContractButton({
       className="gap-2"
     >
       {generateContractMutation.isPending ? (
-        <Spinner size="sm" />
+        <Spinner size="small" />
       ) : (
         <FileText className="h-4 w-4" />
       )}
