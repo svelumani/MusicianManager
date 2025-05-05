@@ -23,11 +23,12 @@ export const VERSION_KEYS = {
   PLANNER_SLOTS: "planner_slots",
   MUSICIANS: "musicians",
   VENUES: "venues",
-  CATEGORIES: "categories",
+  CATEGORIES: "event_categories",
   EVENTS: "events",
   MONTHLY_CONTRACTS: "monthly_contracts",
   MONTHLY: "monthly_data",
   MONTHLY_INVOICES: "monthly_invoices",
+  MONTHLY_PLANNERS: "monthly_planners",
 };
 
 // Map of version keys to query keys (for selective invalidation)
@@ -42,6 +43,7 @@ const VERSION_TO_QUERY_MAP: Record<string, string[]> = {
   [VERSION_KEYS.MONTHLY_CONTRACTS]: ['/api/monthly-contracts'],
   [VERSION_KEYS.MONTHLY]: ['/api/monthly-contracts', '/api/monthly-invoices'],
   [VERSION_KEYS.MONTHLY_INVOICES]: ['/api/monthly-invoices'],
+  [VERSION_KEYS.MONTHLY_PLANNERS]: ['/api/planners'],
 };
 
 /**
@@ -118,7 +120,8 @@ export async function checkVersionUpdates() {
         VERSION_KEYS.PLANNER_SLOTS,
         VERSION_KEYS.MONTHLY,
         VERSION_KEYS.MONTHLY_CONTRACTS,
-        VERSION_KEYS.MONTHLY_INVOICES
+        VERSION_KEYS.MONTHLY_INVOICES,
+        VERSION_KEYS.MONTHLY_PLANNERS
       ];
       
       const hasCriticalUpdate = changedVersionKeys.some(key => 

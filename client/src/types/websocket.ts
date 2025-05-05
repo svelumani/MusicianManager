@@ -16,6 +16,7 @@ export type UpdateEntity =
   | 'musicianPayRates'
   | 'availability'
   | 'monthlyContracts'
+  | 'monthlyPlanners'
   | 'all';
 
 export type NotificationType = 
