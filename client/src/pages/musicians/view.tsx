@@ -48,6 +48,16 @@ export default function ViewMusicianPage() {
       if (!res.ok) throw new Error("Failed to fetch pay rates");
       const data = await res.json();
       console.log("Pay rates data:", data);
+      
+      // Debug the returned data structure
+      if (Array.isArray(data) && data.length > 0) {
+        console.log("First pay rate object keys:", Object.keys(data[0]));
+        console.log("Is eventCategoryId present?", 'eventCategoryId' in data[0]);
+        console.log("Pay rate sample:", JSON.stringify(data[0]));
+      } else {
+        console.log("No pay rates received or not in expected format", data);
+      }
+      
       return data;
     },
   });

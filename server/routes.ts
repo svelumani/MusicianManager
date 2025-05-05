@@ -4647,44 +4647,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       console.log("Fetching musician pay rates, musicianId:", musicianId);
       
-      // Direct database query to check if data exists
+      // Direct database query to check if data exists and troubleshoot the issue
       try {
         const dbResult = await pool.query(`SELECT COUNT(*) FROM musician_pay_rates`);
         console.log("Direct database check - total pay rates in database:", dbResult.rows[0].count);
         
         if (musicianId) {
-          const musicianResult = await pool.query(
-            `SELECT COUNT(*) FROM musician_pay_rates WHERE musician_id = $1`, 
+          // Perform a direct database query to see what's in the database for this musician
+          const musicianDirectResult = await pool.query(
+            `SELECT * FROM musician_pay_rates WHERE musician_id = $1`, 
             [musicianId]
           );
-          console.log(`Direct database check - pay rates for musician ${musicianId}:`, musicianResult.rows[0].count);
+          console.log(`Direct DB query - found ${musicianDirectResult.rows.length} pay rates for musician ${musicianId}:`);
+          if (musicianDirectResult.rows.length > 0) {
+            console.log("First 3 pay rates from DB:", JSON.stringify(musicianDirectResult.rows.slice(0, 3)));
+          }
         }
       } catch (dbError) {
         console.error("Failed to directly query database:", dbError);
       }
       
+      // Get the pay rates through the storage interface
       let payRates = musicianId 
         ? await storage.getMusicianPayRatesByMusicianId(musicianId)
         : await storage.getMusicianPayRates();
       
       console.log(`Retrieved ${payRates.length} pay rates through storage interface.`);
       
-      // Debug the returned structure - first item if available
+      // Debug the returned structure - first few items if available
       if (payRates.length > 0) {
-        console.log("Sample pay rate structure:", JSON.stringify(payRates[0]));
+        console.log(`First 3 pay rates through storage:`, JSON.stringify(payRates.slice(0, 3)));
+        
+        // Check if the data structure matches what the frontend expects
+        const hasCorrectFields = payRates.some(rate => 
+          'eventCategoryId' in rate && 
+          'hourlyRate' in rate && 
+          'dayRate' in rate && 
+          'eventRate' in rate
+        );
+        
+        console.log("Pay rates have correct field structure:", hasCorrectFields);
       } else {
         console.log("No pay rates found through storage interface. Will return an empty array.");
       }
       
-      // Log if we found rates for the specific musician (debug only)
-      if (musicianId) {
-        const relevantRates = payRates.filter(
-          (rate: any) => rate.musicianId === musicianId || rate.musician_id === musicianId
-        );
-        console.log(`Found ${relevantRates.length} rates for musician ID ${musicianId}`);
-      }
-      
-      // Make sure we're returning properly formatted JSON
+      // Make sure we're returning properly formatted JSON with the expected field names
       res.setHeader('Content-Type', 'application/json');
       res.json(payRates);
     } catch (error) {
