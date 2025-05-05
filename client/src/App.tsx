@@ -39,6 +39,7 @@ import MonthlyContractsPage from "@/pages/monthly/contracts";
 import ContractStatusPage from "@/pages/monthly/status";
 import MonthlyContractResponsePage from "@/pages/monthly/respond";
 import MonthlyContractDetailPage from "@/pages/monthly/contract-detail";
+import MusicianContractPage from "@/pages/monthly/musician-contract";
 import SettingsPage from "@/pages/settings/index";
 import InstrumentManagerPage from "@/pages/settings/instrument-manager";
 import EmailSettingsPage from "./pages/settings/email";
@@ -224,6 +225,13 @@ function Router() {
         {(params) => (
           <AppLayout>
             <MonthlyContractDetailPage />
+          </AppLayout>
+        )}
+      </Route>
+      <Route path="/monthly/contracts/:contractId/musicians/:musicianId">
+        {(params) => (
+          <AppLayout>
+            <MusicianContractPage />
           </AppLayout>
         )}
       </Route>
