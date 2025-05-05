@@ -81,9 +81,14 @@ const MusicianContractPage = () => {
         console.log('Contract data (complete):', data);
         console.log('Contract structure:', Object.keys(data));
         console.log('Contract object structure:', data?.contract ? Object.keys(data.contract) : 'No contract object');
-        console.log('Days data available:', data?.contract?.days ? data.contract.days.length : 'No days property');
-        if (data?.contract?.days) {
-          console.log('Sample day data:', data.contract.days[0]);
+        console.log('Assignments available:', data?.assignments ? data.assignments.length : 'No assignments property');
+        if (data?.assignments && data.assignments.length > 0) {
+          console.log('Sample assignment data:', data.assignments[0]);
+          
+          // Check if venue information is present
+          if (!data.assignments[0].venueName) {
+            console.log('Venue name is missing in assignments. Need to fetch venue details.');
+          }
         }
         return data;
       } catch (error) {
@@ -95,6 +100,48 @@ const MusicianContractPage = () => {
   
   // Extract the contract from the data response
   const contract = contractData?.contract || {};
+  
+  // We need to fetch planner slots to get venue and date information
+  const [plannerSlots, setPlannerSlots] = useState<Record<number, any>>({});
+  const [venues, setVenues] = useState<Record<number, any>>({});
+  
+  // Fetch planner slots data
+  useEffect(() => {
+    if (!contractData?.assignments || contractData.assignments.length === 0) return;
+    
+    const fetchSlotData = async () => {
+      try {
+        // Get the planner ID from the contract
+        const plannerId = contract.plannerId;
+        
+        // Get all slots for this planner
+        const slotsResponse = await apiRequest(`/api/planner-slots/by-planner/${plannerId}`);
+        console.log('Slots data:', slotsResponse);
+        
+        // Create a map of slot ID to slot data
+        const slotsMap: Record<number, any> = {};
+        slotsResponse.forEach((slot: any) => {
+          slotsMap[slot.id] = slot;
+        });
+        setPlannerSlots(slotsMap);
+        
+        // Get all venues
+        const venuesResponse = await apiRequest('/api/venues');
+        console.log('Venues data:', venuesResponse);
+        
+        // Create a map of venue ID to venue data
+        const venuesMap: Record<number, any> = {};
+        venuesResponse.forEach((venue: any) => {
+          venuesMap[venue.id] = venue;
+        });
+        setVenues(venuesMap);
+      } catch (error) {
+        console.error("Error fetching slot and venue data:", error);
+      }
+    };
+    
+    fetchSlotData();
+  }, [contractData?.assignments, contract.plannerId]);
 
   // Query to get the musician contract
   const {
@@ -410,88 +457,95 @@ const MusicianContractPage = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {contractData?.assignments && contractData.assignments.length > 0 ? (
-                  contractData.assignments.map((assignment: any, index: number) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assignment.date ? format(new Date(assignment.date), 'MMMM d, yyyy') : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assignment.venueName || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assignment.startTime && assignment.endTime ? `${assignment.startTime} - ${assignment.endTime}` : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge
-                          variant="outline"
-                          className={`${(assignment.status && STATUS_COLORS[assignment.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.confirmed} flex items-center`}
-                        >
-                          {(assignment.status && STATUS_ICONS[assignment.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.confirmed}
-                          {assignment.status ? assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1) : 'Confirmed'}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assignment.actualFee !== null ? `$${assignment.actualFee.toFixed(2)}` : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {musicianContract.status === 'signed' ? (
+                  contractData.assignments.map((assignment, index) => {
+                    // Get slot data for this assignment
+                    const slot = plannerSlots[assignment.slotId] || {};
+                    // Get venue data for this slot
+                    const venue = venues[slot.venueId] || {};
+                    
+                    return (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {slot.date ? format(new Date(slot.date), 'MMMM d, yyyy') : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {venue.name || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {slot.startTime && slot.endTime ? `${slot.startTime} - ${slot.endTime}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <Badge
                             variant="outline"
-                            className="bg-green-50 text-green-700 flex items-center"
+                            className={`${(assignment.status && STATUS_COLORS[assignment.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.confirmed} flex items-center`}
                           >
-                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                            Accepted
+                            {(assignment.status && STATUS_ICONS[assignment.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.confirmed}
+                            {assignment.status ? assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1) : 'Confirmed'}
                           </Badge>
-                        ) : musicianContract.status === 'rejected' ? (
-                          <Badge
-                            variant="outline"
-                            className="bg-red-50 text-red-700 flex items-center"
-                          >
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
-                            Rejected
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 flex items-center">
-                            <Clock className="h-3.5 w-3.5 mr-1" />
-                            Pending
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {musicianContract.musicianSignature ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center">
-                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                            Signed
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-600 flex items-center">
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
-                            Not Signed
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {musicianContract.ipAddress ? (
-                          <div className="space-y-1">
-                            <div className="text-xs text-gray-500">IP Address:</div>
-                            <div>{musicianContract.ipAddress}</div>
-                            
-                            {musicianContract.respondedAt && (
-                              <>
-                                <div className="text-xs text-gray-500 mt-2">Signed at:</div>
-                                <div>{format(new Date(musicianContract.respondedAt), 'MMM d, yyyy HH:mm:ss')}</div>
-                              </>
-                            )}
-                          </div>
-                        ) : (
-                          'No signature details'
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {day.notes || (day.musicianNotes ? `Musician: ${day.musicianNotes}` : 'No notes')}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {assignment.actualFee !== null ? `$${assignment.actualFee.toFixed(2)}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {musicianContract.status === 'signed' ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-green-50 text-green-700 flex items-center"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                              Accepted
+                            </Badge>
+                          ) : musicianContract.status === 'rejected' ? (
+                            <Badge
+                              variant="outline"
+                              className="bg-red-50 text-red-700 flex items-center"
+                            >
+                              <XCircle className="h-3.5 w-3.5 mr-1" />
+                              Rejected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 flex items-center">
+                              <Clock className="h-3.5 w-3.5 mr-1" />
+                              Pending
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {musicianContract.musicianSignature ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center">
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                              Signed
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-gray-50 text-gray-600 flex items-center">
+                              <XCircle className="h-3.5 w-3.5 mr-1" />
+                              Not Signed
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {musicianContract.ipAddress ? (
+                            <div className="space-y-1">
+                              <div className="text-xs text-gray-500">IP Address:</div>
+                              <div>{musicianContract.ipAddress}</div>
+                              
+                              {musicianContract.respondedAt && (
+                                <>
+                                  <div className="text-xs text-gray-500 mt-2">Signed at:</div>
+                                  <div>{format(new Date(musicianContract.respondedAt), 'MMM d, yyyy HH:mm:ss')}</div>
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            'No signature details'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {assignment.notes || (musicianContract.musicianNotes ? `Musician: ${musicianContract.musicianNotes}` : 'No notes')}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
