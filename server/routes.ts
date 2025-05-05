@@ -4703,6 +4703,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug endpoint for musician pay rates (temporary)
+  apiRouter.get("/debug-musician-pay-rates", async (req, res) => {
+    try {
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      console.log("DEBUG endpoint - Checking pay rates for musician:", musicianId);
+      
+      // Direct SQL query to avoid any potential issues with the storage layer
+      const result = await pool.query(`
+        SELECT *
+        FROM musician_pay_rates
+        ${musicianId ? 'WHERE musician_id = $1' : ''}
+        LIMIT 100
+      `, musicianId ? [musicianId] : []);
+      
+      console.log(`DEBUG: Found ${result.rows.length} pay rates via direct SQL query.`);
+      if (result.rows.length > 0) {
+        console.log("DEBUG: First pay rate:", JSON.stringify(result.rows[0]));
+      }
+      
+      // Return the raw data
+      res.json({
+        count: result.rows.length,
+        data: result.rows
+      });
+    } catch (error) {
+      console.error("DEBUG endpoint error:", error);
+      res.status(500).json({ error: String(error) });
+    }
+  });
+
   // Skill Tags
   apiRouter.get("/skill-tags", isAuthenticated, async (req, res) => {
     try {
