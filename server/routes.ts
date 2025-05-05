@@ -4647,51 +4647,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       console.log("Fetching musician pay rates, musicianId:", musicianId);
       
-      // Direct database query to check if data exists and troubleshoot the issue
+      // DIRECT DB QUERY APPROACH - Bypassing any storage abstraction
+      console.log("USING DIRECT DB QUERY BYPASS");
+      
       try {
-        const dbResult = await pool.query(`SELECT COUNT(*) FROM musician_pay_rates`);
-        console.log("Direct database check - total pay rates in database:", dbResult.rows[0].count);
+        let query = `
+          SELECT * FROM musician_pay_rates
+        `;
         
+        const params = [];
         if (musicianId) {
-          // Perform a direct database query to see what's in the database for this musician
-          const musicianDirectResult = await pool.query(
-            `SELECT * FROM musician_pay_rates WHERE musician_id = $1`, 
-            [musicianId]
-          );
-          console.log(`Direct DB query - found ${musicianDirectResult.rows.length} pay rates for musician ${musicianId}:`);
-          if (musicianDirectResult.rows.length > 0) {
-            console.log("First 3 pay rates from DB:", JSON.stringify(musicianDirectResult.rows.slice(0, 3)));
-            
-            // Analyze the raw DB data structure 
-            const firstItem = musicianDirectResult.rows[0];
-            console.log("Raw DB data - keys:", Object.keys(firstItem));
-            console.log("Raw DB data - values (first item):", JSON.stringify(firstItem));
-            
-            // Create a properly formatted array to return to the client
-            const formattedPayRates = musicianDirectResult.rows.map(row => ({
-              id: row.id,
-              musicianId: row.musician_id,
-              eventCategoryId: row.event_category_id,
-              hourlyRate: row.hourly_rate,
-              dayRate: row.day_rate,
-              eventRate: row.event_rate,
-              notes: row.notes
-            }));
-            
-            console.log("OVERRIDING with direct DB query results to fix camelCase issue");
-            console.log("Formatted pay rates:", JSON.stringify(formattedPayRates.slice(0, 3)));
-            
-            // Return the directly queried and manually formatted results
-            res.setHeader('Content-Type', 'application/json');
-            return res.json(formattedPayRates);
-          }
+          query += ` WHERE musician_id = $1`;
+          params.push(musicianId);
         }
-      } catch (dbError) {
-        console.error("Failed to directly query database:", dbError);
+        
+        query += ` ORDER BY id LIMIT 100`;
+        
+        const result = await pool.query(query, params);
+        console.log(`Direct DB query found ${result.rows.length} pay rates.`);
+        
+        if (result.rows.length > 0) {
+          // Explicitly map the snake_case to camelCase for frontend use
+          const formattedPayRates = result.rows.map(row => ({
+            id: row.id,
+            musicianId: row.musician_id,
+            eventCategoryId: row.event_category_id,
+            hourlyRate: row.hourly_rate,
+            dayRate: row.day_rate,
+            eventRate: row.event_rate,
+            notes: row.notes
+          }));
+          
+          console.log(`Returning ${formattedPayRates.length} formatted pay rates.`);
+          console.log("Sample:", JSON.stringify(formattedPayRates.slice(0, 2)));
+          
+          return res.json(formattedPayRates);
+        } else {
+          console.log("No pay rates found in direct DB query.");
+          return res.json([]);
+        }
+      } catch (directDbError) {
+        console.error("Error in direct DB query:", directDbError);
+        // Fall back to storage method if direct DB query fails
       }
       
-      // If we get here, either there was no musicianId or no pay rates were found with direct query
-      // Fall back to using the storage interface
+      // If we reach here, the direct method failed somehow
+      
+      // STORAGE INTERFACE APPROACH - For fallback
+      console.log("FALLING BACK to storage interface method");
       let payRates = musicianId 
         ? await storage.getMusicianPayRatesByMusicianId(musicianId)
         : await storage.getMusicianPayRates();
@@ -4717,9 +4720,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("First item keys:", Object.keys(firstItem));
         console.log("First item values:", JSON.stringify(firstItem));
         
-        // Look for expected keys
-        for (const key of ['eventCategoryId', 'hourlyRate', 'dayRate', 'eventRate']) {
-          console.log(`Key '${key}' exists:`, key in firstItem);
+        // Try to manually fix the data structure if needed
+        if (!hasCorrectFields) {
+          console.log("Attempting to manually fix the data structure");
+          payRates = payRates.map(rate => ({
+            id: rate.id,
+            musicianId: rate.musician_id || rate.musicianId,
+            eventCategoryId: rate.event_category_id || rate.eventCategoryId,
+            hourlyRate: rate.hourly_rate || rate.hourlyRate,
+            dayRate: rate.day_rate || rate.dayRate,
+            eventRate: rate.event_rate || rate.eventRate,
+            notes: rate.notes
+          }));
+          console.log("Fixed pay rates sample:", JSON.stringify(payRates.slice(0, 1)));
         }
       } else {
         console.log("No pay rates found through storage interface. Will return an empty array.");
