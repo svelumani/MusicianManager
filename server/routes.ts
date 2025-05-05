@@ -26,6 +26,17 @@ import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
 import versionRouter from './routes/versions';
 import { incrementVersion, VERSION_KEYS } from './services/dataVersion';
+
+// Helper function to prevent browser caching for critical endpoints
+function preventCache(res: express.Response): void {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  });
+}
+
 import { 
   insertUserSchema, 
   insertVenueSchema, 
