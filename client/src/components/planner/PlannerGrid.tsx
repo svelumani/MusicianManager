@@ -592,7 +592,35 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                     const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
                                     // TEMPORARY FIX: Hardcode to Club Performance (ID 7) per client request
                                     const eventCategoryId = 7; // Hardcoded to Club Performance
-                                    const hours = slot?.duration || 2;
+                                    
+                                    // Calculate hours based on start and end times
+                                    let hours = 2; // Default fallback
+                                    if (slot?.startTime && slot?.endTime) {
+                                      try {
+                                        // Parse the time strings (format: "HH:MM" like "19:00")
+                                        const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
+                                        const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
+                                        
+                                        // Convert to minutes for easier calculation
+                                        const startTotalMinutes = startHours * 60 + startMinutes;
+                                        let endTotalMinutes = endHours * 60 + endMinutes;
+                                        
+                                        // Handle case where end time is on the next day (e.g., 01:00 AM)
+                                        if (endTotalMinutes < startTotalMinutes) {
+                                          endTotalMinutes += 24 * 60; // Add 24 hours in minutes
+                                        }
+                                        
+                                        // Calculate the difference in hours (rounded to 1 decimal place)
+                                        const durationMinutes = endTotalMinutes - startTotalMinutes;
+                                        hours = Math.round((durationMinutes / 60) * 10) / 10;
+                                      } catch (error) {
+                                        console.log(`Error calculating hours for slot ${slot.id}:`, error);
+                                        hours = 2; // Fallback if calculation fails
+                                      }
+                                    } else if (slot?.duration) {
+                                      // Use duration if explicitly set
+                                      hours = slot.duration;
+                                    }
                                     
                                     // Calculate the per-hour rate, but handle cases where actualFee is 0 or null
                                     let hourlyRate = 0;
