@@ -69,13 +69,19 @@ const MusicianContractPage = () => {
 
   // Query to get the contract details
   const {
-    data: contract,
+    data: contractData,
     isLoading: isContractLoading,
     error: contractError,
   } = useQuery({
     queryKey: [`/api/monthly-contracts/${contractId}`],
     enabled: !!contractId,
+    onSuccess: (data) => {
+      console.log('Contract data:', data);
+    }
   });
+  
+  // Extract the contract from the data response
+  const contract = contractData?.contract || {};
 
   // Query to get the musician contract
   const {
@@ -87,7 +93,9 @@ const MusicianContractPage = () => {
     queryKey: [`/api/monthly-contracts/musician`, musicianId],
     queryFn: async () => {
       try {
-        return await apiRequest(`/api/monthly-contracts/musician/${musicianId}`);
+        const data = await apiRequest(`/api/monthly-contracts/musician/${musicianId}`);
+        console.log('Musician contract data:', data);
+        return data;
       } catch (error) {
         console.error("Error fetching musician contract:", error);
         throw error;
@@ -271,15 +279,15 @@ const MusicianContractPage = () => {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <p className="text-sm font-semibold text-gray-500">Contract Name</p>
-                <p className="text-base">{contract.name || `Contract #${contractId}`}</p>
+                <p className="text-base">Contract #{contractId}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Created Date</p>
-                <p className="text-base">{contract.createdAt ? format(new Date(contract.createdAt), 'MMMM d, yyyy') : 'N/A'}</p>
+                <p className="text-base">{contractData?.contract?.createdAt ? format(new Date(contractData.contract.createdAt), 'MMMM d, yyyy') : format(new Date(), 'MMMM d, yyyy')}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Month/Year</p>
-                <p className="text-base">{contract.year && contract.month ? format(new Date(contract.year, contract.month - 1), 'MMMM yyyy') : 'N/A'}</p>
+                <p className="text-base">{contractData?.contract?.month && contractData?.contract?.year ? format(new Date(contractData.contract.year, contractData.contract.month - 1), 'MMMM yyyy') : format(new Date(), 'MMMM yyyy')}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Status</p>
@@ -380,22 +388,39 @@ const MusicianContractPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {/* This would normally come from the API with performance details */}
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">May 6, 2025</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Blue Note Jazz Club</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">7:00 PM - 10:00 PM</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge
-                      variant="outline"
-                      className="bg-green-100 text-green-800 flex items-center"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      Confirmed
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$250.00</td>
-                </tr>
+                {contractData?.days && contractData.days.length > 0 ? (
+                  contractData.days.map((day: any, index: number) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {day.date ? format(new Date(day.date), 'MMMM d, yyyy') : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {day.venueName || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {day.startTime && day.endTime ? `${day.startTime} - ${day.endTime}` : 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Badge
+                          variant="outline"
+                          className={`${(day.status && STATUS_COLORS[day.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.confirmed} flex items-center`}
+                        >
+                          {(day.status && STATUS_ICONS[day.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.confirmed}
+                          {day.status ? day.status.charAt(0).toUpperCase() + day.status.slice(1) : 'Confirmed'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {day.fee ? `$${day.fee.toFixed(2)}` : (day.actualFee ? `$${day.actualFee.toFixed(2)}` : 'N/A')}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                      No performances found for this contract
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
