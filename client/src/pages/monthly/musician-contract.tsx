@@ -421,30 +421,31 @@ const MusicianContractPage = () => {
                         {day.fee ? `$${day.fee.toFixed(2)}` : (day.actualFee ? `$${day.actualFee.toFixed(2)}` : 'N/A')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {day.musicianResponse ? (
+                        {musicianContract.status === 'signed' ? (
                           <Badge
                             variant="outline"
-                            className={`${
-                              day.musicianResponse === 'accepted' ? 'bg-green-50 text-green-700' : 
-                              day.musicianResponse === 'rejected' ? 'bg-red-50 text-red-700' : 
-                              'bg-yellow-50 text-yellow-700'
-                            } flex items-center`}
+                            className="bg-green-50 text-green-700 flex items-center"
                           >
-                            {day.musicianResponse === 'accepted' ? <CheckCircle className="h-3.5 w-3.5 mr-1" /> : 
-                             day.musicianResponse === 'rejected' ? <XCircle className="h-3.5 w-3.5 mr-1" /> : 
-                             <Clock className="h-3.5 w-3.5 mr-1" />}
-                            {day.musicianResponse === 'accepted' ? 'Accepted' : 
-                             day.musicianResponse === 'rejected' ? 'Rejected' : 'Pending'}
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            Accepted
+                          </Badge>
+                        ) : musicianContract.status === 'rejected' ? (
+                          <Badge
+                            variant="outline"
+                            className="bg-red-50 text-red-700 flex items-center"
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Rejected
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="bg-gray-50 text-gray-600 flex items-center">
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 flex items-center">
                             <Clock className="h-3.5 w-3.5 mr-1" />
                             Pending
                           </Badge>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {day.signatureStatus ? (
+                        {musicianContract.musicianSignature ? (
                           <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center">
                             <CheckCircle className="h-3.5 w-3.5 mr-1" />
                             Signed
@@ -457,15 +458,15 @@ const MusicianContractPage = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {day.ipAddress ? (
+                        {musicianContract.ipAddress ? (
                           <div className="space-y-1">
                             <div className="text-xs text-gray-500">IP Address:</div>
-                            <div>{day.ipAddress}</div>
+                            <div>{musicianContract.ipAddress}</div>
                             
-                            {day.signedAt && (
+                            {musicianContract.respondedAt && (
                               <>
                                 <div className="text-xs text-gray-500 mt-2">Signed at:</div>
-                                <div>{format(new Date(day.signedAt), 'MMM d, yyyy HH:mm:ss')}</div>
+                                <div>{format(new Date(musicianContract.respondedAt), 'MMM d, yyyy HH:mm:ss')}</div>
                               </>
                             )}
                           </div>
