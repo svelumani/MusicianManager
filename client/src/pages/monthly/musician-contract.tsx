@@ -83,12 +83,17 @@ const MusicianContractPage = () => {
         console.log('Contract object structure:', data?.contract ? Object.keys(data.contract) : 'No contract object');
         console.log('Assignments available:', data?.assignments ? data.assignments.length : 'No assignments property');
         if (data?.assignments && data.assignments.length > 0) {
-          console.log('Sample assignment data:', data.assignments[0]);
+          console.log('Sample assignment data:', JSON.stringify(data.assignments[0], null, 2));
           
           // Check if venue information is present
           if (!data.assignments[0].venueName) {
             console.log('Venue name is missing in assignments. Need to fetch venue details.');
           }
+        }
+        
+        // Log musician contract data
+        if (data?.musicianContract) {
+          console.log('Musician contract data:', JSON.stringify(data.musicianContract, null, 2));
         }
         return data;
       } catch (error) {
