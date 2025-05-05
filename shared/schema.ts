@@ -511,6 +511,8 @@ export const plannerAssignments = pgTable("planner_assignments", {
   attendanceMarkedBy: integer("attendance_marked_by"), // User ID who marked attendance
   notes: text("notes"),
   actualFee: doublePrecision("actual_fee"), // Could differ from slot fee (e.g., overtime)
+  contractStatus: text("contract_status").default("pending"), // pending, included, sent, signed, rejected
+  contractId: integer("contract_id"), // Reference to monthly_contract_musicians
 });
 
 export const insertPlannerAssignmentSchema = createInsertSchema(plannerAssignments).pick({
@@ -519,6 +521,8 @@ export const insertPlannerAssignmentSchema = createInsertSchema(plannerAssignmen
   status: true,
   notes: true,
   actualFee: true,
+  contractStatus: true,
+  contractId: true,
 });
 
 // Monthly Invoice model
