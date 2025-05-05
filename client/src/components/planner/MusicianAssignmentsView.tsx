@@ -1,85 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/ui/spinner';
-import { format } from 'date-fns';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import {
-  Check,
-  Calendar,
-  Mail,
-  FileText,
-  Clock,
-  MapPin,
-  DollarSign,
-  User,
-  XCircle,
-  CircleCheck,
-  Clock3
-} from 'lucide-react';
-
-// Status badge helper
-function getStatusBadge(status: string) {
-  switch (status) {
-    case 'pending':
-      return <Badge variant="outline">Pending</Badge>;
-    case 'sent':
-      return <Badge variant="secondary" className="bg-pink-100 text-pink-800 hover:bg-pink-100">Contract Sent</Badge>;
-    case 'signed':
-      return <Badge variant="success" className="bg-green-100 text-green-800 hover:bg-green-100">Contract Signed</Badge>;
-    case 'rejected':
-      return <Badge variant="destructive">Rejected</Badge>;
-    case 'canceled':
-      return <Badge variant="outline" className="bg-gray-100">Canceled</Badge>;
-    default:
-      return <Badge variant="outline">{status}</Badge>;
-  }
-}
-
-// Status color helper
-function getStatusColor(status: string) {
-  switch (status) {
-    case 'pending':
-      return 'bg-gray-50';
-    case 'sent':
-      return 'bg-pink-50';
-    case 'signed':
-      return 'bg-green-50';
-    case 'rejected':
-      return 'bg-red-50';
-    case 'canceled':
-      return 'bg-gray-100';
-    default:
-      return '';
-  }
-}
-
-interface MusicianAssignment {
-  id: number;
-  date: string;
-  venueName: string;
-  fee: number;
-  startTime: string;
-  endTime: string;
-  status: string;
-  contractStatus?: string;
-  contractId?: number;
-}
-
-interface MusicianGroup {
-  musicianId: number;
-  musicianName: string;
-  assignments: MusicianAssignment[];
-  totalFee: number;
-}
+import GenerateContractButton from './GenerateContractButton';
+import { CheckCircle, AlertCircle, Clock, Send, FileText } from 'lucide-react';
 
 interface MusicianAssignmentsViewProps {
   plannerId: number;
@@ -87,569 +20,385 @@ interface MusicianAssignmentsViewProps {
   year: number;
 }
 
+const CONTRACT_STATUS_COLORS = {
+  pending: 'bg-gray-100 text-gray-800',
+  sent: 'bg-blue-100 text-blue-800',
+  signed: 'bg-green-100 text-green-800',
+  rejected: 'bg-red-100 text-red-800',
+  cancelled: 'bg-amber-100 text-amber-800',
+  'needs-revision': 'bg-purple-100 text-purple-800'
+};
+
+const CONTRACT_STATUS_ICONS = {
+  pending: <Clock className="h-4 w-4 mr-1" />,
+  sent: <Send className="h-4 w-4 mr-1" />,
+  signed: <CheckCircle className="h-4 w-4 mr-1" />,
+  rejected: <AlertCircle className="h-4 w-4 mr-1" />,
+  cancelled: <AlertCircle className="h-4 w-4 mr-1" />,
+  'needs-revision': <AlertCircle className="h-4 w-4 mr-1" />
+};
+
 export default function MusicianAssignmentsView({ plannerId, month, year }: MusicianAssignmentsViewProps) {
   const { toast } = useToast();
-  const [selectedAssignments, setSelectedAssignments] = useState<Record<number, boolean>>({});
-  const [selectedMusician, setSelectedMusician] = useState<number | null>(null);
-  const [contractNotes, setContractNotes] = useState('');
-  
-  // Fetch assignments grouped by musician
-  const { data: musicianGroups, isLoading, error, refetch } = useQuery({
+  const [selectedAssignments, setSelectedAssignments] = useState<{[key: number]: number[]}>({}); // key: musicianId, value: array of assignmentIds
+  const [expandedMusicians, setExpandedMusicians] = useState<string[]>([]);
+
+  // Query to get assignments grouped by musician
+  const {
+    data: musicianAssignments,
+    isLoading: isAssignmentsLoading,
+    error: assignmentsError,
+    refetch: refetchAssignments
+  } = useQuery({
     queryKey: [`/api/planner-assignments/by-musician/${plannerId}`],
-    queryFn: () => apiRequest(`/api/planner-assignments/by-musician/${plannerId}`),
-    staleTime: 60000, // 1 minute
+    queryFn: async () => {
+      try {
+        return await apiRequest(`/api/planner-assignments/by-musician/${plannerId}`);
+      } catch (error) {
+        console.error('Error fetching musician assignments:', error);
+        return {};
+      }
+    },
+    enabled: !!plannerId && plannerId > 0,
   });
 
-  // Create contract mutation
-  const createContractMutation = useMutation({
-    mutationFn: (data: {
-      plannerId: number;
-      musicianId: number;
-      assignmentIds: number[];
-      notes: string;
-    }) => apiRequest('/api/monthly-contracts', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }),
-    onSuccess: () => {
-      toast({
-        title: 'Contract created',
-        description: 'The contract has been created successfully.',
+  // Create object of selected assignments for each musician
+  useEffect(() => {
+    const initialSelection: {[key: number]: number[]} = {};
+    
+    if (musicianAssignments && typeof musicianAssignments === 'object') {
+      // For each musician, create an empty array to store selected assignment IDs
+      Object.keys(musicianAssignments).forEach(musicianIdStr => {
+        if (musicianIdStr === '_status' || musicianIdStr === '_message' || musicianIdStr === '_errorType') return;
+        
+        const musicianId = parseInt(musicianIdStr);
+        if (!isNaN(musicianId)) {
+          initialSelection[musicianId] = [];
+        }
       });
-      queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician/${plannerId}`] });
-      
-      // Reset selection
-      setSelectedAssignments({});
-      setContractNotes('');
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: 'Failed to create contract: ' + (error as Error).message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Send contract mutation
-  const sendContractMutation = useMutation({
-    mutationFn: (data: { contractId: number }) => apiRequest(`/api/monthly-contracts/${data.contractId}/send`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }),
-    onSuccess: () => {
-      toast({
-        title: 'Contract sent',
-        description: 'The contract has been sent to the musician.',
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician/${plannerId}`] });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: 'Failed to send contract: ' + (error as Error).message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Update contract status mutation
-  const updateContractStatusMutation = useMutation({
-    mutationFn: (data: { contractId: number; status: string; notes?: string }) => 
-      apiRequest(`/api/monthly-contracts/${data.contractId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: data.status, notes: data.notes }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }),
-    onSuccess: () => {
-      toast({
-        title: 'Contract updated',
-        description: 'The contract status has been updated.',
-      });
-      queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician/${plannerId}`] });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: 'Failed to update contract: ' + (error as Error).message,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Format date helper
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return format(date, 'EEE, MMM d, yyyy');
-  };
+    }
+    
+    setSelectedAssignments(initialSelection);
+  }, [musicianAssignments]);
 
   // Handle checkbox change
-  const handleCheckboxChange = (assignmentId: number, isChecked: boolean) => {
+  const handleAssignmentSelection = (musicianId: number, assignmentId: number, checked: boolean) => {
+    setSelectedAssignments(prev => {
+      const updatedAssignments = { ...prev };
+      
+      if (!updatedAssignments[musicianId]) {
+        updatedAssignments[musicianId] = [];
+      }
+      
+      if (checked) {
+        // Add assignment ID if not already in the array
+        if (!updatedAssignments[musicianId].includes(assignmentId)) {
+          updatedAssignments[musicianId] = [...updatedAssignments[musicianId], assignmentId];
+        }
+      } else {
+        // Remove assignment ID from the array
+        updatedAssignments[musicianId] = updatedAssignments[musicianId].filter(id => id !== assignmentId);
+      }
+      
+      return updatedAssignments;
+    });
+  };
+
+  // Handle "Select All" for a musician
+  const handleSelectAllForMusician = (musicianId: number, checked: boolean) => {
+    if (!musicianAssignments || !musicianAssignments[musicianId]) return;
+    
+    setSelectedAssignments(prev => {
+      const updatedAssignments = { ...prev };
+      
+      if (checked) {
+        // Select all assignments for this musician that don't already have a contract
+        updatedAssignments[musicianId] = musicianAssignments[musicianId].assignments
+          .filter((assignment: any) => !assignment.contractId || assignment.contractStatus === 'pending')
+          .map((assignment: any) => assignment.id);
+      } else {
+        // Deselect all assignments for this musician
+        updatedAssignments[musicianId] = [];
+      }
+      
+      return updatedAssignments;
+    });
+  };
+
+  // Handle contract generation success
+  const handleContractGenerated = (musicianId: number) => {
+    // Clear selections for this musician
     setSelectedAssignments(prev => ({
       ...prev,
-      [assignmentId]: isChecked
+      [musicianId]: []
     }));
-  };
-
-  // Handle select all for a musician
-  const handleSelectAllForMusician = (musicianId: number, assignments: MusicianAssignment[], isChecked: boolean) => {
-    const newSelections = { ...selectedAssignments };
     
-    assignments.forEach(assignment => {
-      // Only select assignments that don't already have a contract
-      if (!assignment.contractId) {
-        newSelections[assignment.id] = isChecked;
-      }
-    });
+    // Refetch assignments to get updated contract statuses
+    refetchAssignments();
     
-    setSelectedAssignments(newSelections);
-    
-    if (isChecked) {
-      setSelectedMusician(musicianId);
-    } else if (selectedMusician === musicianId) {
-      setSelectedMusician(null);
-    }
-  };
-
-  // Create contract handler
-  const handleCreateContract = () => {
-    if (!selectedMusician) {
-      toast({
-        title: 'Error',
-        description: 'Please select a musician first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    const selectedAssignmentIds = Object.entries(selectedAssignments)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([id]) => parseInt(id));
-    
-    if (selectedAssignmentIds.length === 0) {
-      toast({
-        title: 'Error',
-        description: 'Please select at least one assignment.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
-    createContractMutation.mutate({
-      plannerId,
-      musicianId: selectedMusician,
-      assignmentIds: selectedAssignmentIds,
-      notes: contractNotes
+    // Show a success toast
+    toast({
+      title: 'Contract Generated',
+      description: 'The contract has been successfully generated.',
     });
   };
 
-  // Send contract handler
-  const handleSendContract = (contractId: number) => {
-    sendContractMutation.mutate({ contractId });
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'EEE, MMM d');
+    } catch (e) {
+      return 'Invalid date';
+    }
   };
 
-  // Cancel contract handler
-  const handleCancelContract = (contractId: number) => {
-    updateContractStatusMutation.mutate({ 
-      contractId, 
-      status: 'canceled',
-      notes: 'Contract canceled by admin'
-    });
-  };
-
-  // Check if any musicians have active contracts
-  const hasAnyContracts = () => {
-    if (!musicianGroups) return false;
+  // Get the status badge with appropriate color
+  const getStatusBadge = (status: string) => {
+    const colorClass = CONTRACT_STATUS_COLORS[status as keyof typeof CONTRACT_STATUS_COLORS] || 'bg-gray-100 text-gray-800';
+    const icon = CONTRACT_STATUS_ICONS[status as keyof typeof CONTRACT_STATUS_ICONS] || <Clock className="h-4 w-4 mr-1" />;
     
-    return Object.values(musicianGroups).some(group => 
-      group.assignments.some(a => a.contractId)
+    return (
+      <Badge variant="outline" className={`${colorClass} flex items-center`}>
+        {icon}
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
     );
   };
 
-  // Group assignments by contract
-  const getAssignmentsByContract = (assignments: MusicianAssignment[]) => {
-    const contractGroups: Record<string, MusicianAssignment[]> = {};
+  // Check if all assignments for a musician are selected
+  const areAllSelected = (musicianId: number) => {
+    if (!musicianAssignments || !musicianAssignments[musicianId]) return false;
     
-    // First group assignments by contractId (or 'unassigned' if no contractId)
-    assignments.forEach(assignment => {
-      const key = assignment.contractId ? `contract-${assignment.contractId}` : 'unassigned';
-      if (!contractGroups[key]) {
-        contractGroups[key] = [];
-      }
-      contractGroups[key].push(assignment);
-    });
+    const selectableAssignments = musicianAssignments[musicianId].assignments
+      .filter((assignment: any) => !assignment.contractId || assignment.contractStatus === 'pending');
     
-    return contractGroups;
+    return selectableAssignments.length > 0 && 
+           selectedAssignments[musicianId]?.length === selectableAssignments.length;
   };
 
-  if (isLoading) {
+  // Loading state
+  if (isAssignmentsLoading) {
     return (
-      <div className="flex justify-center my-8">
-        <Spinner size="lg" />
+      <div className="space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     );
   }
 
-  if (error) {
+  // Error state
+  if (assignmentsError) {
     return (
-      <Card className="my-4">
+      <Card className="bg-red-50 border-red-200">
         <CardHeader>
-          <CardTitle className="text-red-600">Error Loading Musician Assignments</CardTitle>
+          <CardTitle className="text-red-700">Error Loading Assignments</CardTitle>
+          <CardDescription className="text-red-600">
+            There was a problem loading musician assignments. Please try again later.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <p>Failed to load musician assignments. Please try again later.</p>
-          <Button onClick={() => refetch()} className="mt-4">Try Again</Button>
+          <Button onClick={() => refetchAssignments()} variant="outline">
+            Try Again
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  // Check if data is empty or has _status field indicating error/empty state
-  if (!musicianGroups || Object.keys(musicianGroups).length === 0 || musicianGroups._status) {
+  // Empty state
+  if (!musicianAssignments || Object.keys(musicianAssignments).length === 0 || 
+      (musicianAssignments._status && musicianAssignments._status === 'empty')) {
     return (
-      <Card className="my-4">
+      <Card className="bg-gray-50 border-gray-200">
         <CardHeader>
-          <CardTitle>No Musician Assignments</CardTitle>
+          <CardTitle>No Assignments Found</CardTitle>
+          <CardDescription>
+            There are no musicians assigned to any slots for this month yet.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <p>There are no musicians assigned to this month's performances yet.</p>
+          <p className="text-gray-500">
+            Go to the Calendar tab to assign musicians to performance slots first.
+          </p>
         </CardContent>
       </Card>
     );
   }
+
+  // Filter out special keys from musicianAssignments
+  const filteredMusicianIds = Object.keys(musicianAssignments).filter(
+    key => !['_status', '_message', '_errorType', '_details', '_stack'].includes(key)
+  );
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="musicians">
-        <TabsList className="mb-4">
-          <TabsTrigger value="musicians">Musicians</TabsTrigger>
-          <TabsTrigger value="contracts">Contracts</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="musicians">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold mb-2">Musician Assignments</h2>
-            <p className="text-muted-foreground mb-4">
-              View and manage assignments by musician. Create contracts for multiple dates.
-            </p>
-          </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Musician Assignments</h2>
+      </div>
+      
+      <p className="text-gray-500">
+        Select assignments for each musician to generate contracts. You can generate one contract per musician
+        containing multiple dates, or create individual contracts for specific dates.
+      </p>
+      
+      <Accordion
+        type="multiple"
+        value={expandedMusicians}
+        onValueChange={setExpandedMusicians}
+        className="space-y-4"
+      >
+        {filteredMusicianIds.map(musicianIdStr => {
+          const musicianId = parseInt(musicianIdStr);
+          if (isNaN(musicianId)) return null;
           
-          <div className="space-y-6">
-            {Object.values(musicianGroups).map((group: MusicianGroup) => (
-              <Card key={group.musicianId} className="overflow-hidden">
-                <CardHeader className="bg-gray-50">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle className="flex items-center">
-                        <User className="mr-2 h-5 w-5" />
-                        {group.musicianName}
-                      </CardTitle>
-                      <CardDescription>
-                        {group.assignments.length} {group.assignments.length === 1 ? 'assignment' : 'assignments'} |
-                        Total: ${group.totalFee}
-                      </CardDescription>
-                    </div>
-                    <div className="flex items-center">
-                      <Checkbox 
-                        id={`select-all-${group.musicianId}`}
-                        checked={group.assignments.every(a => selectedAssignments[a.id] || !!a.contractId)}
-                        onCheckedChange={(checked) => {
-                          // Only pass true/false, not indeterminate
-                          handleSelectAllForMusician(group.musicianId, group.assignments, !!checked);
-                        }}
-                      />
-                      <Label htmlFor={`select-all-${group.musicianId}`} className="ml-2">
-                        Select All
-                      </Label>
-                    </div>
+          const musicianData = musicianAssignments[musicianId];
+          if (!musicianData || !musicianData.assignments || musicianData.assignments.length === 0) return null;
+          
+          // Sort assignments by date
+          const sortedAssignments = [...musicianData.assignments].sort((a: any, b: any) => {
+            const dateA = new Date(a.date || a.slotDate);
+            const dateB = new Date(b.date || b.slotDate);
+            return dateA.getTime() - dateB.getTime();
+          });
+          
+          // Group assignments by contract status
+          const contractGroups: {[key: string]: any[]} = {
+            pending: [],
+            sent: [],
+            signed: [],
+            rejected: [],
+            cancelled: [],
+            'needs-revision': []
+          };
+          
+          sortedAssignments.forEach((assignment: any) => {
+            const status = assignment.contractStatus || 'pending';
+            if (!contractGroups[status]) contractGroups[status] = [];
+            contractGroups[status].push(assignment);
+          });
+          
+          // Get count of assignments that don't have a contract yet
+          const pendingAssignments = sortedAssignments.filter(
+            (assignment: any) => !assignment.contractId || assignment.contractStatus === 'pending'
+          );
+          
+          return (
+            <AccordionItem 
+              key={musicianId} 
+              value={musicianId.toString()}
+              className="border rounded-lg overflow-hidden"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id={`select-all-${musicianId}`}
+                      checked={areAllSelected(musicianId)}
+                      disabled={pendingAssignments.length === 0}
+                      onCheckedChange={(checked) => {
+                        // Prevent accordion toggle when clicking checkbox
+                        if (checked !== 'indeterminate') {
+                          handleSelectAllForMusician(musicianId, checked);
+                        }
+                        // Stop propagation to prevent accordion toggle
+                        event?.stopPropagation();
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mr-2"
+                    />
+                    <span className="font-semibold">{musicianData.musicianName}</span>
+                    <Badge variant="outline" className="ml-2">
+                      {sortedAssignments.length} {sortedAssignments.length === 1 ? 'assignment' : 'assignments'}
+                    </Badge>
                   </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <table className="w-full">
-                    <thead className="bg-muted/50">
-                      <tr className="border-b">
-                        <th className="px-4 py-2 text-left">Select</th>
-                        <th className="px-4 py-2 text-left">Date</th>
-                        <th className="px-4 py-2 text-left">Time</th>
-                        <th className="px-4 py-2 text-left">Venue</th>
-                        <th className="px-4 py-2 text-left">Fee</th>
-                        <th className="px-4 py-2 text-left">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.assignments.map((assignment) => {
-                        const isContracted = !!assignment.contractId;
-                        const rowClass = isContracted ? getStatusColor(assignment.contractStatus || 'pending') : '';
+                  
+                  <div className="flex items-center gap-2">
+                    {Object.entries(contractGroups).map(([status, assignments]) => {
+                      if (assignments.length === 0) return null;
+                      return (
+                        <Badge key={status} variant="outline" className={CONTRACT_STATUS_COLORS[status as keyof typeof CONTRACT_STATUS_COLORS]}>
+                          {assignments.length} {status}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                </div>
+              </AccordionTrigger>
+              
+              <AccordionContent className="px-4 pb-4">
+                <div className="space-y-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]">Select</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Venue</TableHead>
+                        <TableHead>Time</TableHead>
+                        <TableHead>Fee</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Contract</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedAssignments.map((assignment: any) => {
+                        const isDisabled = assignment.contractId && assignment.contractStatus !== 'pending';
+                        const slotDate = assignment.date || assignment.slotDate;
+                        const venueName = assignment.venueName || 'Unknown Venue';
+                        const startTime = assignment.startTime || '19:00';
+                        const endTime = assignment.endTime || '22:00';
+                        const fee = assignment.actualFee || 0;
+                        const status = assignment.contractStatus || 'pending';
                         
                         return (
-                          <tr key={assignment.id} className={`border-b ${rowClass}`}>
-                            <td className="px-4 py-2">
+                          <TableRow key={assignment.id}>
+                            <TableCell>
                               <Checkbox
-                                checked={!!selectedAssignments[assignment.id]}
-                                onCheckedChange={(checked) => handleCheckboxChange(assignment.id, !!checked)}
-                                disabled={isContracted}
+                                id={`assignment-${assignment.id}`}
+                                checked={selectedAssignments[musicianId]?.includes(assignment.id)}
+                                disabled={isDisabled}
+                                onCheckedChange={(checked) => {
+                                  if (checked !== 'indeterminate') {
+                                    handleAssignmentSelection(musicianId, assignment.id, checked);
+                                  }
+                                }}
                               />
-                            </td>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center">
-                                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                                {formatDate(assignment.date)}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center">
-                                <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                                {assignment.startTime} - {assignment.endTime}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center">
-                                <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                                {assignment.venueName}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center">
-                                <DollarSign className="mr-1 h-4 w-4 text-muted-foreground" />
-                                ${assignment.fee}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2">
-                              {isContracted ? (
-                                <>
-                                  {getStatusBadge(assignment.contractStatus || 'pending')}
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Contract #{assignment.contractId}
-                                  </div>
-                                </>
+                            </TableCell>
+                            <TableCell>{formatDate(slotDate)}</TableCell>
+                            <TableCell>{venueName}</TableCell>
+                            <TableCell>{startTime} - {endTime}</TableCell>
+                            <TableCell>${fee.toFixed(2)}</TableCell>
+                            <TableCell>{getStatusBadge(status)}</TableCell>
+                            <TableCell>
+                              {assignment.contractId ? (
+                                <span className="text-sm text-gray-500">#{assignment.contractId}</span>
                               ) : (
-                                <Badge variant="outline">No Contract</Badge>
+                                <span className="text-sm text-gray-500">Not contracted</span>
                               )}
-                            </td>
-                          </tr>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          
-          {Object.keys(selectedAssignments).some(id => selectedAssignments[id]) && (
-            <Card className="mt-6 border-dashed">
-              <CardHeader>
-                <CardTitle>Create Contract</CardTitle>
-                <CardDescription>
-                  Prepare a contract for the selected assignments
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Textarea
-                  placeholder="Add notes for this contract (optional)"
-                  className="mb-4"
-                  value={contractNotes}
-                  onChange={(e) => setContractNotes(e.target.value)}
-                />
-                
-                <div className="text-sm text-muted-foreground mb-4">
-                  <p>Selected assignments: {
-                    Object.entries(selectedAssignments)
-                      .filter(([_, isSelected]) => isSelected)
-                      .length
-                  }</p>
+                    </TableBody>
+                  </Table>
+                  
+                  <div className="flex justify-end gap-2">
+                    {selectedAssignments[musicianId]?.length > 0 && (
+                      <GenerateContractButton
+                        plannerId={plannerId}
+                        month={month}
+                        year={year}
+                        musicianId={musicianId}
+                        assignmentIds={selectedAssignments[musicianId]}
+                        onContractGenerated={() => handleContractGenerated(musicianId)}
+                      />
+                    )}
+                  </div>
                 </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" onClick={() => setSelectedAssignments({})}>
-                  Clear Selection
-                </Button>
-                <Button 
-                  onClick={handleCreateContract}
-                  disabled={createContractMutation.isPending}
-                >
-                  {createContractMutation.isPending && <Spinner className="mr-2" size="sm" />}
-                  Create Contract
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
-        </TabsContent>
-        
-        <TabsContent value="contracts">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold mb-2">Contract Management</h2>
-            <p className="text-muted-foreground mb-4">
-              View and manage musician contracts for this month.
-            </p>
-          </div>
-          
-          {!hasAnyContracts() ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>No Contracts</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p>No contracts have been created for this month yet.</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Select the Musicians tab to create contracts.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-6">
-              {Object.values(musicianGroups).map((group: MusicianGroup) => {
-                // Skip musicians with no contracts
-                if (!group.assignments.some(a => a.contractId)) return null;
-                
-                const contractGroups = getAssignmentsByContract(group.assignments);
-                
-                // Skip the unassigned group when rendering the contracts tab
-                delete contractGroups['unassigned'];
-                
-                if (Object.keys(contractGroups).length === 0) return null;
-                
-                return (
-                  <Card key={`contracts-${group.musicianId}`}>
-                    <CardHeader className="bg-gray-50">
-                      <CardTitle>{group.musicianName}</CardTitle>
-                      <CardDescription>
-                        {Object.keys(contractGroups).length} {Object.keys(contractGroups).length === 1 ? 'contract' : 'contracts'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                      <Accordion type="single" collapsible className="w-full">
-                        {Object.entries(contractGroups).map(([key, assignments], index) => {
-                          // Only process actual contracts (skip 'unassigned')
-                          if (key === 'unassigned') return null;
-                          
-                          const contractId = assignments[0].contractId!;
-                          const status = assignments[0].contractStatus || 'pending';
-                          const totalFee = assignments.reduce((sum, a) => sum + a.fee, 0);
-                          
-                          return (
-                            <AccordionItem key={key} value={key} className={`rounded-md my-2 ${getStatusColor(status)}`}>
-                              <AccordionTrigger className="px-4">
-                                <div className="flex flex-1 justify-between items-center pr-4">
-                                  <div className="font-medium">
-                                    Contract #{contractId}
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                    <span>${totalFee}</span>
-                                    {getStatusBadge(status)}
-                                  </div>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent className="px-4 pb-4">
-                                <table className="w-full mb-4">
-                                  <thead className="bg-muted/30">
-                                    <tr>
-                                      <th className="px-3 py-2 text-left text-sm">Date</th>
-                                      <th className="px-3 py-2 text-left text-sm">Time</th>
-                                      <th className="px-3 py-2 text-left text-sm">Venue</th>
-                                      <th className="px-3 py-2 text-left text-sm">Fee</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {assignments.map(assignment => (
-                                      <tr key={assignment.id} className="border-b">
-                                        <td className="px-3 py-2 text-sm">{formatDate(assignment.date)}</td>
-                                        <td className="px-3 py-2 text-sm">{assignment.startTime} - {assignment.endTime}</td>
-                                        <td className="px-3 py-2 text-sm">{assignment.venueName}</td>
-                                        <td className="px-3 py-2 text-sm">${assignment.fee}</td>
-                                      </tr>
-                                    ))}
-                                    <tr className="bg-muted/20">
-                                      <td colSpan={3} className="px-3 py-2 text-right font-medium">Total:</td>
-                                      <td className="px-3 py-2 font-medium">${totalFee}</td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                                
-                                <div className="flex gap-2 mt-4">
-                                  {status === 'pending' && (
-                                    <>
-                                      <Button
-                                        onClick={() => handleSendContract(contractId)}
-                                        disabled={sendContractMutation.isPending}
-                                      >
-                                        {sendContractMutation.isPending && <Spinner className="mr-2" size="sm" />}
-                                        <Mail className="mr-2 h-4 w-4" />
-                                        Send Contract
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        onClick={() => handleCancelContract(contractId)}
-                                        disabled={updateContractStatusMutation.isPending}
-                                      >
-                                        <XCircle className="mr-2 h-4 w-4" />
-                                        Cancel
-                                      </Button>
-                                    </>
-                                  )}
-                                  
-                                  {status === 'sent' && (
-                                    <Button
-                                      variant="outline"
-                                      onClick={() => handleCancelContract(contractId)}
-                                      disabled={updateContractStatusMutation.isPending}
-                                    >
-                                      <XCircle className="mr-2 h-4 w-4" />
-                                      Cancel
-                                    </Button>
-                                  )}
-                                  
-                                  {status === 'signed' && (
-                                    <Button
-                                      variant="outline"
-                                      className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800"
-                                      disabled
-                                    >
-                                      <CircleCheck className="mr-2 h-4 w-4" />
-                                      Signed
-                                    </Button>
-                                  )}
-                                  
-                                  {status === 'rejected' && (
-                                    <Button
-                                      variant="outline"
-                                      className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800"
-                                      disabled
-                                    >
-                                      <XCircle className="mr-2 h-4 w-4" />
-                                      Rejected
-                                    </Button>
-                                  )}
-                                  
-                                  <Button
-                                    variant="outline"
-                                    className="ml-auto"
-                                  >
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    View Details
-                                  </Button>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          );
-                        })}
-                      </Accordion>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
     </div>
   );
 }

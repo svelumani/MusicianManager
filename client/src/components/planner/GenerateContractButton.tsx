@@ -1,143 +1,88 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { FileText } from "lucide-react";
-import { format } from "date-fns";
+import { FileText, Mail } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Spinner } from "@/components/ui/spinner";
 
 interface GenerateContractButtonProps {
-  plannerId?: number;
-  plannerName?: string;
-  plannerMonth?: string;
-  plannerYear?: number;
+  plannerId: number;
+  month: number;
+  year: number;
   musicianId?: number;
   assignmentIds?: number[];
-  disabled?: boolean;
+  onContractGenerated?: () => void;
 }
 
-const GenerateContractButton = ({
+export default function GenerateContractButton({
   plannerId,
-  plannerName,
-  plannerMonth,
-  plannerYear,
+  month,
+  year,
   musicianId,
   assignmentIds,
-  disabled = false,
-}: GenerateContractButtonProps) => {
+  onContractGenerated
+}: GenerateContractButtonProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Mutation for generating the contract
   const generateContractMutation = useMutation({
-    mutationFn: async () => {
-      setIsGenerating(true);
-      try {
-        const data = {
-          plannerId,
-          month: plannerMonth ? parseInt(format(new Date(`${plannerMonth} 1, ${plannerYear}`), 'M')) : undefined,
-          year: plannerYear,
-          musicianId, // This is optional and will generate just for this musician if provided
-          assignmentIds // This is optional and will generate just for these assignments if provided
-        };
-        console.log("Generating contract with data:", data);
-        
-        return await apiRequest('/api/monthly-contracts/generate', 'POST', data);
-      } finally {
-        setIsGenerating(false);
+    mutationFn: (data: {
+      plannerId: number;
+      month: number;
+      year: number;
+      musicianId?: number;
+      assignmentIds?: number[];
+    }) => apiRequest('/api/monthly-contracts/generate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }),
+    onSuccess: () => {
+      toast({
+        title: 'Contract generated',
+        description: 'The contract has been generated successfully.',
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician/${plannerId}`] });
+      
+      // Notify parent component if needed
+      if (onContractGenerated) {
+        onContractGenerated();
       }
     },
-    onSuccess: (data) => {
-      console.log("Contract generated successfully:", data);
-      
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
-      
-      // Show success message
+    onError: (error) => {
       toast({
-        title: "Contract Generated",
-        description: musicianId 
-          ? "Contract has been generated for the selected musician."
-          : "Monthly contracts have been generated for all musicians with assignments.",
+        title: 'Error',
+        description: 'Failed to generate contract: ' + (error as Error).message,
+        variant: 'destructive',
       });
-      
-      // Close the dialog
-      setDialogOpen(false);
     },
-    onError: (error: any) => {
-      console.error("Error generating contract:", error);
-      
-      // Show error message
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to generate contract. Please try again.",
-        variant: "destructive",
-      });
-    }
   });
 
-  const handleGenerateContract = () => {
-    generateContractMutation.mutate();
+  const handleClick = () => {
+    generateContractMutation.mutate({
+      plannerId,
+      month,
+      year,
+      musicianId,
+      assignmentIds
+    });
   };
 
   return (
-    <>
-      <Button 
-        onClick={() => setDialogOpen(true)}
-        size="icon"
-        variant="ghost"
-        disabled={disabled}
-        title="Generate Contract"
-      >
+    <Button
+      onClick={handleClick}
+      disabled={generateContractMutation.isPending}
+      variant="default"
+      className="gap-2"
+    >
+      {generateContractMutation.isPending ? (
+        <Spinner size="sm" />
+      ) : (
         <FileText className="h-4 w-4" />
-      </Button>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate Contract</DialogTitle>
-            <DialogDescription>
-              {musicianId 
-                ? "This will generate a contract for this musician based on their assignments in the planner."
-                : "This will generate contracts for all musicians with assignments in this planner."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <p><strong>Planner:</strong> {plannerName}</p>
-            <p><strong>Month/Year:</strong> {plannerMonth} {plannerYear}</p>
-            {musicianId && <p><strong>Generating for:</strong> Musician ID {musicianId}</p>}
-          </div>
-
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDialogOpen(false)}
-              disabled={isGenerating}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleGenerateContract}
-              disabled={isGenerating}
-            >
-              {isGenerating ? "Generating..." : "Generate Contract"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      )}
+      Generate Contract
+    </Button>
   );
-};
-
-export default GenerateContractButton;
+}

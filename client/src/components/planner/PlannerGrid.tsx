@@ -16,10 +16,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 interface PlannerGridProps {
-  planner: any; // MonthlyPlanner
-  venues: any[]; // Venue[]
-  categories: any[]; // Category[]
-  selectedMonth: string;
+  plannerId: number;
+  month: number;
+  year: number;
+  onPrepareContracts?: () => void;
 }
 
 const STATUS_COLORS = {
@@ -34,7 +34,7 @@ const STATUS_COLORS = {
 
 const AUTO_SAVE_INTERVAL = 60000; // 1 minute
 
-const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGridProps) => {
+const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGridProps) => {
   const { toast } = useToast();
   const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   const [activePopover, setActivePopover] = useState<string | null>(null);
@@ -43,8 +43,34 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [availabilityView, setAvailabilityView] = useState(false);
 
-  // Parse the selected month
-  const [year, month] = selectedMonth.split("-").map(Number);
+  // Get planner data
+  const {
+    data: planner,
+    isLoading: isPlannerLoading,
+  } = useQuery({
+    queryKey: ['/api/planners', plannerId],
+    queryFn: () => apiRequest(`/api/planners/${plannerId}`),
+    enabled: !!plannerId,
+  });
+
+  // Get venues data
+  const {
+    data: venues,
+    isLoading: isVenuesLoading,
+  } = useQuery<any[]>({
+    queryKey: ['/api/venues'],
+    select: (data) => Array.isArray(data) ? data : [],
+  });
+
+  // Get categories data
+  const {
+    data: categories,
+    isLoading: isCategoriesLoading,
+  } = useQuery<any[]>({
+    queryKey: ['/api/categories'],
+    select: (data) => Array.isArray(data) ? data : [],
+  });
+
   const monthStart = startOfMonth(new Date(year, month - 1));
   const monthEnd = endOfMonth(monthStart);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });

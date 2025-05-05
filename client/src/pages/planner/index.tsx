@@ -151,12 +151,7 @@ const PlannerPage = () => {
 
       {planner ? (
         <PlannerTabs 
-          planner={planner}
-          venues={Array.isArray(venues) ? venues : []}
-          categories={Array.isArray(categories) ? categories : []}
-          selectedMonth={selectedMonth}
           plannerId={planner.id}
-          plannerName={planner.name}
           month={currentMonth}
           year={currentYear}
         />
