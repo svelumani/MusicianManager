@@ -6941,7 +6941,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields: plannerId, month, year" });
       }
       
-      console.log(`Generating contract for planner ${plannerId}, month ${month}, year ${year}${musicianId ? `, specifically for musician ${musicianId}` : ''}`);
+      // Log information about the contract generation request
+      if (assignmentIds && assignmentIds.length > 0) {
+        console.log(`Generating contract for planner ${plannerId}, month ${month}, year ${year}, with specific assignment IDs: ${assignmentIds.join(', ')}`);
+      } else if (musicianId) {
+        console.log(`Generating contract for planner ${plannerId}, month ${month}, year ${year}, specifically for musician ${musicianId}`);
+      } else {
+        console.log(`Generating contract for planner ${plannerId}, month ${month}, year ${year}, for all musicians`);
+      }
       
       // 1. Validate planner exists
       const planner = await storage.getMonthlyPlanner(plannerId);
@@ -6977,10 +6984,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // 4. Get only the selected assignments for the contract
-      const assignments = [];
+      let assignments = [];
       
+      // Only fetch the specific assignments requested (by ID)
       if (assignmentIds && assignmentIds.length > 0) {
-        console.log(`Fetching specific assignments: ${assignmentIds.join(', ')}`);
+        console.log(`Fetching specific assignments by ID: ${assignmentIds.join(', ')}`);
         
         // Fetch only the specified assignments by ID
         for (const assignmentId of assignmentIds) {
@@ -6992,26 +7000,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
       } else {
-        // Fallback to getting all assignments (this should rarely happen)
+        // Fallback to getting all assignments
         console.log("No specific assignments provided, fetching all assignments");
         const slots = await storage.getPlannerSlots(plannerId);
         for (const slot of slots) {
           const slotAssignments = await storage.getPlannerAssignments(slot.id);
           assignments.push(...slotAssignments);
         }
+        
+        // Filter for a specific musician if musicianId is provided
+        if (musicianId) {
+          console.log(`Filtering assignments for musician ${musicianId}`);
+          assignments = assignments.filter(assignment => assignment.musicianId === parseInt(musicianId));
+        }
       }
+      
+      console.log(`Found ${assignments.length} assignments to include in contract`);
       
       // 5. Group assignments by musician
       const musicianAssignments = {};
       
-      // Filter for specific musician if musicianId provided
-      const filteredAssignments = musicianId 
-        ? assignments.filter(assignment => assignment.musicianId === parseInt(musicianId))
-        : assignments;
-      
-      console.log(`Found ${filteredAssignments.length} assignments ${musicianId ? `for musician ${musicianId}` : 'across all musicians'}`);
-      
-      filteredAssignments.forEach(assignment => {
+      // Group the assignments by musician ID
+      assignments.forEach(assignment => {
         if (!musicianAssignments[assignment.musicianId]) {
           musicianAssignments[assignment.musicianId] = [];
         }
