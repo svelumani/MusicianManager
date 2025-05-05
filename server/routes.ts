@@ -2866,19 +2866,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const assignmentData = insertPlannerAssignmentSchema.parse(req.body);
       
-      // Get the planner slot to check the date
+      // Get the planner slot to check the date and time
       const slot = await storage.getPlannerSlot(assignmentData.slotId);
       if (!slot) {
         return res.status(404).json({ message: "Planner slot not found" });
       }
       
-      // Check if the musician is available on this date
       // Convert to ISO date string format for consistent handling
       const dateStr = new Date(slot.date).toISOString().split('T')[0];
       console.log(`Checking availability for musician ${assignmentData.musicianId} on date ${dateStr} (slot: ${slot.id})`);
       
-      // Use storage method to check availability
-      const isAvailable = await storage.isMusicianAvailableForDate(assignmentData.musicianId, dateStr);
+      // Use enhanced storage method to check availability INCLUDING time conflicts
+      // Pass the slotId so the system can check for conflicting assignments at the same time
+      const isAvailable = await storage.isMusicianAvailableForDate(
+        assignmentData.musicianId, 
+        dateStr, 
+        assignmentData.slotId
+      );
       console.log(`Availability check result: ${isAvailable}`);
       
       // If not available, return an error
@@ -2886,7 +2890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           message: "Cannot assign musician to this slot",
           error: "MUSICIAN_UNAVAILABLE",
-          details: "This musician is marked as unavailable on this date. Please select another musician or update their availability."
+          details: "This musician is unavailable for this time slot. They may be marked as unavailable on this date or already have another assignment at a conflicting time."
         });
       }
       

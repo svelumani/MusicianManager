@@ -1176,14 +1176,14 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
   
-  async isMusicianAvailableForDate(musicianId: number, dateStr: string): Promise<boolean> {
+  async isMusicianAvailableForDate(musicianId: number, dateStr: string, slotId?: number): Promise<boolean> {
     try {
-      console.log(`Checking database availability for musician ${musicianId} on ${dateStr}`);
+      console.log(`Checking database availability for musician ${musicianId} on ${dateStr}${slotId ? ` for slot ${slotId}` : ''}`);
       
       // Convert the string date to a Date object
       const date = new Date(dateStr);
       
-      // Query directly to ensure we get the most accurate data
+      // 1. Check basic availability status first
       const [result] = await db.select()
         .from(availability)
         .where(and(
@@ -1191,17 +1191,99 @@ export class DatabaseStorage implements IStorage {
           sql`DATE(${availability.date}) = DATE(${date})`
         ));
       
-      console.log(`Direct availability query result:`, result);
+      // If musician is explicitly marked unavailable, return false immediately
+      if (result && !result.isAvailable) {
+        console.log(`Musician ${musicianId} is explicitly marked as unavailable on ${dateStr}`);
+        return false;
+      }
       
-      // If no record exists, we assume they are available (default state)
-      if (!result) {
-        console.log(`No availability record found, assuming available`);
+      // 2. If we got here, the musician is either explicitly available or has no availability record (default available)
+      // Now we need to check for conflicting assignments
+      
+      // First, let's get the time range for the requested slot (if provided)
+      let requestedStartTime = "00:00";
+      let requestedEndTime = "23:59";
+      
+      if (slotId) {
+        // Get the slot details to know the time range
+        const requestedSlot = await db.select()
+          .from(plannerSlots)
+          .where(eq(plannerSlots.id, slotId))
+          .limit(1);
+          
+        if (requestedSlot.length > 0) {
+          requestedStartTime = requestedSlot[0].startTime;
+          requestedEndTime = requestedSlot[0].endTime;
+          console.log(`Requested slot time range: ${requestedStartTime} - ${requestedEndTime}`);
+        }
+      }
+      
+      // Get all slots for this musician on this date
+      // Step 1: Get all slots for this date
+      const dateSlots = await db.select()
+        .from(plannerSlots)
+        .where(sql`DATE(${plannerSlots.date}) = DATE(${date})`);
+      
+      if (dateSlots.length === 0) {
+        // No slots on this date at all, so musician is available
+        console.log(`No slots found for date ${dateStr} - musician ${musicianId} is available`);
         return true;
       }
       
-      // Otherwise, return the isAvailable flag
-      console.log(`Availability record found, isAvailable=${result.isAvailable}`);
-      return result.isAvailable;
+      // Step 2: Get all existing assignments for this musician on these slots
+      const slotIds = dateSlots.map(slot => slot.id);
+      const existingAssignments = await db.select({
+          assignment: plannerAssignments,
+          slot: plannerSlots
+        })
+        .from(plannerAssignments)
+        .innerJoin(plannerSlots, eq(plannerAssignments.slotId, plannerSlots.id))
+        .where(and(
+          eq(plannerAssignments.musicianId, musicianId),
+          inArray(plannerAssignments.slotId, slotIds)
+        ));
+        
+      console.log(`Found ${existingAssignments.length} existing assignments for musician ${musicianId} on ${dateStr}`);
+      
+      // If no existing assignments, then musician is available for this date/time
+      if (existingAssignments.length === 0) {
+        console.log(`No existing assignments found - musician ${musicianId} is available on ${dateStr}`);
+        return true;
+      }
+      
+      // Step 3: Check if any existing assignment conflicts with requested time
+      // Skip the current slot being edited (if we're editing a slot)
+      const timeConflicts = existingAssignments.filter(assignment => {
+        // Skip the current slot if we're updating it
+        if (slotId && assignment.assignment.slotId === slotId) {
+          return false;
+        }
+        
+        // Get existing assignment times
+        const existingStartTime = assignment.slot.startTime;
+        const existingEndTime = assignment.slot.endTime;
+        
+        // Simple time string comparison for conflict detection
+        // The logic: Two time ranges conflict if one starts before the other ends AND ends after the other starts
+        const requestedStartsBeforeExistingEnds = requestedStartTime <= existingEndTime;
+        const requestedEndsAfterExistingStarts = requestedEndTime >= existingStartTime;
+        
+        // If both conditions are true, we have an overlap
+        return requestedStartsBeforeExistingEnds && requestedEndsAfterExistingStarts;
+      });
+      
+      if (timeConflicts.length > 0) {
+        const conflictingSlots = timeConflicts.map(c => 
+          `Slot ${c.assignment.slotId} (${c.slot.startTime}-${c.slot.endTime})`
+        ).join(', ');
+        
+        console.log(`Time conflicts found for musician ${musicianId} on ${dateStr}: ${conflictingSlots}`);
+        return false;
+      }
+      
+      // If we got here, the musician is available for this date and time slot
+      console.log(`Musician ${musicianId} is available on ${dateStr} at requested time`);
+      return true;
     } catch (error) {
       console.error(`Error checking availability for musician ${musicianId} on ${dateStr}:`, error);
       // Default to unavailable in case of error to prevent incorrect bookings
