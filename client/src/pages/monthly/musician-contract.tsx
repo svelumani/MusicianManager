@@ -115,7 +115,7 @@ const MusicianContractPage = () => {
         const plannerId = contract.plannerId;
         
         // Get all slots for this planner
-        const slotsResponse = await apiRequest(`/api/planner-slots/by-planner/${plannerId}`);
+        const slotsResponse = await apiRequest(`/api/planner-slots?plannerId=${plannerId}`);
         console.log('Slots data:', slotsResponse);
         
         // Create a map of slot ID to slot data
