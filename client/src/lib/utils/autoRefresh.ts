@@ -26,6 +26,8 @@ export const VERSION_KEYS = {
   CATEGORIES: "categories",
   EVENTS: "events",
   MONTHLY_CONTRACTS: "monthly_contracts",
+  MONTHLY: "monthly_data",
+  MONTHLY_INVOICES: "monthly_invoices",
 };
 
 // Map of version keys to query keys (for selective invalidation)
@@ -38,6 +40,8 @@ const VERSION_TO_QUERY_MAP: Record<string, string[]> = {
   [VERSION_KEYS.CATEGORIES]: ['/api/categories'],
   [VERSION_KEYS.EVENTS]: ['/api/events'],
   [VERSION_KEYS.MONTHLY_CONTRACTS]: ['/api/monthly-contracts'],
+  [VERSION_KEYS.MONTHLY]: ['/api/monthly-contracts', '/api/monthly-invoices'],
+  [VERSION_KEYS.MONTHLY_INVOICES]: ['/api/monthly-invoices'],
 };
 
 /**
@@ -111,7 +115,10 @@ export async function checkVersionUpdates() {
       const criticalUpdates = [
         VERSION_KEYS.PLANNER,
         VERSION_KEYS.PLANNER_ASSIGNMENTS,
-        VERSION_KEYS.PLANNER_SLOTS
+        VERSION_KEYS.PLANNER_SLOTS,
+        VERSION_KEYS.MONTHLY,
+        VERSION_KEYS.MONTHLY_CONTRACTS,
+        VERSION_KEYS.MONTHLY_INVOICES
       ];
       
       const hasCriticalUpdate = changedVersionKeys.some(key => 
@@ -119,7 +126,11 @@ export async function checkVersionUpdates() {
       );
       
       // For critical updates, force full page refresh
-      if (hasCriticalUpdate && window.location.pathname.includes('/events/planner')) {
+      if (hasCriticalUpdate && (
+        window.location.pathname.includes('/events/planner') || 
+        window.location.pathname.includes('/monthly/contracts') || 
+        window.location.pathname.includes('/monthly/contract-detail')
+      )) {
         console.log(`⚠️ Critical data update detected. Performing full refresh...`);
         forceCurrentViewRefresh();
         return;
