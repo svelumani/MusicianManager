@@ -186,32 +186,43 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       description: "Changing planner status to draft...",
     });
     
-    // Direct API call to ensure immediate status update
-    apiRequest(`/api/planners/${planner.id}`, "PUT", {
+    // Make a copy of the current planner
+    const updatedPlanner = {
       ...planner,
       status: 'draft',
-      updatedAt: new Date()
-    })
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Direct API call to ensure immediate status update
+    apiRequest(`/api/planners/${planner.id}`, "PUT", updatedPlanner)
     .then(response => {
       console.log("Planner status updated to draft:", response);
       
-      // Explicitly invalidate all relevant queries to force refresh
-      queryClient.invalidateQueries({ queryKey: ['/api/planners/month', month, 'year', year] });
-      queryClient.invalidateQueries({ queryKey: ['/api/planners', planner.id] });
+      // Directly apply the status change to the current component state
+      // Without any redirects or reloads that could cause data loss
       
-      // Inform the user of success and give time to see the message
-      toast({
-        title: "Planner Reopened",
-        description: "You can now make changes to the planner",
+      // This approach mutates the planner in-place rather than fetching new data
+      if (typeof window !== 'undefined' && window.plannerData) {
+        // For global state if available
+        window.plannerData = response;
+      }
+      
+      // Force a hard refresh of this planner's data
+      queryClient.setQueryData(['/api/planners/month', month, 'year', year], { 
+        ...response 
       });
       
-      // Update planner in the local state instead of reloading
-      // This prevents losing context when the page refreshes
-      setTimeout(() => {
-        // If using window.location is necessary, ensure we go to the exact same planner
-        const plannerPageUrl = `/planner?month=${month}-${year}`;
-        window.location.href = plannerPageUrl;
-      }, 1000);
+      // Clear all related caches to ensure fresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
+      
+      // Show success message
+      toast({
+        title: "Planner Reopened",
+        description: "You can now make changes to the planner. The status is now 'draft'.",
+      });
+      
+      // Force a browser refresh with query params to ensure we get the right planner
+      window.location.href = `/planner?month=${month}-${year}&id=${planner.id}&t=${new Date().getTime()}`;
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);
