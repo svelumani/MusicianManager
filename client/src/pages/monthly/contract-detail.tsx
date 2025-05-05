@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -68,24 +68,62 @@ const MonthlyContractDetailPage = () => {
   const { toast } = useToast();
   const [showResponseLinkDialog, setShowResponseLinkDialog] = useState(false);
   const [selectedMusician, setSelectedMusician] = useState<any>(null);
+  
+  // Create a timestamp reference for cache busting
+  const timestampRef = useRef(new Date().getTime());
+  
+  // Get URL parameters
+  const getQueryParams = () => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        timestamp: params.get('t'),
+        refresh: params.get('refresh') === 'true'
+      };
+    }
+    return { timestamp: null, refresh: false };
+  };
+  
+  const urlParams = getQueryParams();
   const [showDatesDialog, setShowDatesDialog] = useState(false);
 
-  // Query to fetch the monthly contract
+  // Add cache invalidation if refresh parameters are present
+  useEffect(() => {
+    if (urlParams.timestamp || urlParams.refresh) {
+      console.log("URL contains refresh parameters, invalidating contract cache");
+      // Clear all contract related caches
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
+      if (contractId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}/assignments`] });
+      }
+    }
+  }, [urlParams.timestamp, urlParams.refresh, contractId, queryClient]);
+  
+  // Query to fetch the monthly contract with cache busting timestamp
   const {
     data: contract,
     isLoading: isContractLoading,
     error: contractError,
   } = useQuery({
-    queryKey: [`/api/monthly-contracts/${contractId}`],
+    queryKey: [`/api/monthly-contracts/${contractId}`, urlParams.timestamp || timestampRef.current],
+    queryFn: async () => {
+      console.log(`Loading contract ${contractId} with timestamp:`, urlParams.timestamp || timestampRef.current);
+      return await apiRequest(`/api/monthly-contracts/${contractId}`);
+    },
     enabled: !!contractId,
   });
 
-  // Query to fetch the contract assignments (musicians)
+  // Query to fetch the contract assignments (musicians) with cache busting
   const {
     data: assignments = [],
     isLoading: isAssignmentsLoading,
   } = useQuery({
-    queryKey: [`/api/monthly-contracts/${contractId}/assignments`],
+    queryKey: [`/api/monthly-contracts/${contractId}/assignments`, urlParams.timestamp || timestampRef.current],
+    queryFn: async () => {
+      console.log(`Loading assignments for contract ${contractId} with timestamp:`, urlParams.timestamp || timestampRef.current);
+      return await apiRequest(`/api/monthly-contracts/${contractId}/assignments`);
+    },
     enabled: !!contractId,
   });
 
@@ -93,16 +131,23 @@ const MonthlyContractDetailPage = () => {
   const resendContractMutation = useMutation({
     mutationFn: async () => {
       if (!contractId) return null;
-      return apiRequest(`/api/monthly-contracts/${contractId}/send`, {
-        method: 'POST',
-      });
+      return apiRequest(`/api/monthly-contracts/${contractId}/send`, 'POST');
     },
     onSuccess: () => {
       toast({
         title: "Contract Resent",
         description: "The contract has been resent to all musicians.",
       });
+      // Add timestamp for cache busting
+      const timestamp = new Date().getTime();
+      
+      // Invalidate all related contract data 
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
       queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}/assignments`] });
+      
+      // Redirect to same page with a timestamp to force fresh data
+      window.location.href = `/monthly/contracts/${contractId}?t=${timestamp}&refresh=true`;
     },
     onError: (error: any) => {
       toast({
@@ -117,12 +162,9 @@ const MonthlyContractDetailPage = () => {
   const cancelContractMutation = useMutation({
     mutationFn: async () => {
       if (!contractId) return null;
-      return apiRequest(`/api/monthly-contracts/${contractId}/status`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          status: 'cancelled',
-          notes: 'Contract cancelled by administrator'
-        }),
+      return apiRequest(`/api/monthly-contracts/${contractId}/status`, 'PUT', {
+        status: 'cancelled',
+        notes: 'Contract cancelled by administrator'
       });
     },
     onSuccess: () => {
@@ -130,7 +172,16 @@ const MonthlyContractDetailPage = () => {
         title: "Contract Cancelled",
         description: "The contract has been cancelled successfully.",
       });
+      // Add timestamp for cache busting
+      const timestamp = new Date().getTime();
+      
+      // Invalidate all related contract data
+      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
       queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}/assignments`] });
+      
+      // Redirect to same page with a timestamp to force fresh data
+      window.location.href = `/monthly/contracts/${contractId}?t=${timestamp}&refresh=true`;
     },
     onError: (error: any) => {
       toast({
