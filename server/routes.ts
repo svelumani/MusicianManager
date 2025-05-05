@@ -2149,12 +2149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data to trigger client refresh
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNERSS);
+      await incrementVersion(VERSION_KEYS.PLANNERS_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
       
       // Also increment monthly version since planners affect monthly data
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS_CONTRACTS);
       
       // Set cache control headers to prevent caching on this response
       res.set({
@@ -2181,10 +2181,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER);
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
+      await incrementVersion(VERSION_KEYS.PLANNERS_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       // Set cache control headers to prevent caching
       res.set({
@@ -2860,8 +2860,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Created slot:", slot);
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.status(201).json(slot);
     } catch (error) {
@@ -2903,8 +2903,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       console.log("Updated slot:", slot);
       res.json(slot);
@@ -2926,8 +2926,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.json({ success: true });
     } catch (error) {
@@ -3007,8 +3007,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const assignment = await storage.createPlannerAssignment(assignmentData);
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.status(201).json(assignment);
     } catch (error) {
@@ -3036,8 +3036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.json(assignment);
     } catch (error) {
@@ -3064,8 +3064,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.json({ success: true });
     } catch (error) {
@@ -3096,8 +3096,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.json(assignment);
     } catch (error) {
@@ -3138,8 +3138,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invoice = await storage.createMonthlyInvoice(invoiceData);
       
       // Increment version counters for monthly-related data
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       res.status(201).json(invoice);
     } catch (error) {
@@ -3160,8 +3160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for monthly-related data
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       res.json(invoice);
     } catch (error) {
@@ -3181,8 +3181,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for monthly-related data
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       res.json({ success: true });
     } catch (error) {
@@ -3196,9 +3196,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invoices = await storage.generateMonthlyInvoices(parseInt(req.params.id));
       
       // Increment version counters for both planner and monthly-related data
-      await incrementVersion(VERSION_KEYS.PLANNER);
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       res.status(201).json(invoices);
     } catch (error) {
@@ -3965,10 +3965,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER);
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
+      await incrementVersion(VERSION_KEYS.PLANNERS_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNERS_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       // Set cache control headers to prevent caching
       res.set({
