@@ -18,7 +18,7 @@ export function forcePlannerReload(month: number, year: number) {
   const timestamp = Date.now();
   
   // Step 3: Build the URL with all necessary context and forced refresh parameters
-  const url = `/planner?month=${month}&year=${year}&refresh=${timestamp}&force=true&nuclear=true`;
+  const url = `/events/planner?month=${month}&year=${year}&refresh=${timestamp}&force=true&nuclear=true`;
   
   // Step 4: Log the navigation for debugging
   console.log(`🧨 NUCLEAR RELOAD: Forcing complete page reload with: ${url}`);
