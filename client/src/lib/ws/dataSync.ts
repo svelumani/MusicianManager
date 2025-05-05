@@ -39,7 +39,7 @@ const connectionStatusListeners: ConnectionStatusHandler[] = [];
 export function initWebSocketConnection() {
   // Don't reconnect if we already have an active connection
   if (socket && socket.readyState === WebSocket.OPEN) {
-    console.log('WebSocket connection already established');
+    console.log('[WebSocket] Connection already established');
     return;
   }
   
@@ -49,7 +49,7 @@ export function initWebSocketConnection() {
       try {
         socket.close();
       } catch (e) {
-        console.error('Error closing previous socket:', e);
+        console.error('[WebSocket] Error closing previous socket:', e);
       }
       socket = null;
     }
@@ -61,7 +61,7 @@ export function initWebSocketConnection() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     
-    console.log(`Connecting to WebSocket server at ${wsUrl}`);
+    console.log(`[WebSocket] Connecting to server at ${wsUrl}`);
     
     // Create new WebSocket connection
     const newSocket = new WebSocket(wsUrl);
@@ -69,12 +69,35 @@ export function initWebSocketConnection() {
     // Store socket reference
     socket = newSocket;
     
+    // Add specific debug for initialization phase
+    console.log(`[WebSocket] Object created, current readyState: ${newSocket.readyState}`);
+    
+    // Log readyState changes
+    const logReadyStateChange = () => {
+      let stateText = 'UNKNOWN';
+      switch (newSocket.readyState) {
+        case WebSocket.CONNECTING: stateText = 'CONNECTING'; break;
+        case WebSocket.OPEN: stateText = 'OPEN'; break;
+        case WebSocket.CLOSING: stateText = 'CLOSING'; break;
+        case WebSocket.CLOSED: stateText = 'CLOSED'; break;
+      }
+      console.log(`[WebSocket] State changed: ${stateText} (${newSocket.readyState})`);
+    };
+    
+    // Monitor readyState changes
+    const checkState = setInterval(() => {
+      logReadyStateChange();
+      if (newSocket.readyState === WebSocket.OPEN || newSocket.readyState === WebSocket.CLOSED) {
+        clearInterval(checkState);
+      }
+    }, 500);
+    
     // Set up ping interval (declared here so it can be referenced in callbacks)
     let pingInterval: NodeJS.Timeout | null = null;
     
     // Handle connection opening
     newSocket.addEventListener('open', () => {
-      console.log('WebSocket connection established');
+      console.log('[WebSocket] Connection established');
       setConnectionStatus('connected');
       reconnectAttempts = 0;
       
@@ -82,7 +105,7 @@ export function initWebSocketConnection() {
       try {
         newSocket.send(JSON.stringify({ type: 'ping' }));
       } catch (err) {
-        console.error('Error sending initial ping:', err);
+        console.error('[WebSocket] Error sending initial ping:', err);
       }
       
       // Set up a ping interval to prevent timeouts
@@ -91,7 +114,7 @@ export function initWebSocketConnection() {
           try {
             newSocket.send(JSON.stringify({ type: 'ping' }));
           } catch (err) {
-            console.error('Error sending ping:', err);
+            console.error('[WebSocket] Error sending ping:', err);
             if (pingInterval) clearInterval(pingInterval);
           }
         } else {
@@ -106,13 +129,13 @@ export function initWebSocketConnection() {
         const message = JSON.parse(event.data) as UpdateMessage;
         handleMessage(message);
       } catch (err) {
-        console.error('Error parsing WebSocket message:', err);
+        console.error('[WebSocket] Error parsing message:', err);
       }
     });
     
     // Handle connection closing
     newSocket.addEventListener('close', (event) => {
-      console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
+      console.log(`[WebSocket] Connection closed: ${event.code} - ${event.reason}`);
       setConnectionStatus('disconnected');
       
       // Clean up ping interval
@@ -127,14 +150,33 @@ export function initWebSocketConnection() {
     
     // Handle connection errors
     newSocket.addEventListener('error', (error) => {
-      console.error('WebSocket error:', error);
+      console.error('[WebSocket] Connection error:', error);
+      // Add more detailed error logging
+      console.log('[WebSocket] Error details:', {
+        readyState: newSocket.readyState,
+        url: wsUrl,
+        protocol: protocol,
+        binaryType: newSocket.binaryType,
+      });
       setConnectionStatus('error');
       
       // Don't schedule reconnect here - the close event will fire after error
     });
-    
   } catch (error) {
-    console.error('Error initializing WebSocket connection:', error);
+    console.error('[WebSocket] Error initializing connection:', error);
+    
+    // Check for common network/proxy issues
+    if (error instanceof DOMException) {
+      console.error('[WebSocket] DOM Exception detected:', error.name, error.message);
+    }
+    
+    // Log diagnostic information
+    console.log('[WebSocket] Browser information:', {
+      userAgent: navigator.userAgent,
+      protocol: window.location.protocol,
+      host: window.location.host
+    });
+    
     setConnectionStatus('error');
     scheduleReconnect();
   }
