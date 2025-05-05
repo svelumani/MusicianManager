@@ -39,12 +39,16 @@ export default function ViewMusicianPage() {
     queryKey: ["/api/event-categories"],
   });
   
-  const { data: payRates } = useQuery<MusicianPayRate[]>({
+  const { data: payRates, isError: payRatesError } = useQuery<MusicianPayRate[]>({
     queryKey: ["/api/musician-pay-rates", musicianId],
     queryFn: async () => {
+      console.log("Fetching pay rates for musician:", musicianId);
       const res = await fetch(`/api/musician-pay-rates?musicianId=${musicianId}`);
+      console.log("Pay rates response status:", res.status);
       if (!res.ok) throw new Error("Failed to fetch pay rates");
-      return res.json();
+      const data = await res.json();
+      console.log("Pay rates data:", data);
+      return data;
     },
   });
 
