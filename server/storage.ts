@@ -277,6 +277,22 @@ export interface IStorage {
   updatePlannerAssignment(id: number, data: Partial<InsertPlannerAssignment>): Promise<PlannerAssignment | undefined>;
   deletePlannerAssignment(id: number): Promise<boolean>;
   markAttendance(id: number, status: string, userId: number, notes?: string): Promise<PlannerAssignment | undefined>;
+  getPlannerAssignmentsByMusician(plannerId: number): Promise<Record<number, {
+    musicianId: number;
+    musicianName: string;
+    assignments: Array<{
+      id: number;
+      slotId: number;
+      date: Date;
+      venueName: string;
+      fee: number;
+      attendance: string;
+      contractStatus: string;
+      contractId?: number;
+    }>;
+    totalFee: number;
+    contractStatus?: string;
+  }>>;
   
   // Monthly Invoice management
   getMonthlyInvoices(plannerId?: number, musicianId?: number): Promise<MonthlyInvoice[]>;
