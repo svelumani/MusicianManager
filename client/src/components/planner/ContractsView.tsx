@@ -57,6 +57,31 @@ interface ContractsViewProps {
   year: number;
 }
 
+// Define interfaces for our data
+interface Contract {
+  id: number;
+  name: string | null;
+  status: string;
+  createdAt: string;
+  musicianCount: number;
+  dateCount: number;
+  plannerId: number;
+  month: number;
+  year: number;
+}
+
+interface MusicianContract {
+  id: number;
+  contractId: number;
+  musicianId: number;
+  musicianName: string;
+  status: string;
+  token: string;
+  sentAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
 const STATUS_COLORS = {
   draft: "bg-gray-100 text-gray-600",
   pending: "bg-gray-100 text-gray-800",
@@ -83,26 +108,26 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
   const [selectedTab, setSelectedTab] = useState("contracts");
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [selectedMusician, setSelectedMusician] = useState<any>(null);
+  const [selectedMusician, setSelectedMusician] = useState<MusicianContract & { contractId: number } | null>(null);
   
   // Query to get all contracts for this planner
   const {
-    data: contracts = [],
+    data: contracts = [] as Contract[],
     isLoading,
     error,
     refetch
-  } = useQuery({
+  } = useQuery<Contract[]>({
     queryKey: [`/api/monthly-contracts/planner/${plannerId}`],
     enabled: !!plannerId,
   });
 
   // Query to get all musicians in all contracts for this planner
   const {
-    data: contractMusicians = [],
+    data: contractMusicians = [] as MusicianContract[],
     isLoading: isLoadingMusicians,
     error: musicianError,
     refetch: refetchMusicians
-  } = useQuery({
+  } = useQuery<MusicianContract[]>({
     queryKey: [`/api/monthly-contracts/planner/${plannerId}/musicians`],
     enabled: !!plannerId && selectedTab === "musicians",
   });
@@ -190,7 +215,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
   };
 
   // Handle showing the response link dialog
-  const handleShowResponseLink = (musician: any, contractId: number) => {
+  const handleShowResponseLink = (musician: MusicianContract, contractId: number) => {
     setSelectedMusician({
       ...musician,
       contractId

@@ -7238,6 +7238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount the contract router
   apiRouter.use("/monthly-contracts", contractRouter);
+  apiRouter.use("/monthly-contracts", plannerContractsMusicianRouter);
   
   // Setup additional monthly contract routes
   setupMonthlyContractRoutes(apiRouter, storage);
