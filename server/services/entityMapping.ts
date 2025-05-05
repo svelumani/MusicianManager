@@ -12,6 +12,7 @@ import type { UpdateEntity } from './webSocketServer';
  */
 export const VERSION_KEYS = {
   PLANNERS: 'monthly_planners',
+  PLANNER_DATA: 'planner_data',
   PLANNER_SLOTS: 'planner_slots',
   PLANNER_ASSIGNMENTS: 'planner_assignments',
   MUSICIANS: 'musicians',
@@ -19,7 +20,9 @@ export const VERSION_KEYS = {
   EVENT_CATEGORIES: 'event_categories',
   MUSICIAN_PAY_RATES: 'musician_pay_rates',
   AVAILABILITY: 'availability',
-  MONTHLY_CONTRACTS: 'monthly_contracts'
+  MONTHLY_CONTRACTS: 'monthly_contracts',
+  MONTHLY_DATA: 'monthly_data',
+  MONTHLY_INVOICES: 'monthly_invoices'
 };
 
 /**
@@ -28,6 +31,7 @@ export const VERSION_KEYS = {
 export function getVersionKeyToEntity(versionKey: string): UpdateEntity | null {
   switch (versionKey) {
     case 'monthly_planners':
+    case 'planner_data':
       return 'planners';
     case 'planner_slots':
       return 'plannerSlots';
@@ -45,6 +49,10 @@ export function getVersionKeyToEntity(versionKey: string): UpdateEntity | null {
       return 'availability';
     case 'monthly_contracts':
       return 'monthlyContracts';
+    case 'monthly_data':
+      return 'monthlyContracts';
+    case 'monthly_invoices':
+      return 'monthlyInvoices';
     default:
       console.warn(`Unknown version key: ${versionKey}`);
       return null;
