@@ -3982,51 +3982,149 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
       
-      // Use Drizzle's ORM approach instead of manual SQL to avoid column issues
-      const updateData: any = {};
+      // Use a safer approach with manually constructed query
+      let query = 'UPDATE monthly_contract_musicians SET ';
+      const updateValues: any[] = [];
+      const updateFields: string[] = [];
       
-      if (data.contractId !== undefined) updateData.contractId = data.contractId;
-      if (data.musicianId !== undefined) updateData.musicianId = data.musicianId;
-      if (data.status !== undefined) updateData.status = data.status;
-      if (data.token !== undefined) updateData.token = data.token;
-      if (data.notes !== undefined) updateData.notes = data.notes;
-      if (data.musicianNotes !== undefined) updateData.musicianNotes = data.musicianNotes;
-      if (data.companySignature !== undefined) updateData.companySignature = data.companySignature;
-      if (data.musicianSignature !== undefined) updateData.musicianSignature = data.musicianSignature;
-      if (data.sentAt !== undefined) updateData.sentAt = data.sentAt;
-      if (data.respondedAt !== undefined) updateData.respondedAt = data.respondedAt;
-      if (data.completedAt !== undefined) updateData.completedAt = data.completedAt;
-      if (data.lastReminderAt !== undefined) updateData.lastReminderAt = data.lastReminderAt;
-      if (data.reminderCount !== undefined) updateData.reminderCount = data.reminderCount;
-      if (data.ipAddress !== undefined) updateData.ipAddress = data.ipAddress;
-      if (data.acceptedDates !== undefined) updateData.acceptedDates = data.acceptedDates;
-      if (data.rejectedDates !== undefined) updateData.rejectedDates = data.rejectedDates;
-      if (data.pendingDates !== undefined) updateData.pendingDates = data.pendingDates;
-      if (data.totalDates !== undefined) updateData.totalDates = data.totalDates;
-      if (data.totalFee !== undefined) updateData.totalFee = data.totalFee;
-      if (data.responseUrl !== undefined) updateData.responseUrl = data.responseUrl;
-      if (data.rejectionReason !== undefined) updateData.rejectionReason = data.rejectionReason;
+      if (data.contractId !== undefined) {
+        updateFields.push('contract_id = $' + (updateValues.length + 1));
+        updateValues.push(data.contractId);
+      }
+      if (data.musicianId !== undefined) {
+        updateFields.push('musician_id = $' + (updateValues.length + 1));
+        updateValues.push(data.musicianId);
+      }
+      if (data.status !== undefined) {
+        updateFields.push('status = $' + (updateValues.length + 1));
+        updateValues.push(data.status);
+      }
+      if (data.token !== undefined) {
+        updateFields.push('token = $' + (updateValues.length + 1));
+        updateValues.push(data.token);
+      }
+      if (data.notes !== undefined) {
+        updateFields.push('notes = $' + (updateValues.length + 1));
+        updateValues.push(data.notes);
+      }
+      if (data.musicianNotes !== undefined) {
+        updateFields.push('musician_notes = $' + (updateValues.length + 1));
+        updateValues.push(data.musicianNotes);
+      }
+      if (data.companySignature !== undefined) {
+        updateFields.push('company_signature = $' + (updateValues.length + 1));
+        updateValues.push(data.companySignature);
+      }
+      if (data.musicianSignature !== undefined) {
+        updateFields.push('musician_signature = $' + (updateValues.length + 1));
+        updateValues.push(data.musicianSignature);
+      }
+      if (data.sentAt !== undefined) {
+        updateFields.push('sent_at = $' + (updateValues.length + 1));
+        updateValues.push(data.sentAt);
+      }
+      if (data.respondedAt !== undefined) {
+        updateFields.push('responded_at = $' + (updateValues.length + 1));
+        updateValues.push(data.respondedAt);
+      }
+      if (data.completedAt !== undefined) {
+        updateFields.push('completed_at = $' + (updateValues.length + 1));
+        updateValues.push(data.completedAt);
+      }
+      if (data.lastReminderAt !== undefined) {
+        updateFields.push('last_reminder_at = $' + (updateValues.length + 1));
+        updateValues.push(data.lastReminderAt);
+      }
+      if (data.reminderCount !== undefined) {
+        updateFields.push('reminder_count = $' + (updateValues.length + 1));
+        updateValues.push(data.reminderCount);
+      }
+      if (data.ipAddress !== undefined) {
+        updateFields.push('ip_address = $' + (updateValues.length + 1));
+        updateValues.push(data.ipAddress);
+      }
+      if (data.acceptedDates !== undefined) {
+        updateFields.push('accepted_dates = $' + (updateValues.length + 1));
+        updateValues.push(data.acceptedDates);
+      }
+      if (data.rejectedDates !== undefined) {
+        updateFields.push('rejected_dates = $' + (updateValues.length + 1));
+        updateValues.push(data.rejectedDates);
+      }
+      if (data.pendingDates !== undefined) {
+        updateFields.push('pending_dates = $' + (updateValues.length + 1));
+        updateValues.push(data.pendingDates);
+      }
+      if (data.totalDates !== undefined) {
+        updateFields.push('total_dates = $' + (updateValues.length + 1));
+        updateValues.push(data.totalDates);
+      }
+      if (data.totalFee !== undefined) {
+        updateFields.push('total_fee = $' + (updateValues.length + 1));
+        updateValues.push(data.totalFee);
+      }
+      if (data.responseUrl !== undefined) {
+        updateFields.push('response_url = $' + (updateValues.length + 1));
+        updateValues.push(data.responseUrl);
+      }
+      if (data.rejectionReason !== undefined) {
+        updateFields.push('rejection_reason = $' + (updateValues.length + 1));
+        updateValues.push(data.rejectionReason);
+      }
       
       // Always update the updatedAt field
-      updateData.updatedAt = new Date();
+      updateFields.push('updated_at = $' + (updateValues.length + 1));
+      updateValues.push(new Date());
       
-      if (Object.keys(updateData).length === 0) {
+      if (updateFields.length === 0) {
         return existingRecord; // Nothing to update
       }
       
-      // Update using the ORM approach
-      const [updated] = await db
-        .update(monthlyContractMusicians)
-        .set(updateData)
-        .where(eq(monthlyContractMusicians.id, id))
-        .returning();
+      query += updateFields.join(', ');
+      query += ' WHERE id = $' + (updateValues.length + 1);
+      updateValues.push(id);
+      query += ' RETURNING *';
+      
+      console.log('Raw query:', query, updateValues);
+      
+      // Execute the query
+      const result = await pool.query(query, updateValues);
+      const updated = result.rows[0];
       
       if (updated) {
         console.log("Updated contract musician:", updated);
         
+        // Transform snake_case to camelCase
+        const camelCaseUpdated = {
+          id: updated.id,
+          contractId: updated.contract_id,
+          musicianId: updated.musician_id,
+          status: updated.status,
+          token: updated.token,
+          notes: updated.notes,
+          musicianNotes: updated.musician_notes,
+          companySignature: updated.company_signature,
+          musicianSignature: updated.musician_signature,
+          sentAt: updated.sent_at,
+          respondedAt: updated.responded_at,
+          completedAt: updated.completed_at,
+          lastReminderAt: updated.last_reminder_at,
+          reminderCount: updated.reminder_count,
+          ipAddress: updated.ip_address,
+          acceptedDates: updated.accepted_dates,
+          rejectedDates: updated.rejected_dates,
+          pendingDates: updated.pending_dates,
+          totalDates: updated.total_dates,
+          totalFee: updated.total_fee,
+          responseUrl: updated.response_url,
+          rejectionReason: updated.rejection_reason,
+          createdAt: updated.created_at,
+          updatedAt: updated.updated_at
+        };
+        
         // Get musician name for activity log
-        const musician = await this.getMusician(updated.musicianId);
-        const musicianName = musician ? musician.name : `Musician ID ${updated.musicianId}`;
+        const musician = await this.getMusician(camelCaseUpdated.musicianId);
+        const musicianName = musician ? musician.name : `Musician ID ${camelCaseUpdated.musicianId}`;
         
         // Log activity
         await this.createActivity({
@@ -4037,11 +4135,11 @@ export class DatabaseStorage implements IStorage {
           timestamp: new Date(),
           details: JSON.stringify({
             message: `Monthly contract for ${musicianName} updated`,
-            status: data.status || updated.status
+            status: data.status || camelCaseUpdated.status
           })
         });
         
-        return updated;
+        return camelCaseUpdated as any;
       } else {
         throw new Error("No updated record was returned");
       }

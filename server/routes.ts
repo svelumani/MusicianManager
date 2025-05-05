@@ -53,6 +53,7 @@ import {
   insertMonthlyContractMusicianSchema,
   insertMonthlyContractDateSchema,
   monthlyContractMusicians,
+  plannerAssignments,
   type Musician
 } from "@shared/schema";
 
@@ -3359,8 +3360,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get the musician info
       const musician = await storage.getMusician(contract.musicianId);
       
-      // Get assigned dates for this contract
-      const assignments = await storage.getPlannerAssignmentsByContract(contract.id);
+      // Get assignments linked to this contract by querying planner assignments with contractId
+      const assignments = await db
+        .select()
+        .from(plannerAssignments)
+        .where(eq(plannerAssignments.contractId, contract.id));
       
       return res.json({
         contract,
