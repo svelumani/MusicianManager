@@ -80,7 +80,9 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
         description: "Contract sent successfully",
       });
       refetch();
+      // Use both query key formats to ensure all components refresh correctly
       queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician/${plannerId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician`] });
     },
     onError: (error) => {
       toast({
