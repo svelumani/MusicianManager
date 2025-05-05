@@ -594,9 +594,20 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                     const eventCategoryId = 7; // Hardcoded to Club Performance
                                     const hours = slot?.duration || 2;
                                     
-                                    // Calculate the per-hour rate based on the actual fee
-                                    let hourlyRate = assignment.actualFee ? (assignment.actualFee / hours) : 0;
+                                    // Calculate the per-hour rate, but handle cases where actualFee is 0 or null
+                                    let hourlyRate = 0;
                                     let rateSource = "calculated from total";
+                                    
+                                    if (assignment.actualFee && assignment.actualFee > 0) {
+                                      // Use actual fee if it's set and greater than 0
+                                      hourlyRate = assignment.actualFee / hours;
+                                    } else {
+                                      // If actual fee is not set or is 0, try to get a default hourly rate
+                                      // for this musician and category from the pay rates or other sources
+                                      const defaultFee = musician?.payRate || 50; // Use musician default rate or 50 as fallback
+                                      hourlyRate = defaultFee;
+                                      rateSource = "default rate (no fee set)";
+                                    }
                                     
                                     // Hardcoded name
                                     const categoryName = "Club Performance";
