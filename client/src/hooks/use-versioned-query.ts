@@ -14,8 +14,12 @@ import {
   UseQueryOptions, 
   UseQueryResult 
 } from '@tanstack/react-query';
-import { initWebSocketConnection, onDataUpdate, UpdateEntity } from '@/lib/ws/dataSync';
-import { mapServerVersionsToClient, getServerKeyForEntity } from '@/lib/utils/versionMapper';
+import { 
+  initWebSocketConnection, 
+  onDataUpdate, 
+  UpdateEntity,
+  convertToClientEntity
+} from '@/lib/ws/dataSync';
 
 /**
  * Custom hook that extends useQuery with version checking to ensure data freshness
@@ -126,22 +130,20 @@ export function useVersionedQuery<T>(
     if (!enabled) return;
     
     const handleDataUpdate = (updatedEntity: UpdateEntity) => {
-      // Map both entities to normalized client entity format
-      // We need to do this because the server may be sending server-formatted keys
-      const clientUpdatedEntity = mapServerVersionsToClient({ [updatedEntity as string]: 1 });
-      const normalizedUpdatedEntity = Object.keys(clientUpdatedEntity)[0];
+      // Convert both entities to standardized client format
+      const normalizedUpdatedEntity = convertToClientEntity(updatedEntity);
+      const normalizedThisEntity = convertToClientEntity(entity);
       
       // Determine if we should refresh based on the updated entity
       const shouldRefresh = 
         updatedEntity === 'all' || 
-        updatedEntity === entity ||
-        normalizedUpdatedEntity === entity;
+        normalizedUpdatedEntity === normalizedThisEntity;
       
       if (shouldRefresh) {
         // Only refresh if it's not the first query (to prevent double fetching on mount)
         if (!isFirstQuery.current) {
           result.forceRefresh();
-          console.log(`Refreshing ${entity} data due to version change in ${updatedEntity} (normalized to ${normalizedUpdatedEntity})`);
+          console.log(`Refreshing ${normalizedThisEntity} data due to version change in ${updatedEntity} (normalized to ${normalizedUpdatedEntity})`);
         }
       }
     };

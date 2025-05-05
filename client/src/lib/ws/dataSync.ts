@@ -6,10 +6,20 @@
  * and notifies subscribers of data changes.
  */
 import { toast } from '@/hooks/use-toast';
-import type { UpdateEntity, UpdateMessage, NotificationType } from '@/types/websocket';
+import type { 
+  UpdateEntity, 
+  UpdateMessage, 
+  NotificationType,
+  ClientEntityName,
+  ServerEntityName
+} from '@/types/websocket';
 
-// Re-export UpdateEntity type so other components can import it directly from this module
-export type { UpdateEntity } from '@/types/websocket';
+// Re-export types so other components can import them directly from this module
+export type { 
+  UpdateEntity,
+  ClientEntityName,
+  ServerEntityName
+} from '@/types/websocket';
 
 // Connection status states
 export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
@@ -187,6 +197,36 @@ export function initWebSocketConnection() {
 }
 
 /**
+ * Convert server entity names to client entity names
+ * This standardizes the entity format between server and client
+ * 
+ * Exported for use in other modules (like useVersionedQuery)
+ */
+export function convertToClientEntity(serverEntity: UpdateEntity): ClientEntityName {
+  // Default to passing through the entity as-is
+  let clientEntity: ClientEntityName = serverEntity as ClientEntityName;
+  
+  // Map from snake_case server keys to camelCase client keys
+  if (serverEntity === 'monthly_planners' || serverEntity === 'planner_data') {
+    clientEntity = 'monthlyPlanners';
+  } else if (serverEntity === 'planner_slots' || serverEntity === 'planners_slots') {
+    clientEntity = 'plannerSlots';
+  } else if (serverEntity === 'planner_assignments' || serverEntity === 'planners_assignments') {
+    clientEntity = 'plannerAssignments';  
+  } else if (serverEntity === 'monthly_contracts' || serverEntity === 'monthly_data') {
+    clientEntity = 'monthlyContracts';
+  } else if (serverEntity === 'event_categories') {
+    clientEntity = 'eventCategories';
+  } else if (serverEntity === 'musician_pay_rates') {
+    clientEntity = 'musicianPayRates';
+  } else if (serverEntity === 'monthly_invoices') {
+    clientEntity = 'monthlyInvoices';
+  }
+  
+  return clientEntity;
+}
+
+/**
  * Handle incoming WebSocket message
  */
 function handleMessage(message: UpdateMessage) {
@@ -195,55 +235,21 @@ function handleMessage(message: UpdateMessage) {
   switch (message.type) {
     case 'data-update':
       if (message.entity) {
-        // Also notify about possible alternative entity names
-        notifySubscribers(message.entity);
+        // Convert server entity to client entity
+        const clientEntity = convertToClientEntity(message.entity);
         
-        // Handle equivalent entity names
-        const entityMap: Record<string, string[]> = {
-          'planner_data': ['planners', 'monthly_planners'],
-          'monthly_data': ['monthlyContracts'],
-          'planners_slots': ['plannerSlots'],
-          'planners_assignments': ['plannerAssignments'],
-          'monthly_planners': ['planners', 'planner_data'],
-          'planner_slots': ['plannerSlots', 'planners_slots'],
-          'planner_assignments': ['plannerAssignments', 'planners_assignments'],
-          'monthly_contracts': ['monthlyContracts', 'monthly_data']
-        };
-        
-        // Also notify about equivalent entities
-        if (entityMap[message.entity]) {
-          entityMap[message.entity].forEach(entity => {
-            console.log(`Also notifying about equivalent entity: ${entity}`);
-            notifySubscribers(entity as UpdateEntity);
-          });
-        }
+        console.log(`WebSocket: Converting server entity '${message.entity}' to client entity '${clientEntity}'`);
+        notifySubscribers(clientEntity);
       }
       break;
       
     case 'refresh-required':
       if (message.entity) {
-        // Also notify about possible alternative entity names
-        notifySubscribers(message.entity);
+        // Convert server entity to client entity - same logic as in data-update
+        const clientEntity = convertToClientEntity(message.entity);
         
-        // Handle equivalent entity names
-        const entityMap: Record<string, string[]> = {
-          'planner_data': ['planners', 'monthly_planners'],
-          'monthly_data': ['monthlyContracts'],
-          'planners_slots': ['plannerSlots'],
-          'planners_assignments': ['plannerAssignments'],
-          'monthly_planners': ['planners', 'planner_data'],
-          'planner_slots': ['plannerSlots', 'planners_slots'],
-          'planner_assignments': ['plannerAssignments', 'planners_assignments'],
-          'monthly_contracts': ['monthlyContracts', 'monthly_data']
-        };
-        
-        // Also notify about equivalent entities
-        if (entityMap[message.entity]) {
-          entityMap[message.entity].forEach(entity => {
-            console.log(`Also notifying about equivalent entity: ${entity}`);
-            notifySubscribers(entity as UpdateEntity);
-          });
-        }
+        console.log(`WebSocket refresh: Converting server entity '${message.entity}' to client entity '${clientEntity}'`);
+        notifySubscribers(clientEntity);
         
         // Show a toast notification for refresh request
         toast({
