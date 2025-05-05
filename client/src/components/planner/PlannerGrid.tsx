@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { forcePlannerReload } from "@/lib/utils/forceRefresh";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -249,23 +250,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Utility function to force a fresh reload with correct context
   const forceReloadWithCorrectContext = () => {
-    // Ensure we have the correct month and year parameters
-    const year = planner?.year;
-    const month = planner?.month;
-    
-    // Create a cache-busting timestamp
-    const timestamp = Date.now();
-    
-    // First clear EVERYTHING from cache
-    queryClient.clear();
-    
-    // Build the URL with enhanced parameters for even more aggressive cache clearing
-    const url = `/planner?month=${month}&year=${year}&refresh=${timestamp}&force=true`;
-    
-    // Log the navigation
-    console.log(`⚠️ NUCLEAR OPTION: Force reloading page with correct context: ${url}`);
-    
-    // Show a warning toast to inform the user
+    // Show a warning toast to inform the user before reload
     toast({
       title: "Refreshing Data",
       description: "Reloading page to ensure you have the most up-to-date information...",
@@ -274,8 +259,10 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     
     // Small delay to let the toast display
     setTimeout(() => {
-      // Perform the navigation with full page reload
-      window.location.href = url;
+      // Use our centralized utility to ensure consistency across the app
+      if (planner?.month && planner?.year) {
+        forcePlannerReload(planner.month, planner.year);
+      }
     }, 500);
   };
 
