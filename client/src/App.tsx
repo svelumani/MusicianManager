@@ -306,6 +306,10 @@ function Router() {
       <Route path="/monthly/respond">
         <MonthlyContractResponsePage />
       </Route>
+      <Route path="/contracts/respond">
+        {/* Public route to respond to contracts via token query parameter */}
+        <MonthlyContractResponsePage />
+      </Route>
       
       {/* Test routes */}
       <Route path="/test-contract">
