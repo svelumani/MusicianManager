@@ -3642,12 +3642,16 @@ export class DatabaseStorage implements IStorage {
 
   // Monthly Contract Dates management implementation
   async getMonthlyContractDates(musicianContractId: number): Promise<MonthlyContractDate[]> {
+    console.log(`[DatabaseStorage] Getting monthly contract dates for musician contract ${musicianContractId}`);
+    
     // Use direct SQL to ensure proper date formatting
     const result = await pool.query(`
       SELECT * FROM monthly_contract_dates 
       WHERE musician_contract_id = $1
       ORDER BY date ASC
     `, [musicianContractId]);
+    
+    console.log(`[DatabaseStorage] Found ${result.rows.length} dates for musician contract ${musicianContractId}`);
     
     // Convert column names from snake_case to camelCase and format dates
     return result.rows.map(row => ({
@@ -3657,6 +3661,15 @@ export class DatabaseStorage implements IStorage {
       status: row.status,
       fee: row.fee,
       notes: row.notes,
+      responseNotes: row.response_notes,
+      eventId: row.event_id,
+      venueId: row.venue_id,
+      venueName: row.venue_name,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      responseTimestamp: row.response_timestamp,
+      ipAddress: row.ip_address,
+      signatureData: row.signature_data,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }));
@@ -3683,9 +3696,112 @@ export class DatabaseStorage implements IStorage {
       status: row.status,
       fee: row.fee,
       notes: row.notes,
+      responseNotes: row.response_notes,
+      eventId: row.event_id,
+      venueId: row.venue_id,
+      venueName: row.venue_name,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      responseTimestamp: row.response_timestamp,
+      ipAddress: row.ip_address,
+      signatureData: row.signature_data,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
+  }
+  
+  // Helper method to create monthly contract dates from planner assignments
+  async createMonthlyContractDatesFromAssignments(
+    musicianContractId: number, 
+    assignments: PlannerAssignment[]
+  ): Promise<MonthlyContractDate[]> {
+    console.log(`[DatabaseStorage] Creating contract dates for musician contract ${musicianContractId} from ${assignments.length} assignments`);
+    
+    const dates: MonthlyContractDate[] = [];
+    
+    // Process each assignment
+    for (const assignment of assignments) {
+      try {
+        // Get the slot details for this assignment
+        const slot = await this.getPlannerSlot(assignment.slotId);
+        if (!slot) {
+          console.error(`[DatabaseStorage] No slot found for assignment ${assignment.id} with slot ID ${assignment.slotId}`);
+          continue;
+        }
+        
+        console.log(`[DatabaseStorage] Processing assignment ${assignment.id} for slot ${slot.id} on ${format(slot.date, 'yyyy-MM-dd')}`);
+        
+        // Get venue details if available
+        let venueName = "Venue not specified";
+        let venueId = null;
+        
+        if (slot.venueId) {
+          try {
+            const venue = await this.getVenue(slot.venueId);
+            if (venue) {
+              venueName = venue.name;
+              venueId = venue.id;
+            }
+          } catch (venueError) {
+            console.error(`[DatabaseStorage] Error fetching venue for slot ${slot.id}:`, venueError);
+          }
+        }
+        
+        // Format time information
+        const timeInfo = slot.time || "";
+        
+        // Use direct SQL since it's more reliable for dates
+        const query = `
+          INSERT INTO monthly_contract_dates 
+            (musician_contract_id, date, status, fee, notes, venue_id, venue_name, start_time, created_at, updated_at)
+          VALUES 
+            ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+          RETURNING *
+        `;
+        
+        const result = await pool.query(query, [
+          musicianContractId,
+          new Date(slot.date),
+          'pending',
+          assignment.actualFee || assignment.fee || 0,
+          `${slot.description || ''} ${timeInfo}`.trim() || null,
+          venueId,
+          venueName,
+          timeInfo || null
+        ]);
+        
+        if (result.rows && result.rows.length > 0) {
+          const newDate = result.rows[0];
+          console.log(`[DatabaseStorage] Successfully created contract date ${newDate.id} for ${format(new Date(newDate.date), 'yyyy-MM-dd')}`);
+          
+          // Convert to camelCase format for return
+          dates.push({
+            id: newDate.id,
+            musicianContractId: newDate.musician_contract_id,
+            date: new Date(newDate.date),
+            status: newDate.status,
+            fee: newDate.fee,
+            notes: newDate.notes,
+            responseNotes: newDate.response_notes,
+            eventId: newDate.event_id,
+            venueId: newDate.venue_id,
+            venueName: newDate.venue_name,
+            startTime: newDate.start_time,
+            endTime: newDate.end_time,
+            responseTimestamp: newDate.response_timestamp,
+            ipAddress: newDate.ip_address,
+            signatureData: newDate.signature_data,
+            createdAt: newDate.created_at,
+            updatedAt: newDate.updated_at
+          });
+        }
+      } catch (error) {
+        console.error(`[DatabaseStorage] Error creating contract date for assignment ${assignment.id}:`, error);
+      }
+    }
+    
+    console.log(`[DatabaseStorage] Created ${dates.length} contract dates for musician contract ${musicianContractId}`);
+    return dates;
   }
 
   async createMonthlyContractDate(contractDate: InsertMonthlyContractDate): Promise<MonthlyContractDate> {

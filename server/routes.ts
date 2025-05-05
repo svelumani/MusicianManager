@@ -6607,35 +6607,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 6. Create contract musician and dates for each musician
       for (const [musicianId, assignments] of Object.entries(musicianAssignments)) {
-        const contractMusician = await storage.createMonthlyContractMusician({
-          contractId: contract.id,
-          musicianId: parseInt(musicianId),
-          status: 'pending',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-        
-        // Add dates for each assignment
-        for (const assignment of assignments) {
-          const slot = await storage.getPlannerSlot(assignment.slotId);
-          if (slot) {
-            // Use direct SQL since it's more reliable
-            const query = `
-              INSERT INTO monthly_contract_dates 
-                (musician_contract_id, date, status, fee, notes, created_at, updated_at)
-              VALUES 
-                ($1, $2, $3, $4, $5, NOW(), NOW())
-              RETURNING *
-            `;
-            
-            await pool.query(query, [
-              contractMusician.id,
-              new Date(slot.date),
-              'pending',
-              assignment.fee || 0,
-              `${slot.description || ''} ${slot.time || ''}` || null
-            ]);
+        try {
+          console.log(`Creating monthly contract for musician ${musicianId} with ${assignments.length} assignments`);
+          
+          const contractMusician = await storage.createMonthlyContractMusician({
+            contractId: contract.id,
+            musicianId: parseInt(musicianId),
+            status: 'pending',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+          
+          console.log(`Successfully created monthly contract musician with ID ${contractMusician.id}`);
+          
+          // Use the new helper function to create dates from assignments
+          const dates = await storage.createMonthlyContractDatesFromAssignments(
+            contractMusician.id, 
+            assignments
+          );
+          
+          console.log(`Successfully created ${dates.length} dates for musician ${musicianId}`);
+          
+          // Update the musician contract with summary stats
+          if (dates.length > 0) {
+            await storage.updateMonthlyContractMusician(contractMusician.id, {
+              totalDates: dates.length,
+              pendingDates: dates.length,
+              totalFee: dates.reduce((sum, date) => sum + (date.fee || 0), 0)
+            });
           }
+        } catch (error) {
+          console.error(`Error creating contract for musician ${musicianId}:`, error);
         }
       }
       
