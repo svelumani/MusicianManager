@@ -6210,6 +6210,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Contract routes
   apiRouter.get("/monthly-contracts", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
       
       let contracts;
@@ -6228,6 +6231,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   apiRouter.get("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const contract = await storage.getMonthlyContract(parseInt(req.params.id));
       if (!contract) {
         return res.status(404).json({ message: "Monthly contract not found" });
@@ -6314,6 +6320,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Contract Musicians routes
   apiRouter.get("/monthly-contracts/:contractId/musicians", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const contractMusicians = await storage.getMonthlyContractMusicians(parseInt(req.params.contractId));
       
       // Enrich with musician details
@@ -6356,6 +6365,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoint for monthly contract assignments (for the detail page)
   apiRouter.get("/monthly-contracts/:contractId/assignments", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const contractId = parseInt(req.params.contractId);
       
       // Get all musicians assigned to this contract
@@ -6484,6 +6496,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Contract Dates routes
   apiRouter.get("/monthly-contract-musicians/:musicianContractId/dates", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const dates = await storage.getMonthlyContractDates(parseInt(req.params.musicianContractId));
       res.json(dates);
     } catch (error) {
@@ -6598,6 +6613,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get musician contract by token (for public response page)
   apiRouter.get("/monthly-contract-musicians/token/:token", async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const token = req.params.token;
       
       // Find the musician contract with this token
@@ -6649,6 +6667,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update date status in a monthly contract (for musician responses)
   apiRouter.put("/monthly-contract-dates/:dateId/status", async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const dateId = parseInt(req.params.dateId);
       const { status, notes, ipAddress, musicianSignature } = req.body;
       
