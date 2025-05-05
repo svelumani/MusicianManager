@@ -2048,6 +2048,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Planner routes
   apiRouter.get("/planners", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const planners = await storage.getMonthlyPlanners();
       res.json(planners);
     } catch (error) {
@@ -2058,6 +2061,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planners/:id", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const planner = await storage.getMonthlyPlanner(parseInt(req.params.id));
       if (!planner) {
         return res.status(404).json({ message: "Planner not found" });
@@ -2071,6 +2077,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planners/month/:month/year/:year", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const { month, year } = req.params;
       const planner = await storage.getMonthlyPlannerByMonth(parseInt(month), parseInt(year));
       if (!planner) {
@@ -2775,6 +2784,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Planner Slots routes
   apiRouter.get("/planner-slots", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
       const slots = await storage.getPlannerSlots(plannerId);
       res.json(slots);
@@ -2786,6 +2798,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planner-slots/:id", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const slot = await storage.getPlannerSlot(parseInt(req.params.id));
       if (!slot) {
         return res.status(404).json({ message: "Planner slot not found" });
@@ -2912,6 +2927,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Planner Assignments routes
   apiRouter.get("/planner-assignments", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const slotId = req.query.slotId ? parseInt(req.query.slotId as string) : undefined;
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       const assignments = await storage.getPlannerAssignments(slotId, musicianId);
@@ -2924,6 +2942,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planner-assignments/:id", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       const id = parseInt(req.params.id);
       
       // Validate the ID is a valid number
@@ -3177,6 +3198,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get assignments grouped by musician for a planner
   apiRouter.get("/planner-assignments/by-musician", isAuthenticated, async (req, res) => {
     try {
+      // Prevent browser caching to ensure fresh data
+      preventCache(res);
+      
       console.log("\n\n======== STARTING BY-MUSICIAN ENDPOINT ========");
       console.log("[by-musician] Received request with query params:", req.query);
       console.log("[by-musician] Request headers:", req.headers);
