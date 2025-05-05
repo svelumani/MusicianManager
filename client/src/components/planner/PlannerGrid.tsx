@@ -362,40 +362,68 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     
     // Get the musician
     const musician = getMusician(assignment.musicianId);
-    if (!musician) return 150; // Default fallback
+    if (!musician) return 0; // Default fallback
     
     // Get the slot to determine event details
     const slot = plannerSlots?.find((s: Slot) => s.id === assignment.slotId);
-    if (!slot) return 150; // Default fallback
+    if (!slot) return 0; // Default fallback
     
-    // Calculate hours for the performance (default to 2 if not specified)
-    const hours = slot.duration || 2;
+    // Calculate hours based on start and end times
+    let hours = 2; // Default fallback
+    if (slot.startTime && slot.endTime) {
+      try {
+        // Parse the time strings (format: "HH:MM" like "19:00")
+        const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
+        const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
+        
+        // Convert to minutes for easier calculation
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        let endTotalMinutes = endHours * 60 + endMinutes;
+        
+        // Handle case where end time is on the next day (e.g., 01:00 AM)
+        if (endTotalMinutes < startTotalMinutes) {
+          endTotalMinutes += 24 * 60; // Add 24 hours in minutes
+        }
+        
+        // Calculate the difference in hours (rounded to 1 decimal place)
+        const durationMinutes = endTotalMinutes - startTotalMinutes;
+        hours = Math.round((durationMinutes / 60) * 10) / 10;
+      } catch (error) {
+        console.log(`Error calculating hours for slot ${slot.id}:`, error);
+        hours = 2; // Fallback if calculation fails
+      }
+    } else if (slot.duration) {
+      // Use duration if explicitly set
+      hours = slot.duration;
+    }
     
     // TEMPORARY FIX: Hardcode to Club Performance (ID 7) per client request
     const eventCategoryId = 7; // Hardcoded to Club Performance
     
-    // Different strategies to find the hourly rate
+    // Get the hourly rate - this is a fixed negotiated value
+    let hourlyRate = 50; // Default fallback
+    
     if (payRates && Array.isArray(payRates)) {
-      // Look for exact match for the event category
+      // Look for exact match for this musician and category
       const matchingPayRate = payRates.find((rate: PayRate) => 
         rate.musicianId === musician.id && 
         rate.eventCategoryId === eventCategoryId
       );
       
       if (matchingPayRate) {
-        // Use hourly rate from the matching pay rate
-        return matchingPayRate.hourlyRate * hours;
+        // Use the hourly rate from pay rates - this is a fixed negotiated value
+        hourlyRate = matchingPayRate.hourlyRate;
       } else if (musician.payRate) {
-        // Use musician's default pay rate if available
-        return musician.payRate * hours;
+        // Fallback to musician default rate if available
+        hourlyRate = musician.payRate;
       } else if (musician.categoryId) {
         // Use category default rate if musician has a category
-        return getCategoryDefaultRate(musician.categoryId) * hours;
+        hourlyRate = getCategoryDefaultRate(musician.categoryId);
       }
     }
     
-    // Return a default rate if all else fails
-    return 150 * hours;
+    // Calculate total fee based on the fixed hourly rate and the hours
+    return hourlyRate * hours;
   };
   
   // Format currency for display 
@@ -622,20 +650,41 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                       hours = slot.duration;
                                     }
                                     
-                                    // Calculate the per-hour rate, but handle cases where actualFee is 0 or null
+                                    // Get the hourly rate from musician's pay rates or default rate
                                     let hourlyRate = 0;
-                                    let rateSource = "calculated from total";
+                                    let rateSource = "default rate";
+                                    let totalFee = 0;
                                     
-                                    if (assignment.actualFee && assignment.actualFee > 0) {
-                                      // Use actual fee if it's set and greater than 0
-                                      hourlyRate = assignment.actualFee / hours;
+                                    // First try to get the rate from musician pay rates for this category
+                                    if (musician && payRates && Array.isArray(payRates)) {
+                                      // Look for exact match for Club Performance category (ID 7)
+                                      const matchingPayRate = payRates.find((rate: PayRate) => 
+                                        rate.musicianId === musician.id && 
+                                        rate.eventCategoryId === 7 // Club Performance
+                                      );
+                                      
+                                      if (matchingPayRate) {
+                                        hourlyRate = matchingPayRate.hourlyRate;
+                                        rateSource = "club rate";
+                                      } else if (musician.payRate) {
+                                        hourlyRate = musician.payRate;
+                                        rateSource = "musician default";
+                                      } else {
+                                        hourlyRate = 50; // absolute fallback
+                                        rateSource = "system default";
+                                      }
                                     } else {
-                                      // If actual fee is not set or is 0, try to get a default hourly rate
-                                      // for this musician and category from the pay rates or other sources
-                                      const defaultFee = musician?.payRate || 50; // Use musician default rate or 50 as fallback
-                                      hourlyRate = defaultFee;
-                                      rateSource = "default rate (no fee set)";
+                                      hourlyRate = 50; // fallback if no rates found
+                                      rateSource = "system default";
                                     }
+                                    
+                                    // Calculate total fee based on hourly rate
+                                    totalFee = hourlyRate * hours;
+                                    
+                                    // If an actual fee has been manually set, we'll display that total
+                                    // but we'll still show the original hourly rate for reference
+                                    let actualFeeExists = assignment.actualFee && assignment.actualFee > 0;
+                                    let displayFee = actualFeeExists ? assignment.actualFee : totalFee;
                                     
                                     // Hardcoded name
                                     const categoryName = "Club Performance";
@@ -643,6 +692,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                     // Debug log to inspect values
                                     console.log(`Assignment ${assignment.id} for musician ${assignment.musicianId}: actualFee=${assignment.actualFee}, hours=${hours}, hourlyRate=${hourlyRate}`);
                                     
+                                    // Additional debug info
                                     if (musician && payRates && Array.isArray(payRates)) {
                                       // Find all rates for this musician to debug
                                       const allRatesForMusician = payRates.filter((rate: PayRate) => rate.musicianId === musician.id);
@@ -651,27 +701,6 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                       // Debug club performance rates
                                       const clubRates = payRates.filter((rate: PayRate) => rate.eventCategoryId === 7);
                                       console.log(`Found ${clubRates.length} pay rates for Club Performance (ID 7)`);
-                                      
-                                      // Look for exact match for Club Performance category
-                                      const matchingPayRate = payRates.find((rate: PayRate) => 
-                                        rate.musicianId === musician.id && 
-                                        rate.eventCategoryId === eventCategoryId
-                                      );
-                                      
-                                      if (matchingPayRate) {
-                                        console.log(`Found matching pay rate: ${matchingPayRate.hourlyRate}/hr`);
-                                        hourlyRate = matchingPayRate.hourlyRate;
-                                        rateSource = `Club rate`;
-                                      } else if (musician.payRate) {
-                                        console.log(`Using musician default pay rate: ${musician.payRate}/hr`);
-                                        hourlyRate = musician.payRate;
-                                        rateSource = "default rate";
-                                      } else if (musician.categoryId) {
-                                        const categoryRate = getCategoryDefaultRate(musician.categoryId);
-                                        console.log(`Using category default rate: ${categoryRate}/hr`);
-                                        hourlyRate = categoryRate;
-                                        rateSource = getMusicianCategory(musician.id) + " default";
-                                      }
                                     }
                                     
                                     return (
@@ -695,15 +724,28 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                               <span className="text-gray-600">
                                                 {formatCurrency(calculateFeeForAssignment(assignment))}
                                                 <span className="text-xs block text-right">
-                                                  (${Math.round(hourlyRate)}/hr)
+                                                  (${assignment.actualFee && assignment.actualFee > 0 
+                                                    ? Math.round(assignment.actualFee / hours) 
+                                                    : Math.round(hourlyRate)}/hr)
                                                 </span>
                                               </span>
                                             </TooltipTrigger>
                                             <TooltipContent side="bottom">
                                               <div className="text-xs">
-                                                <p>Hourly rate: ${Math.round(hourlyRate)} ({rateSource})</p>
-                                                <p>Hours: {hours}</p>
-                                                <p>Total: ${Math.round(hourlyRate * hours)}</p>
+                                                {assignment.actualFee && assignment.actualFee > 0 ? (
+                                                  <>
+                                                    <p>Default hourly rate: ${Math.round(hourlyRate)}/hr ({rateSource})</p>
+                                                    <p>Negotiated fee: ${assignment.actualFee}</p>
+                                                    <p>Hours: {hours}</p>
+                                                    <p>Effective rate: ${Math.round(assignment.actualFee / hours)}/hr</p>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <p>Hourly rate: ${Math.round(hourlyRate)}/hr ({rateSource})</p>
+                                                    <p>Hours: {hours}</p>
+                                                    <p>Total: ${Math.round(hourlyRate * hours)}</p>
+                                                  </>
+                                                )}
                                               </div>
                                             </TooltipContent>
                                           </Tooltip>
