@@ -1,19 +1,19 @@
 import { useEffect } from "react";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const EventsPlannerPage = () => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // This is a redirect page - simply redirect to the /planner page
   useEffect(() => {
     // Use a short delay to allow rendering before navigating
     const timer = setTimeout(() => {
-      navigate("/planner", { replace: true });
+      setLocation("/planner", { replace: true });
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [navigate]);
+  }, [setLocation]);
 
   return (
     <div className="container mx-auto py-6">

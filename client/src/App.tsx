@@ -25,6 +25,7 @@ import EventsPage from "@/pages/events/index";
 import AddEventPage from "@/pages/events/add";
 import ViewEventPage from "@/pages/events/view";
 import EditEventPage from "@/pages/events/edit";
+import EventsPlannerPage from "@/pages/events/planner";
 import RateMusicianPage from "@/pages/events/rate-musician";
 // Removed InviteMusicianPage import as we're handling this through the edit page
 import CategoriesPage from "@/pages/categories/index";
@@ -152,7 +153,7 @@ function Router() {
       </Route>
       <Route path="/events/planner">
         <AppLayout>
-          <PlannerPage />
+          <EventsPlannerPage />
         </AppLayout>
       </Route>
       <Route path="/events/planner/:id/invoice">
