@@ -6935,7 +6935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate Monthly Contract
   apiRouter.post("/monthly-contracts/generate", isAuthenticated, async (req, res) => {
     try {
-      const { plannerId, month, year, templateId, musicianId } = req.body;
+      const { plannerId, month, year, templateId, musicianId, assignmentIds } = req.body;
       
       if (!plannerId || !month || !year) {
         return res.status(400).json({ message: "Missing required fields: plannerId, month, year" });
