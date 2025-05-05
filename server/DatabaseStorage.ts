@@ -4110,10 +4110,7 @@ export class DatabaseStorage implements IStorage {
         updateFields.push('response_url = $' + (updateValues.length + 1));
         updateValues.push(data.responseUrl);
       }
-      if (data.rejectionReason !== undefined) {
-        updateFields.push('rejection_reason = $' + (updateValues.length + 1));
-        updateValues.push(data.rejectionReason);
-      }
+      // Removed rejectionReason field as it doesn't exist in the database schema
       
       // Always update the updatedAt field
       updateFields.push('updated_at = $' + (updateValues.length + 1));
@@ -4160,7 +4157,7 @@ export class DatabaseStorage implements IStorage {
           totalDates: updated.total_dates,
           totalFee: updated.total_fee,
           responseUrl: updated.response_url,
-          rejectionReason: updated.rejection_reason,
+          // Removed reference to rejection_reason as it doesn't exist in database
           createdAt: updated.created_at,
           updatedAt: updated.updated_at
         };

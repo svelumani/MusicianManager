@@ -7033,14 +7033,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               totalFee: dates.reduce((sum, date) => sum + (date.fee || 0), 0)
             });
             
-            // Update each assignment's contract status
+            // Update each assignment's contract status to "contract generated"
             for (const assignment of assignments) {
               try {
                 await storage.updatePlannerAssignment(assignment.id, {
                   contractId: contract.id,
-                  contractStatus: 'pending'
+                  contractStatus: 'contract generated'
                 });
-                console.log(`Updated assignment ${assignment.id} with contractId ${contract.id} and status 'pending'`);
+                console.log(`Updated assignment ${assignment.id} with contractId ${contract.id} and status 'contract generated'`);
               } catch (updateError) {
                 console.error(`Error updating assignment ${assignment.id}:`, updateError);
               }
