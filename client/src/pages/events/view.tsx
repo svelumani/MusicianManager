@@ -864,16 +864,18 @@ export default function ViewEventPage() {
                                             rateLabel = `$${dayRate.toFixed(2)}/day × ${days} days = $${totalRate.toFixed(2)}`;
                                             console.log(`Calculated daily rate: ${dayRate} × ${days} = ${totalRate}`);
                                           }
-                                          else if (paymentModel === 'event' && rate.eventRate) {
+                                          else if (paymentModel === 'event' && eventRate) {
                                             // For event payment: flat event rate
-                                            totalRate = rate.eventRate;
+                                            totalRate = eventRate;
                                             rateLabel = `$${totalRate.toFixed(2)} (event rate)`;
+                                            console.log(`Using flat event rate: ${eventRate}`);
                                           }
                                           else {
                                             // Fallback to display a simple rate if no specific payment model
-                                            const displayRateValue = rate.hourlyRate || rate.dayRate || rate.eventRate || 0;
-                                            const rateType = rate.hourlyRate ? '/hr' : (rate.dayRate ? '/day' : '/event');
+                                            const displayRateValue = hourlyRate || dayRate || eventRate || 0;
+                                            const rateType = hourlyRate ? '/hr' : (dayRate ? '/day' : '/event');
                                             rateLabel = `$${displayRateValue.toFixed(2)}${rateType}`;
+                                            console.log(`Using fallback rate display: ${displayRateValue}${rateType}`);
                                           }
                                           
                                           return (
