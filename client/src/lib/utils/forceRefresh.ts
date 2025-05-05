@@ -10,7 +10,7 @@ import { queryClient } from "@/lib/queryClient";
  * Handles any URL-related navigation to ensure it uses the correct paths
  * This mapping function converts any old path patterns to the new correct ones
  */
-function getCorrectPath(path: string): string {
+export function getCorrectPath(path: string): string {
   // Map of old paths to new correct paths
   const pathMappings: Record<string, string> = {
     '/planner': '/events/planner',
