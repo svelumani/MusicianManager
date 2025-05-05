@@ -201,20 +201,13 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     .then(response => {
       console.log("Planner status updated to draft:", response);
       
-      // Use a comprehensive cache invalidation strategy:
+      // Most aggressive cache clearing strategy possible:
       
-      // 1. Invalidate all planner data
-      queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
+      // 1. Clear entire cache for all queries
+      queryClient.clear();
       
-      // 2. Invalidate specific month/year data with all possible patterns
-      queryClient.invalidateQueries({ queryKey: ['/api/planners/month'] });
-      
-      // 3. Force remove the specific planner data from cache to ensure fresh fetch
-      queryClient.removeQueries({ queryKey: ['/api/planners/month', month, 'year', year] });
-      
-      // 4. Also invalidate any planner slots and assignments
-      queryClient.invalidateQueries({ queryKey: ['/api/planner-slots'] });
-      queryClient.invalidateQueries({ queryKey: ['plannerAssignments'] });
+      // 2. Reset all queries to their initial state
+      queryClient.resetQueries();
       
       // Show success message
       toast({
@@ -222,9 +215,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         description: "You can now make changes to the planner. The status is now 'draft'.",
       });
       
-      // Force a browser refresh with query params to ensure we get the right planner
-      // Use multiple timestamp parameters to ensure no caching happens at any level
-      window.location.href = `/planner?month=${month}-${year}&id=${planner.id}&t=${timestamp}&status=draft&refresh=true`;
+      // Force a complete page reload to ensure everything is fresh
+      // This is the most reliable way to ensure we get fresh data
+      window.location.reload();
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);
