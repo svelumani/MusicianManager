@@ -307,10 +307,10 @@ const MusicianContractPage = () => {
               <p className="text-sm font-semibold text-gray-500">Status</p>
               <Badge
                 variant="outline"
-                className={`${(musicianContract.status && STATUS_COLORS[musicianContract.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.pending} flex items-center`}
+                className={`${(musicianContract.status && typeof musicianContract.status === 'string' && STATUS_COLORS[musicianContract.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.pending} flex items-center`}
               >
-                {(musicianContract.status && STATUS_ICONS[musicianContract.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.pending}
-                {musicianContract.status ? musicianContract.status.charAt(0).toUpperCase() + musicianContract.status.slice(1) : 'Pending'}
+                {(musicianContract.status && typeof musicianContract.status === 'string' && STATUS_ICONS[musicianContract.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.pending}
+                {(musicianContract.status && typeof musicianContract.status === 'string') ? musicianContract.status.charAt(0).toUpperCase() + musicianContract.status.slice(1) : 'Pending'}
               </Badge>
             </div>
             <div>
@@ -328,7 +328,7 @@ const MusicianContractPage = () => {
                 variant="outline"
                 className="flex-1 flex items-center gap-1"
                 onClick={handleResendContract}
-                disabled={musicianContract.status !== 'sent' && musicianContract.status !== 'pending'}
+                disabled={typeof musicianContract.status !== 'string' || (musicianContract.status !== 'sent' && musicianContract.status !== 'pending')}
               >
                 <RefreshCw className="h-4 w-4" />
                 Resend
@@ -337,7 +337,7 @@ const MusicianContractPage = () => {
                 variant="outline"
                 className="flex-1 flex items-center gap-1 text-red-600 hover:text-red-700"
                 onClick={handleRejectContract}
-                disabled={musicianContract.status === 'rejected' || musicianContract.status === 'signed'}
+                disabled={typeof musicianContract.status !== 'string' || musicianContract.status === 'rejected' || musicianContract.status === 'signed'}
               >
                 <XCircle className="h-4 w-4" />
                 Reject
