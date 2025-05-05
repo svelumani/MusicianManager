@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { forcePlannerReload } from "@/lib/utils/forceRefresh";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
@@ -15,6 +15,8 @@ import SimplifiedContractSender from "./SimplifiedContractSender";
 import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useVersionedQuery } from "@/hooks/use-versioned-query";
+import DataRefreshControl from "@/components/DataRefreshControl";
 
 interface PlannerGridProps {
   planner: any; // MonthlyPlanner
