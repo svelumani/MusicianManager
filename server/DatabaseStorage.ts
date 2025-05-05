@@ -3286,22 +3286,145 @@ export class DatabaseStorage implements IStorage {
   
   // Monthly Contract management implementation
   async getMonthlyContracts(): Promise<MonthlyContract[]> {
-    return await db.select().from(monthlyContracts).orderBy(desc(monthlyContracts.createdAt));
+    console.log(`[DatabaseStorage] Getting all monthly contracts`);
+    
+    // First get all contracts
+    const contracts = await db.select().from(monthlyContracts).orderBy(desc(monthlyContracts.createdAt));
+    
+    // Now get the date counts for each contract
+    if (contracts.length > 0) {
+      const contractIds = contracts.map(c => c.id);
+      
+      try {
+        // Use a SQL query to efficiently get the count of dates for each contract
+        const query = `
+          SELECT 
+            mcm.contract_id, 
+            COUNT(mcd.id) as date_count
+          FROM 
+            monthly_contract_musicians mcm
+          LEFT JOIN 
+            monthly_contract_dates mcd ON mcm.id = mcd.musician_contract_id
+          WHERE 
+            mcm.contract_id = ANY($1)
+          GROUP BY 
+            mcm.contract_id
+        `;
+        
+        const result = await pool.query(query, [contractIds]);
+        
+        // Create a map of contract IDs to date counts
+        const dateCounts: Record<number, number> = {};
+        for (const row of result.rows) {
+          dateCounts[row.contract_id] = parseInt(row.date_count) || 0;
+        }
+        
+        console.log(`[DatabaseStorage] Found day counts for ${result.rowCount} contracts`);
+        
+        // Add the date count to each contract
+        return contracts.map(contract => ({
+          ...contract,
+          dateCount: dateCounts[contract.id] || 0
+        }));
+      } catch (error) {
+        console.error(`[DatabaseStorage] Error getting day counts for contracts:`, error);
+        // Return the contracts without date counts if there was an error
+        return contracts;
+      }
+    }
+    
+    return contracts;
   }
 
   async getMonthlyContract(id: number): Promise<MonthlyContract | undefined> {
+    console.log(`[DatabaseStorage] Getting monthly contract with ID ${id}`);
+    
     const [contract] = await db.select()
       .from(monthlyContracts)
       .where(eq(monthlyContracts.id, id));
     
-    return contract;
+    if (!contract) {
+      return undefined;
+    }
+    
+    try {
+      // Get the date count for this contract
+      const query = `
+        SELECT COUNT(mcd.id) as date_count
+        FROM monthly_contract_musicians mcm
+        LEFT JOIN monthly_contract_dates mcd ON mcm.id = mcd.musician_contract_id
+        WHERE mcm.contract_id = $1
+      `;
+      
+      const result = await pool.query(query, [id]);
+      const dateCount = result.rows.length > 0 ? parseInt(result.rows[0].date_count) || 0 : 0;
+      
+      console.log(`[DatabaseStorage] Found ${dateCount} days for contract ${id}`);
+      
+      // Return the contract with the date count
+      return {
+        ...contract,
+        dateCount
+      };
+    } catch (error) {
+      console.error(`[DatabaseStorage] Error getting day count for contract ${id}:`, error);
+      // Return the contract without date count if there was an error
+      return contract;
+    }
   }
 
   async getMonthlyContractsByPlanner(plannerId: number): Promise<MonthlyContract[]> {
-    return await db.select()
+    console.log(`[DatabaseStorage] Getting monthly contracts for planner ID ${plannerId}`);
+    
+    // Get all contracts for this planner
+    const contracts = await db.select()
       .from(monthlyContracts)
       .where(eq(monthlyContracts.plannerId, plannerId))
       .orderBy(desc(monthlyContracts.createdAt));
+    
+    // Now get the date counts for each contract
+    if (contracts.length > 0) {
+      const contractIds = contracts.map(c => c.id);
+      
+      try {
+        // Use SQL to get the counts efficiently
+        const query = `
+          SELECT 
+            mcm.contract_id, 
+            COUNT(mcd.id) as date_count
+          FROM 
+            monthly_contract_musicians mcm
+          LEFT JOIN 
+            monthly_contract_dates mcd ON mcm.id = mcd.musician_contract_id
+          WHERE 
+            mcm.contract_id = ANY($1)
+          GROUP BY 
+            mcm.contract_id
+        `;
+        
+        const result = await pool.query(query, [contractIds]);
+        
+        // Build a map of contract ID to date count
+        const dateCounts: Record<number, number> = {};
+        for (const row of result.rows) {
+          dateCounts[row.contract_id] = parseInt(row.date_count) || 0;
+        }
+        
+        console.log(`[DatabaseStorage] Found day counts for planner contracts:`, dateCounts);
+        
+        // Add the date count to each contract
+        return contracts.map(contract => ({
+          ...contract,
+          dateCount: dateCounts[contract.id] || 0
+        }));
+      } catch (error) {
+        console.error(`[DatabaseStorage] Error getting day counts for planner contracts:`, error);
+        // Return the contracts without date counts if there was an error
+        return contracts;
+      }
+    }
+    
+    return contracts;
   }
 
   async createMonthlyContract(contract: InsertMonthlyContract): Promise<MonthlyContract> {
