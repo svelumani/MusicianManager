@@ -272,12 +272,10 @@ function Router() {
       <Route path="/contracts/respond/:token">
         <ContractResponsePage />
       </Route>
-      <Route path="/contracts/:id/view">
-        {(params) => (
-          <AppLayout>
-            <ContractViewPage />
-          </AppLayout>
-        )}
+      <Route path="/contracts/view">
+        <AppLayout>
+          <ContractViewPage />
+        </AppLayout>
       </Route>
       <Route path="/contracts/:id">
         {(params) => (

@@ -710,4 +710,119 @@ contractRouter.post('/:id/send', isAuthenticated, async (req, res) => {
   }
 });
 
+// Get contract musician details by contract ID
+contractRouter.get('/:id/musicians', isAuthenticated, async (req, res) => {
+  try {
+    const contractId = parseInt(req.params.id);
+    
+    // Get all musician contracts for this contract ID
+    const musicianContracts = await db
+      .select()
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.contractId, contractId));
+    
+    if (musicianContracts.length === 0) {
+      return res.json([]);
+    }
+    
+    // Get musician details and format the response
+    const results = await Promise.all(
+      musicianContracts.map(async (mc) => {
+        // Get musician details
+        const [musician] = await db
+          .select()
+          .from(musicians)
+          .where(eq(musicians.id, mc.musicianId));
+        
+        // Get dates for this musician contract
+        const dates = await db
+          .select()
+          .from(monthlyContractDates)
+          .where(eq(monthlyContractDates.musicianContractId, mc.id));
+        
+        // Calculate stats
+        const pendingDates = dates.filter(d => d.status === 'pending').length;
+        const acceptedDates = dates.filter(d => d.status === 'signed' || d.status === 'accepted').length;
+        const rejectedDates = dates.filter(d => d.status === 'rejected' || d.status === 'declined').length;
+        
+        return {
+          id: mc.id,
+          contractId: mc.contractId,
+          musicianId: mc.musicianId,
+          musicianName: musician ? musician.name : 'Unknown',
+          status: mc.status,
+          totalFee: mc.totalFee,
+          sentAt: mc.sentAt,
+          respondedAt: mc.respondedAt,
+          completedAt: mc.completedAt,
+          createdAt: mc.createdAt,
+          updatedAt: mc.updatedAt,
+          totalDates: dates.length,
+          pendingDates,
+          acceptedDates,
+          rejectedDates,
+        };
+      })
+    );
+    
+    return res.json(results);
+    
+  } catch (error) {
+    console.error('Error fetching contract musicians:', error);
+    return res.status(500).json({ 
+      message: 'Server error', 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
+
+// Get specific contract details by ID
+contractRouter.get('/:id', isAuthenticated, async (req, res) => {
+  try {
+    const contractId = parseInt(req.params.id);
+    
+    // Get the contract
+    const [contract] = await db
+      .select()
+      .from(monthlyContracts)
+      .where(eq(monthlyContracts.id, contractId));
+    
+    if (!contract) {
+      return res.status(404).json({ message: 'Contract not found' });
+    }
+    
+    // Count musicians
+    const [{ count: musicianCount }] = await db
+      .select({ count: db.count() })
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.contractId, contractId));
+    
+    // Count dates across all musicians for this contract
+    const dateCountResult = await db
+      .select({ count: db.count() })
+      .from(monthlyContractDates)
+      .leftJoin(
+        monthlyContractMusicians,
+        eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
+      )
+      .where(eq(monthlyContractMusicians.contractId, contractId));
+    
+    const dateCount = dateCountResult.length > 0 ? Number(dateCountResult[0].count) : 0;
+    
+    // Return contract with additional details
+    return res.json({
+      ...contract,
+      musicianCount: Number(musicianCount) || 0,
+      dateCount: dateCount || 0,
+    });
+    
+  } catch (error) {
+    console.error('Error fetching contract details:', error);
+    return res.status(500).json({ 
+      message: 'Server error', 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
+
 export default contractRouter;
