@@ -2683,6 +2683,49 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
   
+  // Update all planner assignments associated with a specific contract ID
+  async updatePlannerAssignmentsByContract(contractId: number, data: Partial<InsertPlannerAssignment>): Promise<boolean> {
+    try {
+      console.log(`Updating planner assignments for contract ID ${contractId} with:`, data);
+      
+      // Use raw SQL query to avoid ORM issues
+      let query = 'UPDATE planner_assignments SET ';
+      const updateValues: any[] = [];
+      const updateFields: string[] = [];
+      
+      if (data.status !== undefined) {
+        updateFields.push('status = $' + (updateValues.length + 1));
+        updateValues.push(data.status);
+      }
+      if (data.contractStatus !== undefined) {
+        updateFields.push('contract_status = $' + (updateValues.length + 1));
+        updateValues.push(data.contractStatus);
+      }
+      if (data.contractId !== undefined) {
+        updateFields.push('contract_id = $' + (updateValues.length + 1));
+        updateValues.push(data.contractId);
+      }
+      if (data.notes !== undefined) {
+        updateFields.push('notes = $' + (updateValues.length + 1));
+        updateValues.push(data.notes);
+      }
+      
+      if (updateFields.length === 0) {
+        return true; // Nothing to update
+      }
+      
+      query += updateFields.join(', ');
+      query += ' WHERE contract_id = $' + (updateValues.length + 1);
+      updateValues.push(contractId);
+      
+      const result = await pool.query(query, updateValues);
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error("Error updating planner assignments by contract:", error);
+      throw error;
+    }
+  }
+  
   async deletePlannerAssignment(id: number): Promise<boolean> {
     // Get assignment details for activity log
     const assignment = await this.getPlannerAssignment(id);
