@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { db } from '../db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { 
   monthlyContracts, 
   monthlyContractMusicians, 
@@ -8,10 +8,13 @@ import {
   monthlyContractStatusHistory,
   musicians,
   contractTemplates,
+  plannerAssignments,
+  plannerSlots,
+  venues,
 } from '../../shared/schema';
 import { randomUUID } from 'crypto';
 import { format } from 'date-fns';
-import { sendContractEmail } from '../services/emailService';
+import { sendContractEmail, sendContractResponseNotification } from '../services/emailService';
 import { isAuthenticated } from '../auth';
 
 const contractRouter = Router();
@@ -248,25 +251,239 @@ contractRouter.post('/respond', async (req, res) => {
   }
 });
 
+// Get contracts by planner ID
+contractRouter.get('/planner/:plannerId', isAuthenticated, async (req, res) => {
+  try {
+    const { plannerId } = req.params;
+    
+    if (!plannerId) {
+      return res.status(400).json({ message: 'Missing planner ID' });
+    }
+    
+    // Get all contracts for this planner
+    const contracts = await db
+      .select()
+      .from(monthlyContracts)
+      .where(eq(monthlyContracts.plannerId, Number(plannerId)))
+      .orderBy(desc(monthlyContracts.createdAt));
+    
+    // For each contract, get the count of musicians and dates
+    const contractsWithDetails = await Promise.all(
+      contracts.map(async (contract) => {
+        // Count musicians
+        const [{ count: musicianCount }] = await db
+          .select({ count: db.count() })
+          .from(monthlyContractMusicians)
+          .where(eq(monthlyContractMusicians.contractId, contract.id));
+        
+        // Count dates across all musicians for this contract
+        const dateCountResult = await db
+          .select({ count: db.count() })
+          .from(monthlyContractDates)
+          .leftJoin(
+            monthlyContractMusicians,
+            eq(monthlyContractDates.musicianContractId, monthlyContractMusicians.id)
+          )
+          .where(eq(monthlyContractMusicians.contractId, contract.id));
+        
+        const dateCount = dateCountResult.length > 0 ? Number(dateCountResult[0].count) : 0;
+        
+        return {
+          ...contract,
+          musicianCount: Number(musicianCount) || 0,
+          dateCount: dateCount || 0,
+        };
+      })
+    );
+    
+    return res.status(200).json(contractsWithDetails);
+    
+  } catch (error) {
+    console.error('Error fetching contracts by planner:', error);
+    return res.status(500).json({ 
+      message: 'Server error', 
+      error: error instanceof Error ? error.message : String(error) 
+    });
+  }
+});
+
 // Generate contracts for musicians in a planner
 contractRouter.post('/generate', isAuthenticated, async (req, res) => {
   try {
     const { plannerId, month, year, musicianId, assignmentIds } = req.body;
 
-    if (!plannerId && !assignmentIds) {
-      return res.status(400).json({ message: 'Missing plannerId or assignmentIds' });
+    if (!plannerId || !month || !year) {
+      return res.status(400).json({ message: 'Missing required fields: plannerId, month, year' });
     }
 
-    // Will implement actual contract generation logic here in phase 2
-    // For now, return success message
+    if (!assignmentIds || !Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+      return res.status(400).json({ message: 'No assignments selected for contract generation' });
+    }
+
+    console.log('Generating contract with data:', { plannerId, month, year, musicianId, assignmentIds });
+    
+    // Check if a default template exists
+    const [defaultTemplate] = await db
+      .select()
+      .from(contractTemplates)
+      .where(eq(contractTemplates.isDefault, true));
+    
+    const templateId = defaultTemplate ? defaultTemplate.id : 1; // Fallback to ID 1
+    
+    // Create a new monthly contract
+    const [contract] = await db
+      .insert(monthlyContracts)
+      .values({
+        plannerId: Number(plannerId),
+        month: Number(month),
+        year: Number(year),
+        templateId: templateId,
+        status: 'draft',
+        name: `Contract for ${month}/${year}`,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    if (!contract) {
+      return res.status(500).json({ message: 'Failed to create contract' });
+    }
+    
+    console.log('Created monthly contract:', contract);
+    
+    // Group assignments by musician
+    const assignmentsByMusician = {};
+    
+    // Fetch all requested assignments
+    const assignments = await db
+      .select()
+      .from(plannerAssignments)
+      .where(sql`id IN (${assignmentIds.join(', ')})`);
+    
+    console.log('Found assignments:', assignments);
+    
+    // Group them by musician ID
+    for (const assignment of assignments) {
+      if (!assignmentsByMusician[assignment.musicianId]) {
+        assignmentsByMusician[assignment.musicianId] = [];
+      }
+      assignmentsByMusician[assignment.musicianId].push(assignment);
+    }
+    
+    console.log('Assignments grouped by musician:', assignmentsByMusician);
+    
+    // For each musician, create a musician contract and add dates
+    const createdContracts = [];
+    for (const [musicianIdStr, musicianAssignments] of Object.entries(assignmentsByMusician)) {
+      const musicianId = Number(musicianIdStr);
+      
+      // Get musician details
+      const [musician] = await db
+        .select()
+        .from(musicians)
+        .where(eq(musicians.id, musicianId));
+      
+      if (!musician) {
+        console.error(`Musician with ID ${musicianId} not found`);
+        continue;
+      }
+      
+      // Calculate total fee across all assignments
+      const totalFee = musicianAssignments.reduce((sum, a) => sum + (a.actualFee || a.fee || 0), 0);
+      
+      // Create a unique token for this musician's contract
+      const token = randomUUID();
+      
+      // Create a monthly contract musician record
+      const [musicianContract] = await db
+        .insert(monthlyContractMusicians)
+        .values({
+          contractId: contract.id,
+          musicianId: musicianId,
+          status: 'pending',
+          totalFee: totalFee,
+          token: token,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      
+      if (!musicianContract) {
+        console.error(`Failed to create musician contract for ${musician.name}`);
+        continue;
+      }
+      
+      console.log(`Created musician contract for ${musician.name}:`, musicianContract);
+      
+      // Now add each assignment date to the contract
+      for (const assignment of musicianAssignments) {
+        // Get the slot for this assignment
+        const [slot] = await db
+          .select()
+          .from(plannerSlots)
+          .where(eq(plannerSlots.id, assignment.slotId));
+        
+        if (!slot) {
+          console.error(`Slot ${assignment.slotId} not found for assignment ${assignment.id}`);
+          continue;
+        }
+        
+        // Get venue details if applicable
+        let venueName = "Venue not specified";
+        if (slot.venueId) {
+          const [venue] = await db
+            .select()
+            .from(venues)
+            .where(eq(venues.id, slot.venueId));
+          
+          if (venue) {
+            venueName = venue.name;
+          }
+        }
+        
+        // Create a contract date
+        const [contractDate] = await db
+          .insert(monthlyContractDates)
+          .values({
+            musicianContractId: musicianContract.id,
+            date: slot.date,
+            status: 'pending',
+            fee: assignment.actualFee || assignment.fee || 0,
+            notes: slot.description || '',
+            venueId: slot.venueId || null,
+            venueName: venueName,
+            startTime: slot.startTime || '',
+            endTime: slot.endTime || '',
+            createdAt: new Date(),
+            updatedAt: new Date()
+          })
+          .returning();
+        
+        console.log(`Added date ${slot.date} to contract:`, contractDate);
+        
+        // Update the assignment to point to this contract
+        await db
+          .update(plannerAssignments)
+          .set({
+            contractId: contract.id,
+            contractStatus: 'pending'
+          })
+          .where(eq(plannerAssignments.id, assignment.id));
+      }
+      
+      createdContracts.push({
+        musicianId: musicianId,
+        musicianName: musician.name,
+        contractId: contract.id,
+        assignments: musicianAssignments.length
+      });
+    }
+    
     return res.json({
       success: true,
-      message: 'Contract generation initiated',
-      musicianId,
-      plannerId,
-      month,
-      year,
-      assignmentIds
+      message: 'Contracts generated successfully',
+      contractId: contract.id,
+      musicians: createdContracts
     });
   } catch (error) {
     console.error('Error generating contracts:', error);
