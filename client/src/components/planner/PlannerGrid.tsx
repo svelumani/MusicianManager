@@ -52,26 +52,29 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const monthEnd = endOfMonth(monthStart);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Query to get planner slots
+  // Query to get planner slots using versioned query
   const {
     data: plannerSlots,
     isLoading: isSlotsLoading,
-    refetch: refetchSlots
-  } = useQuery({
-    queryKey: ['/api/planner-slots', planner?.id],
-    queryFn: () => apiRequest(`/api/planner-slots?plannerId=${planner.id}`),
+    forceRefresh: forceRefreshSlots
+  } = useVersionedQuery({
+    entity: 'plannerSlots',
+    endpoint: `/api/planner-slots`,
+    params: { plannerId: planner?.id },
     enabled: !!planner?.id,
   });
 
-  // Query to get planner assignments - simplified with a single queryKey
+  // Query to get planner assignments using versioned query
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
-    refetch: refetchAssignments
-  } = useQuery({
-    // Use a simpler queryKey that's easier to invalidate
-    queryKey: ['plannerAssignments', planner?.id],
-    queryFn: () => {
+    forceRefresh: forceRefreshAssignments
+  } = useVersionedQuery({
+    entity: 'plannerAssignments',
+    endpoint: '/api/planner-assignments',
+    params: { plannerId: planner?.id },
+    enabled: !!plannerSlots && plannerSlots.length > 0,
+    transform: async (data) => {
       if (!plannerSlots || plannerSlots.length === 0) {
         console.log("No planner slots available, skipping assignment fetch");
         return [];
@@ -87,16 +90,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       );
       
       // Combine all results from the individual requests
-      return Promise.all(promises).then(results => {
-        // Flatten the array of arrays
-        const combined = results.flat();
-        console.log("Combined assignments:", combined.length);
-        return combined;
-      });
-    },
-    enabled: !!plannerSlots && plannerSlots.length > 0,
-    // Stale time set to 0 to ensure fresh data on every render
-    staleTime: 0
+      const results = await Promise.all(promises);
+      // Flatten the array of arrays
+      const combined = results.flat();
+      console.log("Combined assignments:", combined.length);
+      return combined;
+    }
   });
 
   // Query to get musicians with proper typing
@@ -277,32 +276,19 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     queryClient.invalidateQueries({ queryKey: ['/api/planner-slots', planner?.id] });
   };
 
-  // Handle musician assignment - now with guaranteed fresh data
+  // Handle musician assignment - with versioned query refresh
   const handleMusicianAssigned = () => {
-    // First, make sure the slots are refreshed
-    refetchSlots().then(() => {
-      console.log("Slots refreshed after musician assignment");
-      
-      // Now invalidate the assignments data to trigger a refetch
-      // Use the simplified key for reliable invalidation
-      queryClient.invalidateQueries({ 
-        queryKey: ['plannerAssignments', planner?.id] 
-      });
-      
-      // Directly trigger a refetch for immediate feedback
-      refetchAssignments().then(() => {
-        // Success notification
-        toast({
-          title: "Success",
-          description: "Musician assignments updated",
-        });
-        
-        // For critical operations like assignments, use the nuclear option
-        // to guarantee fresh data immediately instead of hoping React Query works
-        setTimeout(() => {
-          forceReloadWithCorrectContext();
-        }, 800); // Small delay to let the user see the success message
-      });
+    // Force refresh the slots data
+    forceRefreshSlots();
+    console.log("Slots refreshed after musician assignment");
+    
+    // Force refresh the assignments data
+    forceRefreshAssignments();
+    
+    // Success notification
+    toast({
+      title: "Success",
+      description: "Musician assignments updated",
     });
   };
 
