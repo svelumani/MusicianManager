@@ -2890,7 +2890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           message: "Cannot assign musician to this slot",
           error: "MUSICIAN_UNAVAILABLE",
-          details: "This musician is unavailable for this time slot. They may be marked as unavailable on this date or already have another assignment at a conflicting time."
+          details: "Musician already reserved for the same timeslot for your selected date"
         });
       }
       
@@ -2946,7 +2946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ 
             message: "Cannot reassign slot to this musician",
             error: "MUSICIAN_UNAVAILABLE",
-            details: "This musician is unavailable for this time slot. They may be marked as unavailable on this date or already have another assignment at a conflicting time."
+            details: "Musician already reserved for the same timeslot for your selected date"
           });
         }
       }
