@@ -85,6 +85,17 @@ async function refreshDataForVersions(changedVersionKeys: string[]) {
  */
 export async function checkVersionUpdates() {
   try {
+    // First check if the user is authenticated (to prevent unnecessary requests and 401s)
+    const authCheckResponse = await fetch('/api/auth/user');
+    console.log("Auth check response status:", authCheckResponse.status);
+    
+    if (!authCheckResponse.ok) {
+      if (authCheckResponse.status === 401) {
+        console.log("User not authenticated");
+        return; // Exit early if not authenticated
+      }
+    }
+    
     // Fetch latest versions from server
     const response = await fetch('/api/versions');
     
@@ -128,14 +139,52 @@ export async function checkVersionUpdates() {
         criticalUpdates.includes(key)
       );
       
-      // For critical updates, force full page refresh
-      if (hasCriticalUpdate && (
-        window.location.pathname.includes('/events/planner') || 
-        window.location.pathname.includes('/monthly/contracts') || 
-        window.location.pathname.includes('/monthly/contract-detail')
-      )) {
+      // Only do page refreshes if we've waited at least 5 seconds since last page load
+      // This prevents refresh loops
+      let timeOnPage = 10000; // Default to 10 seconds if we can't determine
+      
+      try {
+        // Modern approach using Performance API
+        const perfEntries = performance.getEntriesByType('navigation');
+        if (perfEntries.length > 0) {
+          const navEntry = perfEntries[0] as PerformanceNavigationTiming;
+          timeOnPage = Date.now() - navEntry.startTime;
+        } else {
+          // Fallback to calculate time more directly
+          const pageLoadTime = Date.now() - 5000; // Assume page loaded 5 seconds ago
+          timeOnPage = 5000; // Set to minimum refresh time
+        }
+      } catch (e) {
+        console.warn("Could not determine page load time:", e);
+      }
+      
+      // For critical updates, force full page refresh only if we're on a relevant page AND
+      // have been on the page for at least 5 seconds
+      if (hasCriticalUpdate && 
+          timeOnPage > 5000 && 
+          (window.location.pathname.includes('/events/planner') || 
+           window.location.pathname.includes('/monthly/contracts') || 
+           window.location.pathname.includes('/monthly/contract-detail'))
+      ) {
         console.log(`⚠️ Critical data update detected. Performing full refresh...`);
-        forceCurrentViewRefresh();
+        
+        // Use invalidation instead of page refresh to be less disruptive
+        for (const key of changedVersionKeys) {
+          const queryKeys = VERSION_TO_QUERY_MAP[key] || [];
+          for (const queryKey of queryKeys) {
+            await queryClient.invalidateQueries({ queryKey: [queryKey] });
+            console.log(`Invalidated query for key: ${queryKey}`);
+          }
+        }
+        
+        // Show a toast notification for critical updates instead of reloading
+        toast({
+          title: "Important Data Update",
+          description: "New data is now available. Your view has been updated.",
+          duration: 5000,
+        });
+        
+        // Don't refresh the page anymore - just invalidate the queries
         return;
       }
       
