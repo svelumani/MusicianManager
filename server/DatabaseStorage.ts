@@ -2462,6 +2462,45 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
+  async getPlannerAssignmentsByPlannerId(plannerId: number): Promise<PlannerAssignment[]> {
+    try {
+      // Validate the plannerId
+      const numericPlannerId = Number(plannerId);
+      if (isNaN(numericPlannerId) || !Number.isInteger(numericPlannerId) || numericPlannerId <= 0) {
+        console.warn(`Invalid plannerId parameter in getPlannerAssignmentsByPlannerId: ${plannerId}`);
+        return [];
+      }
+      
+      console.log(`Getting planner assignments for planner ID: ${plannerId}`);
+      
+      // First, get all slots for this planner
+      const slots = await db.select()
+        .from(plannerSlots)
+        .where(eq(plannerSlots.plannerId, plannerId));
+      
+      if (!slots.length) {
+        console.log(`No slots found for planner ID: ${plannerId}`);
+        return [];
+      }
+      
+      // Get all slot IDs for this planner
+      const slotIds = slots.map(slot => slot.id);
+      console.log(`Found ${slotIds.length} slots for planner ID: ${plannerId}`);
+      
+      // Then get all assignments for these slots
+      const assignments = await db.select()
+        .from(plannerAssignments)
+        .where(inArray(plannerAssignments.slotId, slotIds))
+        .orderBy(plannerAssignments.slotId, plannerAssignments.id);
+      
+      console.log(`Found ${assignments.length} assignments for planner ID: ${plannerId}`);
+      return assignments;
+    } catch (error) {
+      console.error(`Database error in getPlannerAssignmentsByPlannerId:`, error);
+      return [];
+    }
+  }
+  
   async getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined> {
     // Enhanced validation of numeric ID
     if (id === undefined || id === null) {
