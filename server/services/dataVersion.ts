@@ -3,25 +3,15 @@
  * 
  * This service manages versioning of data to ensure clients always have the latest data.
  * It provides a way to increment versions when data changes and get current versions.
+ * 
+ * It's now integrated with WebSockets to provide real-time update notifications
+ * when data changes, eliminating the need for manual refreshes.
  */
 import { db } from "../db";
 import { dataVersions } from "@shared/schema";
 import { eq } from "drizzle-orm";
-
-// Define standard version keys for different data types
-export const VERSION_KEYS = {
-  PLANNER: "planner_data",
-  PLANNER_ASSIGNMENTS: "planner_assignments",
-  PLANNER_SLOTS: "planner_slots",
-  MUSICIANS: "musicians",
-  VENUES: "venues",
-  CATEGORIES: "categories",
-  EVENTS: "events",
-  MONTHLY_CONTRACTS: "monthly_contracts",
-  MONTHLY: "monthly_data",
-  MONTHLY_INVOICES: "monthly_invoices",
-  // Add more as needed
-};
+import { notifyDataUpdate, requestDataRefresh } from "./webSocketServer";
+import { VERSION_KEYS, versionKeyToEntity } from "./entityMapping";
 
 /**
  * Gets the current version for a data type
@@ -68,9 +58,21 @@ export async function incrementVersion(key: string): Promise<number> {
       .where(eq(dataVersions.name, key))
       .returning();
     
-    console.log(`✅ Incremented ${key} version to ${result[0].version}`);
+    const newVersion = result[0].version;
+    console.log(`✅ Incremented ${key} version to ${newVersion}`);
     
-    return result[0].version;
+    // Notify all connected clients via WebSockets about this data change
+    if (versionKeyToEntity[key]) {
+      // Send real-time update notification
+      notifyDataUpdate(versionKeyToEntity[key]);
+      console.log(`📡 WebSocket notification sent for ${versionKeyToEntity[key]} update`);
+    } else {
+      // If we don't have a specific mapping, notify for 'all' entities
+      requestDataRefresh('all');
+      console.log(`📡 WebSocket notification sent for global data refresh`);
+    }
+    
+    return newVersion;
   } catch (error) {
     console.error(`Error incrementing version for ${key}:`, error);
     return -1; // Error value

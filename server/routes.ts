@@ -25,12 +25,12 @@ import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
 import versionRouter from './routes/versions';
-import { incrementVersion, VERSION_KEYS } from './services/dataVersion';
+import { incrementVersion } from './services/dataVersion';
+import { VERSION_KEYS, versionKeyToEntity } from './services/entityMapping';
 import { 
   initWebSocketServer, 
   notifyDataUpdate, 
-  requestDataRefresh,
-  versionKeyToEntity
+  requestDataRefresh 
 } from './services/webSocketServer';
 
 // Helper function to prevent browser caching for critical endpoints
@@ -79,8 +79,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server for Express and WebSockets
   const httpServer = createServer(app);
   
-  // Initialize WebSocket server
-  const wss = initWebSocketServer(httpServer);
+  // Initialize WebSocket server for real-time updates
+  initWebSocketServer(httpServer);
   
   // Configure session middleware
   app.use(
@@ -6914,8 +6914,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount the API router
   app.use("/api", apiRouter);
-
-  const httpServer = createServer(app);
 
   return httpServer;
 }

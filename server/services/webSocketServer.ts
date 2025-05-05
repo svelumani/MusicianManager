@@ -7,7 +7,7 @@
  */
 import { Server as HttpServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import { VERSION_KEYS } from './dataVersion';
+import { UpdateEntity, versionKeyToEntity } from './entityMapping';
 
 // Store active connections
 const clients: Map<string, WebSocket> = new Map();
@@ -20,20 +20,6 @@ export type NotificationType =
   | 'data-update' 
   | 'refresh-required' 
   | 'system-message';
-
-// Data update entities
-export type UpdateEntity = 
-  | 'planners'
-  | 'plannerSlots'
-  | 'plannerAssignments'
-  | 'musicians'
-  | 'venues'
-  | 'categories'
-  | 'musicianPayRates'
-  | 'eventCategories'
-  | 'availability'
-  | 'monthlyContracts'
-  | 'all';
 
 // Message structure for data updates
 export interface UpdateMessage {
@@ -154,14 +140,4 @@ function broadcastMessage(message: UpdateMessage) {
   console.log(`Message broadcast to ${successCount} client(s)`);
 }
 
-// Map VERSION_KEYS to UpdateEntity types for data version service integration
-export const versionKeyToEntity: Record<string, UpdateEntity> = {
-  [VERSION_KEYS.PLANNER]: 'planners',
-  [VERSION_KEYS.PLANNER_SLOTS]: 'plannerSlots',
-  [VERSION_KEYS.PLANNER_ASSIGNMENTS]: 'plannerAssignments',
-  [VERSION_KEYS.MUSICIANS]: 'musicians',
-  [VERSION_KEYS.VENUES]: 'venues',
-  [VERSION_KEYS.CATEGORIES]: 'categories',
-  [VERSION_KEYS.MONTHLY_CONTRACTS]: 'monthlyContracts',
-  // Add more mappings as needed
-};
+// No duplicate mapping needed - now imported from entityMapping.ts
