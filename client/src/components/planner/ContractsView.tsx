@@ -177,7 +177,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
                 <TableRow key={contract.id}>
                   <TableCell>{contract.id}</TableCell>
                   <TableCell>
-                    <Link to={`/monthly/contract-detail/${contract.id}`} className="text-blue-600 hover:underline">
+                    <Link to={`/monthly/contracts/${contract.id}`} className="text-blue-600 hover:underline">
                       {contract.name || `Contract #${contract.id}`}
                     </Link>
                   </TableCell>
@@ -221,7 +221,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
                         className="flex items-center gap-1"
                         asChild
                       >
-                        <Link to={`/monthly/contract-detail/${contract.id}`}>
+                        <Link to={`/monthly/contracts/${contract.id}`}>
                           <FileText className="h-4 w-4" />
                           View
                         </Link>
