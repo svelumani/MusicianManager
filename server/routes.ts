@@ -3074,7 +3074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }, {});
       
       // 4. Get venue and slot information for display
-      const slots = await storage.getPlannerSlotsByPlannerId(plannerId);
+      const slots = await storage.getPlannerSlots(plannerId);
       const venues = await storage.getVenues();
       
       // Create maps for quick lookups
