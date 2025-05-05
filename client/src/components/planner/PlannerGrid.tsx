@@ -226,6 +226,16 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     });
   };
 
+  // Query to get current version info - using standard React Query to avoid UpdateEntity type issue
+  const {
+    data: versionInfo,
+    isLoading: isVersionsLoading
+  } = useQuery({
+    queryKey: ['/api/versions'],
+    refetchInterval: 30000, // Check every 30 seconds
+    select: (data) => data || {}
+  });
+
   // Auto-save feature
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -235,6 +245,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         updatePlannerMutation.mutate({
           ...planner,
           updatedAt: new Date(),
+          version: versionInfo?.monthly_planners || planner.version || 1
         });
       }, AUTO_SAVE_INTERVAL);
     }
@@ -242,7 +253,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAutoSaveEnabled, planner, updatePlannerMutation]);
+  }, [isAutoSaveEnabled, planner, updatePlannerMutation, versionInfo]);
 
   // Wrapper function for our centralized utilities that adds user feedback
   const forceReloadWithCorrectContext = () => {
@@ -566,18 +577,33 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
           </div>
           
           {/* Version information */}
-          <div className="flex items-center space-x-2 text-xs text-gray-500 border-l pl-2">
-            <div className="flex items-center">
-              <Calendar className="h-3 w-3 mr-1" />
-              <span>Data version: {planner?.version || '-'}</span>
-            </div>
-            {planner?.updatedAt && (
-              <div className="flex items-center ml-2">
-                <Clock className="h-3 w-3 mr-1" />
-                <span>Updated: {format(new Date(planner.updatedAt), "MMM d, HH:mm:ss")}</span>
-              </div>
-            )}
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center space-x-2 text-xs text-gray-500 border-l pl-2 cursor-help">
+                  <div className="flex items-center">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    <span>Monthly planner v{versionInfo?.monthly_planners || planner?.version || '-'}</span>
+                  </div>
+                  {planner?.updatedAt && (
+                    <div className="flex items-center ml-2">
+                      <Clock className="h-3 w-3 mr-1" />
+                      <span>Updated: {format(new Date(planner.updatedAt), "MMM d, HH:mm:ss")}</span>
+                    </div>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <div className="text-xs space-y-1">
+                  <div className="font-bold">Data Versions Info:</div>
+                  <div>Planner: v{planner?.version || '-'}</div>
+                  <div>Last Auto-save: {lastSaved ? format(lastSaved, "HH:mm:ss") : 'None'}</div>
+                  <hr className="my-1" />
+                  <div>To manually refresh data, click the "Refresh Data" button.</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           
           {/* Real-time update indicator */}
           <div className="flex items-center mr-2">

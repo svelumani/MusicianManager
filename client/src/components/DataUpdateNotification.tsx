@@ -105,11 +105,19 @@ export function DataUpdateNotification() {
     return (
       <div className="text-xs space-y-1">
         <div className="font-bold">Current Data Versions:</div>
-        <div>Planner Data: v{versions.planner_data || '?'}</div>
-        <div>Planner Slots: v{versions.planner_slots || '?'}</div>
-        <div>Planner Assignments: v{versions.planner_assignments || '?'}</div>
-        <div>Monthly Planners: v{versions.monthly_planners || '?'}</div>
-        <div>Monthly Contracts: v{versions.monthly_contracts || '?'}</div>
+        <div className="grid grid-cols-2 gap-x-2">
+          <div>Monthly Planners:</div>
+          <div className="font-medium">v{versions.monthly_planners || '?'}</div>
+          
+          <div>Planner Slots:</div>
+          <div className="font-medium">v{versions.planner_slots || '?'}</div>
+          
+          <div>Planner Assignments:</div>
+          <div className="font-medium">v{versions.planner_assignments || '?'}</div>
+          
+          <div>Monthly Contracts:</div>
+          <div className="font-medium">v{versions.monthly_contracts || '?'}</div>
+        </div>
         {lastVersionCheck && (
           <div className="pt-1 text-gray-500">
             Last check: {lastVersionCheck.toLocaleTimeString()}
@@ -159,7 +167,7 @@ export function DataUpdateNotification() {
         <TooltipTrigger asChild>
           <Badge variant="outline" className="ml-2 flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            Connected v{versions.planner_data || '?'}
+            Connected v{versions.monthly_planners || '?'}
           </Badge>
         </TooltipTrigger>
         <TooltipContent>
