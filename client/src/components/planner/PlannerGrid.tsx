@@ -180,6 +180,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const handleUnfinalize = () => {
     if (!planner) return;
     
+    // Show a loading toast
+    toast({
+      title: "Updating Planner",
+      description: "Changing planner status to draft...",
+    });
+    
     // Direct API call to ensure immediate status update
     apiRequest(`/api/planners/${planner.id}`, "PUT", {
       ...planner,
@@ -193,13 +199,19 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       queryClient.invalidateQueries({ queryKey: ['/api/planners/month', month, 'year', year] });
       queryClient.invalidateQueries({ queryKey: ['/api/planners', planner.id] });
       
-      // Force the page to refresh the planner data
-      window.location.reload();
-      
+      // Inform the user of success and give time to see the message
       toast({
         title: "Planner Reopened",
         description: "You can now make changes to the planner",
       });
+      
+      // Update planner in the local state instead of reloading
+      // This prevents losing context when the page refreshes
+      setTimeout(() => {
+        // If using window.location is necessary, ensure we go to the exact same planner
+        const plannerPageUrl = `/planner?month=${month}-${year}`;
+        window.location.href = plannerPageUrl;
+      }, 1000);
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);
