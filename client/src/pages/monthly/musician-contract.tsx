@@ -75,9 +75,17 @@ const MusicianContractPage = () => {
   } = useQuery({
     queryKey: [`/api/monthly-contracts/${contractId}`],
     enabled: !!contractId,
-    onSuccess: (data) => {
-      console.log('Contract data:', data);
-    }
+    queryFn: async () => {
+      try {
+        const data = await apiRequest(`/api/monthly-contracts/${contractId}`);
+        console.log('Contract data (complete):', data);
+        console.log('Days data available:', data?.days ? data.days.length : 'No days property');
+        return data;
+      } catch (error) {
+        console.error("Error fetching contract data:", error);
+        throw error;
+      }
+    },
   });
   
   // Extract the contract from the data response
