@@ -215,14 +215,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         description: "You can now make changes to the planner. The status is now 'draft'.",
       });
       
-      // Force a complete page reload with explicit month, year and cache busting parameters
-      // This is the most reliable way to ensure we get fresh data with correct date context
-      const cacheBuster = new Date().getTime();
-      const year = planner.year;
-      const month = planner.month;
-      
-      // Navigate to a specific URL that includes all necessary context
-      window.location.href = `/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
+      // Use our utility function to force a clean reload 
+      // with guaranteed fresh data and correct context
+      forceReloadWithCorrectContext();
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);
@@ -252,12 +247,44 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     };
   }, [isAutoSaveEnabled, planner, updatePlannerMutation]);
 
+  // Utility function to force a fresh reload with correct context
+  const forceReloadWithCorrectContext = () => {
+    // Ensure we have the correct month and year parameters
+    const year = planner?.year;
+    const month = planner?.month;
+    
+    // Create a cache-busting timestamp
+    const timestamp = Date.now();
+    
+    // First clear EVERYTHING from cache
+    queryClient.clear();
+    
+    // Build the URL with enhanced parameters for even more aggressive cache clearing
+    const url = `/planner?month=${month}&year=${year}&refresh=${timestamp}&force=true`;
+    
+    // Log the navigation
+    console.log(`⚠️ NUCLEAR OPTION: Force reloading page with correct context: ${url}`);
+    
+    // Show a warning toast to inform the user
+    toast({
+      title: "Refreshing Data",
+      description: "Reloading page to ensure you have the most up-to-date information...",
+      variant: "warning"
+    });
+    
+    // Small delay to let the toast display
+    setTimeout(() => {
+      // Perform the navigation with full page reload
+      window.location.href = url;
+    }, 500);
+  };
+
   // Handle slot creation/update via the inline musician select
   const handleSlotCreated = (slot: any) => {
     queryClient.invalidateQueries({ queryKey: ['/api/planner-slots', planner?.id] });
   };
 
-  // Handle musician assignment - simplified with direct invalidation
+  // Handle musician assignment - now with guaranteed fresh data
   const handleMusicianAssigned = () => {
     // First, make sure the slots are refreshed
     refetchSlots().then(() => {
@@ -276,6 +303,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
           title: "Success",
           description: "Musician assignments updated",
         });
+        
+        // For critical operations like assignments, use the nuclear option
+        // to guarantee fresh data immediately instead of hoping React Query works
+        setTimeout(() => {
+          forceReloadWithCorrectContext();
+        }, 800); // Small delay to let the user see the success message
       });
     });
   };

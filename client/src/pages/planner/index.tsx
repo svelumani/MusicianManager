@@ -61,16 +61,33 @@ const PlannerPage = () => {
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
   const currentYear = parseInt(selectedMonth.split("-")[0]);
   
-  // Force planner refresh when timestamp or status params are present
+  // Force planner refresh when timestamp or refresh params are present
   useEffect(() => {
-    if (urlParams.timestamp || urlParams.refresh === 'true') {
-      console.log("URL contains refresh parameters, invalidating cache");
-      // Clear all planner related caches
+    if (urlParams.timestamp || urlParams.refresh) {
+      console.log("URL contains refresh parameters, performing complete cache reset");
+      
+      // Step 1: Clear the entire cache first
+      queryClient.clear();
+      
+      // Step 2: Explicitly invalidate all planner-related caches
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
       queryClient.invalidateQueries({ queryKey: ['/api/planner-slots'] });
       queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/musicians'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/venues'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/event-categories'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/musician-pay-rates'] });
+      
+      // Step 3: Force refetch all critical data
+      setTimeout(() => {
+        console.log("Forcing data refetches after cache reset");
+        queryClient.refetchQueries({ queryKey: ['/api/planners/month', currentMonth, 'year', currentYear] });
+        queryClient.refetchQueries({ queryKey: ['/api/planner-slots'] });
+        queryClient.refetchQueries({ queryKey: ['/api/planner-assignments'] });
+      }, 100);
     }
-  }, [urlParams.timestamp, urlParams.refresh]);
+  }, [urlParams.timestamp, urlParams.refresh, currentMonth, currentYear]);
 
   // Query to get monthly planner with cache-busting for status changes
   const {
@@ -131,10 +148,11 @@ const PlannerPage = () => {
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
       queryClient.invalidateQueries({ queryKey: ['/api/planners/month', currentMonth, 'year', currentYear] });
       
-      // Force a fresh page load with a cache-busting parameter
+      // Force a complete reload with a special reload indicator to ensure 
+      // we bypass ALL caching mechanisms
       setTimeout(() => {
-        const cacheBuster = Date.now();
-        window.location.href = `${window.location.pathname}?month=${currentMonth}&year=${currentYear}&refresh=${cacheBuster}`;
+        const timestamp = Date.now();
+        window.location.href = `${window.location.pathname}?month=${currentMonth}&year=${currentYear}&refresh=${timestamp}&force=true`;
       }, 500);
     },
     onError: (error: any) => {
