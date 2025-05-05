@@ -92,24 +92,29 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     transform: (data) => Array.isArray(data) ? data : [],
   });
 
-  // Query to get musician availability data
+  // Query to get musician availability data with version tracking
   const {
     data: availabilityData,
     isLoading: isAvailabilityLoading,
-  } = useQuery({
-    queryKey: ['/api/availability', year, month],
-    queryFn: () => apiRequest(`/api/availability?year=${year}&month=${month}`),
+    forceRefresh: forceRefreshAvailability
+  } = useVersionedQuery<any>({
+    entity: 'availability',
+    endpoint: `/api/availability?year=${year}&month=${month}`,
+    transform: (data) => data || {},
     enabled: availabilityView && !!musicians && musicians.length > 0,
   });
   
-  // Query to get musician pay rates for proper pricing calculations
+  // Query to get musician pay rates for proper pricing calculations with version tracking
   const {
     data: payRates,
     isLoading: isPayRatesLoading,
-  } = useQuery({
-    queryKey: ['/api/musician-pay-rates'],
-    queryFn: async () => {
-      const rates = await apiRequest('/api/musician-pay-rates');
+    forceRefresh: forceRefreshPayRates
+  } = useVersionedQuery<any[]>({
+    entity: 'musicianPayRates',
+    endpoint: '/api/musician-pay-rates',
+    transform: (rates) => {
+      if (!Array.isArray(rates)) return [];
+      
       // Debug: Log James Wilson's rates for Club Performance
       const jamesRates = rates.filter((r: any) => r.musicianId === 7);
       const clubRates = rates.filter((r: any) => r.eventCategoryId === 7);
@@ -124,13 +129,15 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     }
   });
   
-  // Query to get event categories for proper pricing calculations
+  // Query to get event categories for proper pricing calculations with version tracking
   const {
     data: eventCategories,
     isLoading: isEventCategoriesLoading,
-  } = useQuery({
-    queryKey: ['/api/event-categories'],
-    queryFn: () => apiRequest('/api/event-categories'),
+    forceRefresh: forceRefreshCategories
+  } = useVersionedQuery<any[]>({
+    entity: 'categories',
+    endpoint: '/api/event-categories',
+    transform: (data) => Array.isArray(data) ? data : []
   });
 
   // Update planner status mutation
@@ -553,10 +560,14 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
           </div>
           
           <DataRefreshControl 
-            entities={['plannerSlots', 'plannerAssignments', 'musicians']}
+            entities={['plannerSlots', 'plannerAssignments', 'musicians', 'musicianPayRates', 'categories', 'availability']}
             onRefresh={() => {
               forceRefreshSlots();
               forceRefreshAssignments();
+              forceRefreshMusicians();
+              forceRefreshPayRates();
+              forceRefreshCategories();
+              forceRefreshAvailability();
               toast({
                 title: "Data Refreshed",
                 description: "Planner data has been refreshed with the latest information"

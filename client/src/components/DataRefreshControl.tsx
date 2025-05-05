@@ -51,6 +51,11 @@ interface DataRefreshControlProps {
    * Time in milliseconds after which data is considered stale
    */
   staleTime?: number;
+  
+  /**
+   * Optional className for styling
+   */
+  className?: string;
 }
 
 export default function DataRefreshControl({
@@ -60,7 +65,8 @@ export default function DataRefreshControl({
   iconOnly = false,
   label = 'Refresh',
   variant = 'outline',
-  staleTime = 60000 // Default to 1 minute
+  staleTime = 60000, // Default to 1 minute
+  className = ''
 }: DataRefreshControlProps) {
   const queryClient = useQueryClient();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -163,7 +169,7 @@ export default function DataRefreshControl({
             size={size}
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className={`flex items-center justify-center group ${buttonSizeClass} ${isStale ? 'border-amber-500' : ''}`}
+            className={`flex items-center justify-center group ${buttonSizeClass} ${isStale ? 'border-amber-500' : ''} ${className}`}
           >
             {isRefreshing ? (
               <RefreshCw className={`h-${iconSize} w-${iconSize} animate-spin`} />

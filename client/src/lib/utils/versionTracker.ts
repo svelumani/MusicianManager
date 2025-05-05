@@ -14,7 +14,10 @@ export type VersionedEntity =
   | 'monthlyContracts'
   | 'musicians'
   | 'venues'
-  | 'categories';
+  | 'categories'
+  | 'musicianPayRates'
+  | 'eventCategories'
+  | 'availability';
 
 const VERSION_STORAGE_KEY = 'data_versions';
 
