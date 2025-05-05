@@ -2429,7 +2429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sent: 0,
         failed: 0,
         skipped: 0,
-        emailSent: sendGridConfigured, // Flag to indicate if email sending was possible
+        emailEnabled: sendGridConfigured, // Flag to indicate if email sending was possible
         emailsActuallySent: false, // Will be set to true if at least one email is successfully sent
         details: []
       };
