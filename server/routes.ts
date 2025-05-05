@@ -4661,6 +4661,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Direct DB query - found ${musicianDirectResult.rows.length} pay rates for musician ${musicianId}:`);
           if (musicianDirectResult.rows.length > 0) {
             console.log("First 3 pay rates from DB:", JSON.stringify(musicianDirectResult.rows.slice(0, 3)));
+            
+            // Analyze the raw DB data structure 
+            const firstItem = musicianDirectResult.rows[0];
+            console.log("Raw DB data - keys:", Object.keys(firstItem));
+            console.log("Raw DB data - values (first item):", JSON.stringify(firstItem));
+            
+            // Check if DB column names match what frontend expects
+            console.log("DB has camelCase keys:", 'hourlyRate' in firstItem || 'hourly_rate' in firstItem);
+            console.log("DB has snake_case keys:", 'hourly_rate' in firstItem || 'hourlyRate' in firstItem);
           }
         }
       } catch (dbError) {
@@ -4687,12 +4696,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         
         console.log("Pay rates have correct field structure:", hasCorrectFields);
+        
+        // Do a detailed key-by-key check of the first item
+        const firstItem = payRates[0];
+        console.log("First item keys:", Object.keys(firstItem));
+        console.log("First item values:", JSON.stringify(firstItem));
+        
+        // Look for expected keys
+        for (const key of ['eventCategoryId', 'hourlyRate', 'dayRate', 'eventRate']) {
+          console.log(`Key '${key}' exists:`, key in firstItem);
+        }
       } else {
         console.log("No pay rates found through storage interface. Will return an empty array.");
       }
       
       // Make sure we're returning properly formatted JSON with the expected field names
       res.setHeader('Content-Type', 'application/json');
+      console.log("About to send response, pay rates length:", payRates.length);
+      console.log("Response payload sample:", JSON.stringify(payRates.slice(0, 1)));
       res.json(payRates);
     } catch (error) {
       console.error("Error in musician-pay-rates endpoint:", error);
