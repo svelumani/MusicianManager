@@ -267,7 +267,7 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       const musicianContractId = parseInt(req.params.musicianContractId);
       
       // Get the contract musician
-      const contractMusician = await storage.getMonthlyContractMusicianById(musicianContractId);
+      const contractMusician = await storage.getMonthlyContractMusician(musicianContractId);
       if (!contractMusician || contractMusician.contractId !== contractId) {
         return res.status(404).json({ message: "Musician contract not found" });
       }
