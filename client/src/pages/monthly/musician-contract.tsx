@@ -389,6 +389,7 @@ const MusicianContractPage = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Musician Response</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                 </tr>
               </thead>
@@ -417,14 +418,37 @@ const MusicianContractPage = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {day.fee ? `$${day.fee.toFixed(2)}` : (day.actualFee ? `$${day.actualFee.toFixed(2)}` : 'N/A')}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {day.musicianResponse ? (
+                          <Badge
+                            variant="outline"
+                            className={`${
+                              day.musicianResponse === 'accepted' ? 'bg-green-50 text-green-700' : 
+                              day.musicianResponse === 'rejected' ? 'bg-red-50 text-red-700' : 
+                              'bg-yellow-50 text-yellow-700'
+                            } flex items-center`}
+                          >
+                            {day.musicianResponse === 'accepted' ? <CheckCircle className="h-3.5 w-3.5 mr-1" /> : 
+                             day.musicianResponse === 'rejected' ? <XCircle className="h-3.5 w-3.5 mr-1" /> : 
+                             <Clock className="h-3.5 w-3.5 mr-1" />}
+                            {day.musicianResponse === 'accepted' ? 'Accepted' : 
+                             day.musicianResponse === 'rejected' ? 'Rejected' : 'Pending'}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-600 flex items-center">
+                            <Clock className="h-3.5 w-3.5 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
-                        {day.notes || 'No notes'}
+                        {day.notes || (day.musicianNotes ? `Musician: ${day.musicianNotes}` : 'No notes')}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                       No performances found for this contract
                     </td>
                   </tr>
