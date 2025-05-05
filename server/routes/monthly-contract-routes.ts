@@ -35,8 +35,15 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
         return res.status(404).json({ message: "Contract not found" });
       }
       
+      console.log("Contract data for preview:", JSON.stringify(contract, null, 2));
+      
       // Get the contract template
-      const template = await storage.getContractTemplate(contract.templateId);
+      const templateId = contract.templateId;
+      if (!templateId) {
+        return res.status(400).json({ message: "Contract has no template ID" });
+      }
+      
+      const template = await storage.getContractTemplate(templateId);
       if (!template) {
         return res.status(404).json({ message: "Contract template not found" });
       }
