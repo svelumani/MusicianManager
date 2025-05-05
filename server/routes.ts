@@ -4667,16 +4667,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("Raw DB data - keys:", Object.keys(firstItem));
             console.log("Raw DB data - values (first item):", JSON.stringify(firstItem));
             
-            // Check if DB column names match what frontend expects
-            console.log("DB has camelCase keys:", 'hourlyRate' in firstItem || 'hourly_rate' in firstItem);
-            console.log("DB has snake_case keys:", 'hourly_rate' in firstItem || 'hourlyRate' in firstItem);
+            // Create a properly formatted array to return to the client
+            const formattedPayRates = musicianDirectResult.rows.map(row => ({
+              id: row.id,
+              musicianId: row.musician_id,
+              eventCategoryId: row.event_category_id,
+              hourlyRate: row.hourly_rate,
+              dayRate: row.day_rate,
+              eventRate: row.event_rate,
+              notes: row.notes
+            }));
+            
+            console.log("OVERRIDING with direct DB query results to fix camelCase issue");
+            console.log("Formatted pay rates:", JSON.stringify(formattedPayRates.slice(0, 3)));
+            
+            // Return the directly queried and manually formatted results
+            res.setHeader('Content-Type', 'application/json');
+            return res.json(formattedPayRates);
           }
         }
       } catch (dbError) {
         console.error("Failed to directly query database:", dbError);
       }
       
-      // Get the pay rates through the storage interface
+      // If we get here, either there was no musicianId or no pay rates were found with direct query
+      // Fall back to using the storage interface
       let payRates = musicianId 
         ? await storage.getMusicianPayRatesByMusicianId(musicianId)
         : await storage.getMusicianPayRates();
