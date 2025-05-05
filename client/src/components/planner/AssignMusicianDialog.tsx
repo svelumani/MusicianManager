@@ -160,10 +160,21 @@ const AssignMusicianDialog = ({
       });
       queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', slot?.id] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      // Get the detailed error message if available
+      let errorMessage = "Failed to assign musician";
+      
+      try {
+        if (error.response?.data?.details) {
+          errorMessage = error.response.data.details;
+        }
+      } catch (e) {
+        console.error("Error extracting error details", e);
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to assign musician",
+        description: errorMessage,
         variant: "destructive",
       });
       console.error(error);
@@ -181,10 +192,21 @@ const AssignMusicianDialog = ({
       });
       queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', slot?.id] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      // Get the detailed error message if available
+      let errorMessage = "Failed to update assignment";
+      
+      try {
+        if (error.response?.data?.details) {
+          errorMessage = error.response.data.details;
+        }
+      } catch (e) {
+        console.error("Error extracting error details", e);
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to update assignment",
+        description: errorMessage,
         variant: "destructive",
       });
       console.error(error);
@@ -201,10 +223,21 @@ const AssignMusicianDialog = ({
       });
       queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments', slot?.id] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      // Get the detailed error message if available
+      let errorMessage = "Failed to remove musician";
+      
+      try {
+        if (error.response?.data?.details) {
+          errorMessage = error.response.data.details;
+        }
+      } catch (e) {
+        console.error("Error extracting error details", e);
+      }
+      
       toast({
         title: "Error",
-        description: "Failed to remove musician",
+        description: errorMessage,
         variant: "destructive",
       });
       console.error(error);
