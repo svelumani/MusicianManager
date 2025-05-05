@@ -266,6 +266,9 @@ function Router() {
       </Route>
       
       {/* Contracts */}
+      <Route path="/contracts/response">
+        <ContractResponsePage />
+      </Route>
       <Route path="/contracts/respond/:token">
         <ContractResponsePage />
       </Route>

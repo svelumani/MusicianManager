@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { FileText } from "lucide-react";
 import { format } from "date-fns";
 
 interface GenerateContractButtonProps {
