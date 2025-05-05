@@ -165,8 +165,14 @@ const AssignMusicianDialog = ({
       let errorMessage = "Failed to assign musician";
       
       try {
+        // Log the full error response for debugging
+        console.log("Error response:", error.response?.data);
+        
+        // Check for different field names in the error response
         if (error.response?.data?.details) {
           errorMessage = error.response.data.details;
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
         }
       } catch (e) {
         console.error("Error extracting error details", e);
@@ -177,7 +183,7 @@ const AssignMusicianDialog = ({
         description: errorMessage,
         variant: "destructive",
       });
-      console.error(error);
+      console.error("Error object:", error);
     }
   });
 
@@ -197,8 +203,14 @@ const AssignMusicianDialog = ({
       let errorMessage = "Failed to update assignment";
       
       try {
+        // Log the full error response for debugging
+        console.log("Error response:", error.response?.data);
+        
+        // Check for different field names in the error response
         if (error.response?.data?.details) {
           errorMessage = error.response.data.details;
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
         }
       } catch (e) {
         console.error("Error extracting error details", e);
@@ -209,7 +221,7 @@ const AssignMusicianDialog = ({
         description: errorMessage,
         variant: "destructive",
       });
-      console.error(error);
+      console.error("Error object:", error);
     }
   });
 
@@ -228,8 +240,14 @@ const AssignMusicianDialog = ({
       let errorMessage = "Failed to remove musician";
       
       try {
+        // Log the full error response for debugging
+        console.log("Error response:", error.response?.data);
+        
+        // Check for different field names in the error response
         if (error.response?.data?.details) {
           errorMessage = error.response.data.details;
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
         }
       } catch (e) {
         console.error("Error extracting error details", e);
@@ -240,7 +258,7 @@ const AssignMusicianDialog = ({
         description: errorMessage,
         variant: "destructive",
       });
-      console.error(error);
+      console.error("Error object:", error);
     }
   });
 
