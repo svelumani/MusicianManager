@@ -356,7 +356,21 @@ export default function ViewEventPage() {
         throw new Error("Failed to fetch musician pay rates");
       }
       const data = await response.json();
-      console.log("Musician pay rates data:", data);
+      console.log("Musician pay rates data sample (first item):", data[0]);
+      console.log("Musician pay rates data keys:", data[0] ? Object.keys(data[0]) : "No data items");
+      console.log("Total musician pay rates returned:", data.length);
+      
+      // Print all rates returned to examine data structure
+      console.log("All returned pay rates:", data);
+      
+      // Let's log the property names as they come from the server
+      if (data[0]) {
+        console.log("Property name check - Is musicianId present?", "musicianId" in data[0]);
+        console.log("Property name check - Is musician_id present?", "musician_id" in data[0]);
+        console.log("Value of first item's musician_id:", data[0].musician_id);
+        console.log("Value of first item's musicianId:", data[0].musicianId);
+      }
+      
       return data;
     },
     enabled: !!musicians && musicians.length > 0,
@@ -754,10 +768,11 @@ export default function ViewEventPage() {
                                     </TableCell>
                                     <TableCell>
                                       {(() => {
-                                        // Get ALL rates for this musician 
-                                        const allMusicianRates = musicianPayRates.filter((rate: any) => 
-                                          rate.musicianId === musicianId
-                                        );
+                                        // Get ALL rates for this musician - check both camelCase and snake_case properties
+                                        const allMusicianRates = musicianPayRates.filter((rate: any) => {
+                                          // Try both property name styles since we're not sure which one is used
+                                          return (rate.musicianId === musicianId) || (rate.musician_id === musicianId);
+                                        });
                                         
                                         // Log for debugging
                                         console.log("All musician rates for musician", musicianId, ":", allMusicianRates);
@@ -765,11 +780,13 @@ export default function ViewEventPage() {
                                         // We'll build our list of preferred rates based on event categories
                                         let preferredRates = [];
                                         
-                                        // First try to match using event's category ID
+                                        // First try to match using event's category ID - check both camelCase and snake_case properties
                                         if (event.eventCategoryId) {
-                                          preferredRates = allMusicianRates.filter((rate: any) =>
-                                            rate.eventCategoryId === event.eventCategoryId
-                                          );
+                                          preferredRates = allMusicianRates.filter((rate: any) => {
+                                            // Try both property name styles
+                                            return (rate.eventCategoryId === event.eventCategoryId) || 
+                                                   (rate.event_category_id === event.eventCategoryId);
+                                          });
                                           console.log("Found rates matching event category ID:", event.eventCategoryId, preferredRates.length);
                                         }
                                         

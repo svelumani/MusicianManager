@@ -4600,11 +4600,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       console.log("Fetching musician pay rates, musicianId:", musicianId);
       
-      const payRates = musicianId 
+      let payRates = musicianId 
         ? await storage.getMusicianPayRatesByMusicianId(musicianId)
         : await storage.getMusicianPayRates();
       
       console.log(`Retrieved ${payRates.length} pay rates.`);
+      
+      // Debug the returned structure - first item if available
+      if (payRates.length > 0) {
+        console.log("Sample pay rate structure:", JSON.stringify(payRates[0]));
+      } else {
+        console.log("No pay rates found. Will return an empty array.");
+      }
+      
+      // Log if we found rates for the specific musician (debug only)
+      if (musicianId) {
+        const relevantRates = payRates.filter(
+          (rate: any) => rate.musicianId === musicianId || rate.musician_id === musicianId
+        );
+        console.log(`Found ${relevantRates.length} rates for musician ID ${musicianId}`);
+      }
       
       // Make sure we're returning properly formatted JSON
       res.setHeader('Content-Type', 'application/json');
