@@ -2609,6 +2609,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`[planner-contracts] Email could not be sent to ${musician.name} (ID: ${musicianId}) - SendGrid not configured`);
             }
             
+            // Create monthly contract musician record
+            // Generate a unique token for the musician contract
+            const token = `mcm-${Math.random().toString(36).substring(2, 15)}-${Date.now().toString(36)}`;
+            
+            const contractMusician = await storage.createMonthlyContractMusician({
+              token: token,
+              contractId: contract.id,
+              musicianId: parseInt(musicianId),
+              status: "pending",
+              notes: null,
+              totalDates: assignments.length,
+              totalFee: totalFee,
+              acceptedDates: 0,
+              rejectedDates: 0,
+              pendingDates: assignments.length
+            });
+            
+            console.log(`[DEBUG] Created musician contract record with ID: ${contractMusician.id}`);
+            
+            // Create monthly contract dates for each assignment
+            let dateCreationSuccessful = true;
+            for (const assignment of assignments) {
+              try {
+                // Parse the date from the formatted string back to a Date object
+                // Format is 'MMM d, yyyy' like 'May 1, 2025'
+                const dateObj = new Date(assignment.date);
+                
+                // Create date record linking to the musician contract
+                const contractDate = await storage.createMonthlyContractDate({
+                  musicianContractId: contractMusician.id,
+                  date: dateObj,
+                  fee: assignment.fee,
+                  status: "pending",
+                  notes: `${assignment.venueName || 'Unknown venue'} - ${assignment.startTime || '?'} to ${assignment.endTime || '?'}`,
+                  venueName: assignment.venueName || null,
+                  startTime: assignment.startTime || null,
+                  endTime: assignment.endTime || null
+                });
+                
+                console.log(`[DEBUG] Created contract date record with ID: ${contractDate.id} for date ${assignment.date}`);
+              } catch (dateError) {
+                console.error(`[ERROR] Failed to create contract date for ${assignment.date}:`, dateError);
+                dateCreationSuccessful = false;
+              }
+            }
+            
             // Update contract and invitation status - still mark as sent even if email wasn't sent
             await storage.updateMonthlyContract(contract.id, { status: "sent" });
             
@@ -2616,11 +2662,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             results.details.push({
               musicianId,
               musicianName: musician.name,
-              status: "sent",
+              status: dateCreationSuccessful ? "sent" : "partial",
               contractId: contract.id,
+              musicianContractId: contractMusician.id,
               invitationId: invitation.id,
               assignmentCount: assignments.length,
-              totalFee: totalFee
+              totalFee: totalFee,
+              datesCreated: dateCreationSuccessful
             });
           } catch (processingError) {
             console.error(`[planner-contracts] Error processing musician ${musicianId}:`, processingError);

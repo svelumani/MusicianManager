@@ -3701,6 +3701,9 @@ export class DatabaseStorage implements IStorage {
       fee: contractDate.fee,
       status: contractDate.status || 'pending',
       notes: contractDate.notes || null,
+      venue_name: contractDate.venueName || null,
+      start_time: contractDate.startTime || null,
+      end_time: contractDate.endTime || null,
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -3748,8 +3751,16 @@ export class DatabaseStorage implements IStorage {
       
       try {
         const result = await db.execute(sql`
-          INSERT INTO monthly_contract_dates (musician_contract_id, date, status, fee, notes, created_at, updated_at)
-          VALUES (${insertData.musician_contract_id}, ${insertData.date}, ${insertData.status}, ${insertData.fee}, ${insertData.notes}, ${insertData.created_at}, ${insertData.updated_at})
+          INSERT INTO monthly_contract_dates (
+            musician_contract_id, date, status, fee, notes, 
+            venue_name, start_time, end_time, created_at, updated_at
+          )
+          VALUES (
+            ${insertData.musician_contract_id}, ${insertData.date}, ${insertData.status}, 
+            ${insertData.fee}, ${insertData.notes}, ${insertData.venue_name}, 
+            ${insertData.start_time}, ${insertData.end_time},
+            ${insertData.created_at}, ${insertData.updated_at}
+          )
           RETURNING *
         `);
         
