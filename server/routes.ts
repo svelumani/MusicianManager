@@ -2115,6 +2115,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!planner) {
         return res.status(404).json({ message: "Planner not found" });
       }
+      
+      // Increment version counters for planner-related data to trigger client refresh
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      
+      // Also increment monthly version since planners affect monthly data
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
+      // Set cache control headers to prevent caching on this response
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       res.json(planner);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2131,6 +2147,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Planner not found" });
       }
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
+      // Set cache control headers to prevent caching
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -3886,6 +3916,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: { description: `Finalized monthly planner: ${planner.name}` },
         timestamp: new Date()
       });
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
+      // Set cache control headers to prevent caching
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+      
+      console.log(`✅ Successfully finalized planner ${plannerId} and incremented version counters`);
       
       res.json({ success: true, planner });
     } catch (error) {
