@@ -16,7 +16,7 @@ import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw } from "l
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useVersionedQuery } from "@/hooks/use-versioned-query";
-import { DataRefreshControl } from "@/components/DataUpdateNotification";
+import { DataUpdateNotification } from "@/components/DataUpdateNotification";
 
 interface PlannerGridProps {
   planner: any; // MonthlyPlanner
@@ -541,7 +541,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   return (
     <div className="space-y-4">
       {/* Real-time data updates notification */}
-      <DataRefreshControl />
+      <DataUpdateNotification />
       
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">
