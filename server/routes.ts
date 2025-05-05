@@ -26,7 +26,7 @@ import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
 import versionRouter from './routes/versions';
 import { incrementVersion } from './services/dataVersion';
-import { VERSION_KEYS, versionKeyToEntity } from './services/entityMapping';
+import { getVersionKeyToEntity, getEntityToTableName } from './services/entityMapping';
 import { 
   initWebSocketServer, 
   notifyDataUpdate, 
@@ -2149,12 +2149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data to trigger client refresh
-      await incrementVersion(VERSION_KEYS.PLANNER);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
       await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
       
       // Also increment monthly version since planners affect monthly data
-      await incrementVersion(VERSION_KEYS.MONTHLY);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       // Set cache control headers to prevent caching on this response
       res.set({

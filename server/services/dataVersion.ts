@@ -11,7 +11,7 @@ import { db } from "../db";
 import { dataVersions } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { notifyDataUpdate, requestDataRefresh } from "./webSocketServer";
-import { VERSION_KEYS, versionKeyToEntity } from "./entityMapping";
+import { getVersionKeyToEntity } from "./entityMapping";
 
 /**
  * Gets the current version for a data type
@@ -62,10 +62,11 @@ export async function incrementVersion(key: string): Promise<number> {
     console.log(`✅ Incremented ${key} version to ${newVersion}`);
     
     // Notify all connected clients via WebSockets about this data change
-    if (versionKeyToEntity[key]) {
+    const entity = getVersionKeyToEntity(key);
+    if (entity) {
       // Send real-time update notification
-      notifyDataUpdate(versionKeyToEntity[key]);
-      console.log(`📡 WebSocket notification sent for ${versionKeyToEntity[key]} update`);
+      notifyDataUpdate(entity);
+      console.log(`📡 WebSocket notification sent for ${entity} update`);
     } else {
       // If we don't have a specific mapping, notify for 'all' entities
       requestDataRefresh('all');

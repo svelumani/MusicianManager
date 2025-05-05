@@ -5,23 +5,29 @@
  * using WebSockets, ensuring all clients see the most recent data
  * without relying on HTTP caching mechanisms.
  */
-import { Server as HttpServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
-import { UpdateEntity, versionKeyToEntity } from './entityMapping';
+import WebSocket, { WebSocketServer } from 'ws';
+import type { IncomingMessage } from 'http';
+import type { Server as HttpServer } from 'http';
+import { getVersionKeyToEntity } from './entityMapping';
 
-// Store active connections
-const clients: Map<string, WebSocket> = new Map();
+export type UpdateEntity = 
+  | 'planners'
+  | 'plannerSlots'
+  | 'plannerAssignments'
+  | 'musicians'
+  | 'venues'
+  | 'categories'
+  | 'musicianPayRates'
+  | 'eventCategories'
+  | 'availability'
+  | 'monthlyContracts'
+  | 'all';
 
-// Track the next client ID
-let nextClientId = 1;
-
-// Supported notification types
 export type NotificationType = 
   | 'data-update' 
   | 'refresh-required' 
   | 'system-message';
 
-// Message structure for data updates
 export interface UpdateMessage {
   type: NotificationType;
   entity?: UpdateEntity;
@@ -29,54 +35,56 @@ export interface UpdateMessage {
   timestamp: number;
 }
 
+let wss: WebSocketServer | null = null;
+
 /**
  * Initialize the WebSocket server
  */
 export function initWebSocketServer(httpServer: HttpServer) {
-  const wss = new WebSocketServer({ 
-    server: httpServer, 
-    path: '/ws' 
+  if (wss) {
+    console.log('WebSocket server already initialized');
+    return;
+  }
+  
+  // Create a new WebSocket server
+  wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/ws'
   });
-
-  console.log('WebSocket server initialized and ready for connections');
-
-  wss.on('connection', (ws) => {
-    const clientId = `client-${nextClientId++}`;
-    clients.set(clientId, ws);
-    console.log(`Client connected: ${clientId}, total clients: ${clients.size}`);
-
-    // Send welcome message
+  
+  // Handle connection events
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+    console.log(`New WebSocket connection from ${req.socket.remoteAddress}`);
+    
+    // Send a welcome message to confirm connection
     const welcomeMsg: UpdateMessage = {
       type: 'system-message',
-      message: 'Connected to VAMP data server. You will receive real-time updates.',
+      message: 'Connected to VAMP server. You will receive real-time updates.',
       timestamp: Date.now()
     };
+    
     ws.send(JSON.stringify(welcomeMsg));
-
-    // Handle disconnection
-    ws.on('close', () => {
-      clients.delete(clientId);
-      console.log(`Client disconnected: ${clientId}, remaining clients: ${clients.size}`);
+    
+    // Handle messages from clients
+    ws.on('message', (message: WebSocket.Data) => {
+      console.log('Received message from client:', message.toString());
+      
+      // For now, we don't need to handle client messages
+      // This is a one-way notification system
     });
-
-    // Handle errors
-    ws.on('error', (error) => {
-      console.error(`WebSocket error for client ${clientId}:`, error);
-      clients.delete(clientId);
+    
+    // Handle connection close
+    ws.on('close', (code: number, reason: string) => {
+      console.log(`WebSocket connection closed: ${code} - ${reason}`);
     });
-
-    // Ping to keep connection alive
-    const pingInterval = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.ping();
-      } else {
-        clearInterval(pingInterval);
-        clients.delete(clientId);
-      }
-    }, 30000); // Every 30 seconds
+    
+    // Handle connection errors
+    ws.on('error', (error: Error) => {
+      console.error('WebSocket error:', error);
+    });
   });
-
-  return wss;
+  
+  console.log('WebSocket server initialized and ready for connections');
 }
 
 /**
@@ -90,7 +98,6 @@ export function notifyDataUpdate(entity: UpdateEntity) {
   };
   
   broadcastMessage(message);
-  console.log(`Notified all clients of update to ${entity}`);
 }
 
 /**
@@ -104,7 +111,6 @@ export function requestDataRefresh(entity: UpdateEntity) {
   };
   
   broadcastMessage(message);
-  console.log(`Requested all clients to refresh ${entity}`);
 }
 
 /**
@@ -124,20 +130,23 @@ export function sendSystemMessage(messageText: string) {
  * Broadcast a message to all connected clients
  */
 function broadcastMessage(message: UpdateMessage) {
-  const messageStr = JSON.stringify(message);
-  let successCount = 0;
+  if (!wss) {
+    console.warn('WebSocket server not initialized yet, cannot broadcast message');
+    return;
+  }
   
-  clients.forEach((client, id) => {
+  const messageString = JSON.stringify(message);
+  
+  // Count of clients who received the message successfully
+  let sentCount = 0;
+  
+  wss.clients.forEach((client: WebSocket) => {
+    // Only send to clients that are open
     if (client.readyState === WebSocket.OPEN) {
-      client.send(messageStr);
-      successCount++;
-    } else {
-      // Clean up any closed connections
-      clients.delete(id);
+      client.send(messageString);
+      sentCount++;
     }
   });
   
-  console.log(`Message broadcast to ${successCount} client(s)`);
+  console.log(`Broadcast ${message.type} message to ${sentCount} clients`);
 }
-
-// No duplicate mapping needed - now imported from entityMapping.ts

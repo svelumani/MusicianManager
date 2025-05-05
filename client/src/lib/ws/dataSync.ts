@@ -1,364 +1,339 @@
 /**
- * WebSocket Data Synchronization Service
+ * WebSocket Data Synchronization
  * 
- * This module handles the client-side WebSocket connection for
- * receiving real-time data updates from the server, eliminating
- * the need for manual refreshes or polling.
+ * This module provides real-time data synchronization between the client
+ * and server using WebSockets. It maintains a connection to the server
+ * and notifies subscribers of data changes.
  */
-import { queryClient } from '@/lib/queryClient';
+import { toast } from '@/hooks/use-toast';
+import type { UpdateEntity, UpdateMessage, NotificationType } from '@/types/websocket';
 
-// Define entity types that can be updated
-export type UpdateEntity = 
-  | 'planners'
-  | 'plannerSlots'
-  | 'plannerAssignments'
-  | 'musicians'
-  | 'venues'
-  | 'categories'
-  | 'musicianPayRates'
-  | 'eventCategories'
-  | 'availability'
-  | 'monthlyContracts'
-  | 'all';
+// Re-export UpdateEntity type so other components can import it directly from this module
+export type { UpdateEntity } from '@/types/websocket';
 
-// Define types of notifications that can be received
-export type NotificationType = 
-  | 'data-update' 
-  | 'refresh-required' 
-  | 'system-message';
+// Connection status states
+export type ConnectionStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 
-// Define the structure of update messages from the server
-export interface UpdateMessage {
-  type: NotificationType;
-  entity?: UpdateEntity;
-  message?: string;
-  timestamp: number;
-}
+// Subscriber callback function types
+type DataUpdateHandler = (entity: UpdateEntity) => void;
+type SystemMessageHandler = (message: string) => void;
+type ConnectionStatusHandler = (isConnected: boolean, isReconnecting: boolean) => void;
 
-// Callback types for different events
-export type DataUpdateCallback = (entity: UpdateEntity) => void;
-export type ConnectionStatusCallback = (connected: boolean, reconnecting: boolean) => void;
-export type SystemMessageCallback = (message: string) => void;
-
-// WebSocket connection state
+// WebSocket connection
 let socket: WebSocket | null = null;
+let connectionStatus: ConnectionStatus = 'disconnected';
+let reconnectTimer: NodeJS.Timeout | null = null;
 let reconnectAttempts = 0;
-let maxReconnectAttempts = 10;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let isConnected = false;
-let isReconnecting = false;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const RECONNECT_INTERVAL = 3000; // 3 seconds
 
-// Callback registries
-const dataUpdateCallbacks: DataUpdateCallback[] = [];
-const connectionStatusCallbacks: ConnectionStatusCallback[] = [];
-const systemMessageCallbacks: SystemMessageCallback[] = [];
+// Arrays of registered subscribers/listeners
+const subscribers: DataUpdateHandler[] = [];
+const systemMessageListeners: SystemMessageHandler[] = [];
+const connectionListeners: ((status: ConnectionStatus) => void)[] = [];
+const connectionStatusListeners: ConnectionStatusHandler[] = [];
 
 /**
- * Create and initialize the WebSocket connection
+ * Initialize WebSocket connection to the server
  */
-export function initWebSocketConnection(): void {
-  // Only initialize once
-  if (socket !== null) return;
-  
-  console.log("Initializing WebSocket connection for real-time updates...");
+export function initWebSocketConnection() {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    console.log('WebSocket connection already established');
+    return;
+  }
   
   try {
-    // Create WebSocket with correct protocol based on page protocol
+    // Close existing socket if any
+    if (socket) {
+      socket.close();
+    }
+    
+    setConnectionStatus('connecting');
+    
+    // Create WebSocket with correct protocol based on window location
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     
+    console.log(`Connecting to WebSocket server at ${wsUrl}`);
     socket = new WebSocket(wsUrl);
     
-    // Set up event handlers
-    socket.addEventListener('open', handleOpen);
-    socket.addEventListener('message', handleMessage);
-    socket.addEventListener('close', handleClose);
-    socket.addEventListener('error', handleError);
+    // Handle connection opening
+    socket.onopen = () => {
+      console.log('WebSocket connection established');
+      setConnectionStatus('connected');
+      reconnectAttempts = 0;
+    };
+    
+    // Handle incoming messages
+    socket.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data) as UpdateMessage;
+        handleMessage(message);
+      } catch (err) {
+        console.error('Error parsing WebSocket message:', err);
+      }
+    };
+    
+    // Handle connection closing
+    socket.onclose = (event) => {
+      console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
+      setConnectionStatus('disconnected');
+      scheduleReconnect();
+    };
+    
+    // Handle connection errors
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setConnectionStatus('error');
+      scheduleReconnect();
+    };
+    
   } catch (error) {
-    console.error('Failed to create WebSocket connection:', error);
+    console.error('Error initializing WebSocket connection:', error);
+    setConnectionStatus('error');
     scheduleReconnect();
   }
 }
 
 /**
- * Handle successful WebSocket connection
+ * Handle incoming WebSocket message
  */
-function handleOpen(event: Event): void {
-  console.log('WebSocket connection established');
-  isConnected = true;
-  isReconnecting = false;
-  reconnectAttempts = 0;
+function handleMessage(message: UpdateMessage) {
+  console.log('Received WebSocket message:', message);
   
-  // Notify all connection status callbacks
-  connectionStatusCallbacks.forEach(callback => {
-    try {
-      callback(true, false);
-    } catch (error) {
-      console.error('Error in connection status callback:', error);
-    }
-  });
-}
-
-/**
- * Handle incoming WebSocket messages
- */
-function handleMessage(event: MessageEvent): void {
-  try {
-    const message: UpdateMessage = JSON.parse(event.data);
-    console.log('WebSocket message received:', message);
-    
-    handleServerMessage(message);
-  } catch (error) {
-    console.error('Error parsing WebSocket message:', error);
-  }
-}
-
-/**
- * Handle WebSocket connection close
- */
-function handleClose(event: CloseEvent): void {
-  console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
-  isConnected = false;
-  
-  // Notify all callbacks of disconnection
-  connectionStatusCallbacks.forEach(callback => {
-    try {
-      callback(false, false);
-    } catch (error) {
-      console.error('Error in connection status callback:', error);
-    }
-  });
-  
-  // Attempt to reconnect
-  scheduleReconnect();
-}
-
-/**
- * Handle WebSocket errors
- */
-function handleError(event: Event): void {
-  console.error('WebSocket error:', event);
-  
-  // Socket will be closed after an error, which will trigger reconnect
-}
-
-/**
- * Schedule a reconnection attempt with exponential backoff
- */
-function scheduleReconnect(): void {
-  // Don't schedule if we've hit the max attempts or already have a pending reconnect
-  if (reconnectAttempts >= maxReconnectAttempts || reconnectTimer !== null) {
-    return;
-  }
-  
-  // Calculate backoff time (1s, 2s, 4s, 8s, etc.)
-  const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-  reconnectAttempts++;
-  isReconnecting = true;
-  
-  console.log(`Scheduling WebSocket reconnect in ${backoffTime}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
-  
-  // Notify all callbacks of reconnection attempt
-  connectionStatusCallbacks.forEach(callback => {
-    try {
-      callback(false, true);
-    } catch (error) {
-      console.error('Error in connection status callback:', error);
-    }
-  });
-  
-  // Schedule reconnect
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    
-    // Close existing socket if it exists
-    closeWebSocketConnection();
-    
-    // Try to reconnect
-    initWebSocketConnection();
-  }, backoffTime);
-}
-
-/**
- * Close the WebSocket connection
- */
-export function closeWebSocketConnection(): void {
-  if (!socket) return;
-  
-  try {
-    // Remove event listeners
-    socket.removeEventListener('open', handleOpen);
-    socket.removeEventListener('message', handleMessage);
-    socket.removeEventListener('close', handleClose);
-    socket.removeEventListener('error', handleError);
-    
-    // Close the connection
-    socket.close();
-  } catch (error) {
-    console.error('Error closing WebSocket connection:', error);
-  } finally {
-    socket = null;
-  }
-}
-
-/**
- * Register a callback for data updates
- */
-export function onDataUpdate(callback: DataUpdateCallback): () => void {
-  dataUpdateCallbacks.push(callback);
-  
-  // Immediately return connection status to the new callback
-  setTimeout(() => {
-    try {
-      callback('all');
-    } catch (error) {
-      console.error('Error in initial data update callback:', error);
-    }
-  }, 0);
-  
-  // Return function to unregister callback
-  return () => {
-    const index = dataUpdateCallbacks.indexOf(callback);
-    if (index !== -1) {
-      dataUpdateCallbacks.splice(index, 1);
-    }
-  };
-}
-
-/**
- * Register a callback for connection status changes
- */
-export function onConnectionStatus(callback: ConnectionStatusCallback): () => void {
-  connectionStatusCallbacks.push(callback);
-  
-  // Return function to unregister callback
-  return () => {
-    const index = connectionStatusCallbacks.indexOf(callback);
-    if (index !== -1) {
-      connectionStatusCallbacks.splice(index, 1);
-    }
-  };
-}
-
-/**
- * Register a callback for system messages
- */
-export function onSystemMessage(callback: SystemMessageCallback): () => void {
-  systemMessageCallbacks.push(callback);
-  
-  // Return function to unregister callback
-  return () => {
-    const index = systemMessageCallbacks.indexOf(callback);
-    if (index !== -1) {
-      systemMessageCallbacks.splice(index, 1);
-    }
-  };
-}
-
-/**
- * Handle incoming server messages
- */
-function handleServerMessage(message: UpdateMessage): void {
   switch (message.type) {
     case 'data-update':
       if (message.entity) {
-        console.log(`Invalidating query cache for ${getEndpointFromEntity(message.entity)}`);
-        
-        // Invalidate the corresponding query cache
-        const endpoint = getEndpointFromEntity(message.entity);
-        if (endpoint) {
-          queryClient.invalidateQueries({ queryKey: [endpoint] });
-        }
-        
-        // Notify all data update callbacks
-        dataUpdateCallbacks.forEach(callback => {
-          try {
-            callback(message.entity!);
-          } catch (error) {
-            console.error('Error in data update callback:', error);
-          }
-        });
+        notifySubscribers(message.entity);
       }
       break;
       
     case 'refresh-required':
-      if (message.entity === 'all') {
-        console.log('Global data refresh required, invalidating all queries');
-        queryClient.invalidateQueries();
-      } else if (message.entity) {
-        console.log(`Data refresh required for ${message.entity}`);
-        
-        // Invalidate the corresponding query cache and force a refetch
-        invalidateQueries([getEndpointFromEntity(message.entity)], true);
-      }
-      
-      // Notify all data update callbacks
       if (message.entity) {
-        dataUpdateCallbacks.forEach(callback => {
-          try {
-            callback(message.entity!);
-          } catch (error) {
-            console.error('Error in data update callback:', error);
-          }
+        notifySubscribers(message.entity);
+        
+        // Show a toast notification for refresh request
+        toast({
+          title: 'Data Update',
+          description: `New ${message.entity} data is available. Refreshing...`,
+          variant: 'default',
         });
       }
       break;
       
     case 'system-message':
       if (message.message) {
-        // Notify all system message callbacks
-        systemMessageCallbacks.forEach(callback => {
-          try {
-            callback(message.message!);
-          } catch (error) {
-            console.error('Error in system message callback:', error);
-          }
+        // Notify system message listeners
+        notifySystemMessageListeners(message.message);
+        
+        // Show a toast notification for system message
+        toast({
+          title: 'System Message',
+          description: message.message,
+          variant: 'default',
         });
       }
       break;
-  }
-}
-
-/**
- * Map entity types to their API endpoints
- */
-function getEndpointFromEntity(entity: UpdateEntity): string {
-  switch (entity) {
-    case 'planners':
-      return '/api/planners';
-    case 'plannerSlots':
-      return '/api/planner-slots';
-    case 'plannerAssignments':
-      return '/api/planner-assignments';
-    case 'musicians':
-      return '/api/musicians';
-    case 'venues':
-      return '/api/venues';
-    case 'categories':
-      return '/api/event-categories';
-    case 'musicianPayRates':
-      return '/api/musician-pay-rates';
-    case 'eventCategories':
-      return '/api/event-categories';
-    case 'availability':
-      return '/api/availability';
-    case 'monthlyContracts':
-      return '/api/monthly-contracts';
+      
     default:
-      return '';
+      console.warn('Unknown message type:', message.type);
   }
 }
 
 /**
- * Invalidate queries in the cache and optionally force a refetch
+ * Schedule a reconnection attempt
  */
-function invalidateQueries(queryKeys: string[], forceRefetch: boolean = false): void {
-  queryKeys.forEach(key => {
-    if (key) {
-      queryClient.invalidateQueries({ 
-        queryKey: [key],
-        refetchType: forceRefetch ? 'active' : 'all'
-      });
+function scheduleReconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+  }
+  
+  if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+    reconnectAttempts++;
+    
+    const delay = RECONNECT_INTERVAL * Math.min(reconnectAttempts, 10);
+    console.log(`Scheduling WebSocket reconnection attempt ${reconnectAttempts} in ${delay}ms`);
+    
+    reconnectTimer = setTimeout(() => {
+      console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+      initWebSocketConnection();
+    }, delay);
+  } else {
+    console.error(`Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+    
+    // Show error toast
+    toast({
+      title: 'Connection Error',
+      description: 'Unable to connect to the server. Please refresh the page.',
+      variant: 'destructive',
+    });
+  }
+}
+
+/**
+ * Register a callback for data updates
+ * Returns a cleanup function to unregister the callback
+ */
+export function onDataUpdate(callback: DataUpdateHandler): () => void {
+  if (!subscribers.includes(callback)) {
+    subscribers.push(callback);
+  }
+  
+  // Initialize connection if not already connected
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    initWebSocketConnection();
+  }
+  
+  // Return cleanup function
+  return () => {
+    const index = subscribers.indexOf(callback);
+    if (index !== -1) {
+      subscribers.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Register a callback for connection status changes
+ * Returns a cleanup function to unregister the callback
+ */
+export function onConnectionStatusChange(callback: (status: ConnectionStatus) => void): () => void {
+  // Immediately call with current status
+  callback(connectionStatus);
+  
+  // Add to listeners
+  if (!connectionListeners.includes(callback)) {
+    connectionListeners.push(callback);
+  }
+  
+  // Return cleanup function
+  return () => {
+    const index = connectionListeners.indexOf(callback);
+    if (index !== -1) {
+      connectionListeners.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Notify all subscribers about a data update
+ */
+function notifySubscribers(entity: UpdateEntity) {
+  console.log(`Notifying ${subscribers.length} subscribers about ${entity} update`);
+  subscribers.forEach(callback => {
+    try {
+      callback(entity);
+    } catch (err) {
+      console.error('Error in subscriber callback:', err);
     }
   });
+}
+
+/**
+ * Notify all system message listeners
+ */
+function notifySystemMessageListeners(message: string) {
+  console.log(`Notifying ${systemMessageListeners.length} system message listeners`);
+  systemMessageListeners.forEach(callback => {
+    try {
+      callback(message);
+    } catch (err) {
+      console.error('Error in system message listener:', err);
+    }
+  });
+}
+
+/**
+ * Update connection status and notify listeners
+ */
+function setConnectionStatus(status: ConnectionStatus) {
+  if (connectionStatus !== status) {
+    connectionStatus = status;
+    
+    // Notify connection status listeners
+    connectionListeners.forEach(listener => {
+      try {
+        listener(status);
+      } catch (err) {
+        console.error('Error in connection status listener:', err);
+      }
+    });
+  }
+}
+
+/**
+ * Get current connection status
+ */
+export function getConnectionStatus(): ConnectionStatus {
+  return connectionStatus;
+}
+
+/**
+ * Force a manual reconnection attempt
+ */
+export function reconnect() {
+  if (socket) {
+    socket.close();
+  }
+  
+  reconnectAttempts = 0;
+  initWebSocketConnection();
+}
+
+/**
+ * Register a callback for system messages
+ * Returns a cleanup function to unregister the callback
+ */
+export function onSystemMessage(callback: SystemMessageHandler): () => void {
+  if (!systemMessageListeners.includes(callback)) {
+    systemMessageListeners.push(callback);
+  }
+  
+  // Initialize connection if not already connected
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    initWebSocketConnection();
+  }
+  
+  // Return cleanup function
+  return () => {
+    const index = systemMessageListeners.indexOf(callback);
+    if (index !== -1) {
+      systemMessageListeners.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Register a callback for simplified connection status changes (connected/reconnecting)
+ * Returns a cleanup function to unregister the callback
+ */
+export function onConnectionStatus(callback: ConnectionStatusHandler): () => void {
+  // Prepare initial status
+  const isConnected = connectionStatus === 'connected';
+  const isReconnecting = connectionStatus === 'connecting';
+  
+  // Immediately call with current status
+  callback(isConnected, isReconnecting);
+  
+  // Add to listeners
+  connectionStatusListeners.push(callback);
+  
+  // Set up status change listener
+  const statusChangeListener = (status: ConnectionStatus) => {
+    const isConnected = status === 'connected';
+    const isReconnecting = status === 'connecting';
+    callback(isConnected, isReconnecting);
+  };
+  
+  // Register with the standard status change system
+  const cleanup = onConnectionStatusChange(statusChangeListener);
+  
+  // Return cleanup function
+  return () => {
+    cleanup();
+    const index = connectionStatusListeners.indexOf(callback);
+    if (index !== -1) {
+      connectionStatusListeners.splice(index, 1);
+    }
+  };
 }
