@@ -608,6 +608,11 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                   {slot && (
                                     <div className="text-xs font-semibold border-b pb-1 pt-0 mb-1 text-blue-700">
                                       Club Performance
+                                      {slot.startTime && slot.endTime && (
+                                        <span className="ml-1">
+                                          ({slot.startTime.substring(0, 5)}-{slot.endTime.substring(0, 5)})
+                                        </span>
+                                      )}
                                       {slot.duration && <span className="float-right">{slot.duration}h</span>}
                                     </div>
                                   )}
