@@ -41,13 +41,19 @@ const MonthlyContractDetailPage = () => {
 
   // Query to fetch the monthly contract
   const {
-    data: contract,
+    data: contractResponse,
     isLoading: isContractLoading,
     error: contractError,
   } = useQuery({
     queryKey: [`/api/monthly-contracts/${contractId}`],
     enabled: !!contractId,
   });
+  
+  // Extract contract from response
+  const contract = contractResponse?.contract || {};
+  
+  // For debugging - log the actual data structure
+  console.log("Contract data structure:", contractResponse);
 
   // Query to fetch the contract assignments (musicians)
   const {
@@ -246,7 +252,10 @@ const MonthlyContractDetailPage = () => {
                     Send Contract
                   </Button>
                 )}
-                <Button variant="outline">
+                <Button 
+                  variant="outline"
+                  onClick={() => window.open(`/api/monthly-contracts/${contract.id}/preview`, '_blank')}
+                >
                   <FileText className="mr-2 h-4 w-4" />
                   Preview Contract
                 </Button>
@@ -297,7 +306,13 @@ const MonthlyContractDetailPage = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="ghost" size="sm">View Responses</Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => window.open(`/api/monthly-contracts/${contractId}/musicians/${assignment.id}/responses`, '_blank')}
+                            >
+                              View Responses
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))}
