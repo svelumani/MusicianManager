@@ -60,40 +60,33 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     enabled: !!planner?.id,
   });
 
-  // Query to get planner assignments - simplified with a single queryKey
+  // Query to get all planner assignments for the current planner in a single request
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
-    // Use a simpler queryKey that's easier to invalidate
     queryKey: ['plannerAssignments', planner?.id],
-    queryFn: () => {
-      if (!plannerSlots || plannerSlots.length === 0) {
-        console.log("No planner slots available, skipping assignment fetch");
+    queryFn: async () => {
+      if (!planner?.id) {
+        console.log("No planner ID available, skipping assignment fetch");
         return [];
       }
       
-      // Use a cleaner approach to build the query with all slot IDs
-      const slotIds = plannerSlots.map((slot: any) => slot.id);
-      console.log("Fetching assignments for slots:", slotIds);
-      
-      // Build individual queries for each slot to avoid URL length issues
-      const promises = slotIds.map((id: number) => 
-        apiRequest(`/api/planner-assignments?slotId=${id}`)
-      );
-      
-      // Combine all results from the individual requests
-      return Promise.all(promises).then(results => {
-        // Flatten the array of arrays
-        const combined = results.flat();
-        console.log("Combined assignments:", combined.length);
-        return combined;
-      });
+      try {
+        // Fetch all assignments for this planner in a single request
+        console.log(`Fetching all assignments for planner ID: ${planner.id}`);
+        const assignments = await apiRequest(`/api/planner-assignments/by-planner/${planner.id}`);
+        console.log(`Retrieved ${assignments?.length || 0} assignments for planner`);
+        return assignments || [];
+      } catch (error) {
+        console.error("Error fetching planner assignments:", error);
+        return [];
+      }
     },
-    enabled: !!plannerSlots && plannerSlots.length > 0,
-    // Stale time set to 0 to ensure fresh data on every render
-    staleTime: 0
+    enabled: !!planner?.id,
+    // Cache for 30 seconds to reduce unnecessary refetches
+    staleTime: 30000
   });
 
   // Query to get musicians with proper typing

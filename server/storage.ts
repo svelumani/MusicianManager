@@ -271,6 +271,7 @@ export interface IStorage {
   
   // Planner Assignments management
   getPlannerAssignments(slotId?: number, musicianId?: number): Promise<PlannerAssignment[]>;
+  getPlannerAssignmentsByPlannerId(plannerId: number): Promise<PlannerAssignment[]>;
   getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined>;
   createPlannerAssignment(assignment: InsertPlannerAssignment): Promise<PlannerAssignment>;
   updatePlannerAssignment(id: number, data: Partial<InsertPlannerAssignment>): Promise<PlannerAssignment | undefined>;
