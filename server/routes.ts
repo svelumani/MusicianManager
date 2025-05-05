@@ -26,6 +26,12 @@ import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
 import versionRouter from './routes/versions';
 import { incrementVersion, VERSION_KEYS } from './services/dataVersion';
+import { 
+  initWebSocketServer, 
+  notifyDataUpdate, 
+  requestDataRefresh,
+  versionKeyToEntity
+} from './services/webSocketServer';
 
 // Helper function to prevent browser caching for critical endpoints
 function preventCache(res: express.Response): void {
@@ -70,6 +76,12 @@ import {
 const PgSession = pgSession(session);
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Create HTTP server for Express and WebSockets
+  const httpServer = createServer(app);
+  
+  // Initialize WebSocket server
+  const wss = initWebSocketServer(httpServer);
+  
   // Configure session middleware
   app.use(
     session({
