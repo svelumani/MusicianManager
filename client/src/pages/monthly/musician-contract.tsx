@@ -78,12 +78,20 @@ const MusicianContractPage = () => {
     queryFn: async () => {
       try {
         const data = await apiRequest(`/api/monthly-contracts/${contractId}`);
-        console.log('Contract data (complete):', data);
+        // For debugging purposes, output the entire response as a string
+        console.log('*************************************');
+        console.log('FULL CONTRACT DATA:', JSON.stringify(data, null, 2));
         console.log('Contract structure:', Object.keys(data));
         console.log('Contract object structure:', data?.contract ? Object.keys(data.contract) : 'No contract object');
         console.log('Assignments available:', data?.assignments ? data.assignments.length : 'No assignments property');
         if (data?.assignments && data.assignments.length > 0) {
-          console.log('Sample assignment data:', JSON.stringify(data.assignments[0], null, 2));
+          console.log('SAMPLE ASSIGNMENT DATA:', JSON.stringify(data.assignments[0], null, 2));
+          console.log('Assignment keys:', Object.keys(data.assignments[0]));
+          
+          // Check for response status properties
+          console.log('Has accepted property:', 'accepted' in data.assignments[0]);
+          console.log('Has rejected property:', 'rejected' in data.assignments[0]);
+          console.log('Has responseStatus property:', 'responseStatus' in data.assignments[0]);
           
           // Check if venue information is present
           if (!data.assignments[0].venueName) {
@@ -91,10 +99,12 @@ const MusicianContractPage = () => {
           }
         }
         
-        // Log musician contract data
+        // Log musician contract data separately
         if (data?.musicianContract) {
-          console.log('Musician contract data:', JSON.stringify(data.musicianContract, null, 2));
+          console.log('MUSICIAN CONTRACT DATA:', JSON.stringify(data.musicianContract, null, 2));
+          console.log('Musician contract keys:', Object.keys(data.musicianContract));
         }
+        console.log('*************************************');
         return data;
       } catch (error) {
         console.error("Error fetching contract data:", error);
