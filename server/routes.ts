@@ -3058,7 +3058,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     try {
       // 1. Get all the assignments for this planner
-      const assignments = await storage.getPlannerAssignmentsByPlanner(plannerId);
+      const assignments = await storage.getPlannerAssignmentsByPlannerId(plannerId);
       if (!assignments || assignments.length === 0) {
         console.log("No assignments found for planner ID:", plannerId);
         return { _status: "empty" };
@@ -3221,9 +3221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Use the new method to get assignments grouped by musician directly
+      // Call our helper function that implements the business logic to group assignments by musician
       console.log(`[by-musician] Fetching assignments by musician for planner ID: ${plannerId}`);
-      const musicianAssignments = await storage.getPlannerAssignmentsByMusician(plannerId);
+      const musicianAssignments = await getPlannerAssignmentsByMusician(plannerId);
       
       // Check if we have results
       if (!musicianAssignments || Object.keys(musicianAssignments).length === 0) {
