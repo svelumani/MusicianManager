@@ -83,6 +83,8 @@ export function getEntityToTableName(entity: UpdateEntity): string | null {
       return 'availability';
     case 'monthlyContracts':
       return 'monthly_contracts';
+    case 'monthlyInvoices':
+      return 'monthly_invoices';
     case 'all':
       return '*';
     default:
@@ -115,6 +117,8 @@ export function getEntityToEndpoint(entity: UpdateEntity): string | null {
       return '/api/availability';
     case 'monthlyContracts':
       return '/api/monthly-contracts';
+    case 'monthlyInvoices':
+      return '/api/monthly-invoices';
     case 'all':
       return null; // No specific endpoint - means all endpoints
     default:

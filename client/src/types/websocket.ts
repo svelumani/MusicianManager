@@ -17,6 +17,7 @@ export type UpdateEntity =
   | 'availability'
   | 'monthlyContracts'
   | 'monthlyPlanners'
+  | 'monthlyInvoices'
   | 'all';
 
 export type NotificationType = 
