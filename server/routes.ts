@@ -52,6 +52,7 @@ import {
   insertMonthlyContractSchema,
   insertMonthlyContractMusicianSchema,
   insertMonthlyContractDateSchema,
+  monthlyContractMusicians,
   type Musician
 } from "@shared/schema";
 
@@ -7061,10 +7062,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // 3. Update all musician statuses
       const contractMusicians = await storage.getMonthlyContractMusicians(contractId);
       for (const cm of contractMusicians) {
-        await storage.updateMonthlyContractMusician(cm.id, {
-          status: 'sent',
-          sentAt: new Date()
-        });
+        // Use direct database update instead of updateMonthlyContractMusician
+        await db
+          .update(monthlyContractMusicians)
+          .set({
+            status: 'sent',
+            sentAt: new Date(),
+          })
+          .where(eq(monthlyContractMusicians.id, cm.id));
       }
       
       // 4. In a real app, we would send emails to musicians here
