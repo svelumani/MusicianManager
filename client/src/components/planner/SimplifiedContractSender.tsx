@@ -479,7 +479,7 @@ const SimplifiedContractSender = ({
             const cacheBuster = Date.now();
             
             // Navigate to a URL that preserves context with fresh data
-            window.location.href = `/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
+            window.location.href = `/planner/index?month=${month}&year=${year}&refresh=${cacheBuster}`;
           }, 200);
         }, 1000);
       } else {
@@ -526,7 +526,7 @@ const SimplifiedContractSender = ({
           const cacheBuster = Date.now();
           
           // Navigate to a URL that preserves context with fresh data
-          window.location.href = `/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
+          window.location.href = `/planner/index?month=${month}&year=${year}&refresh=${cacheBuster}`;
         }, 200);
       }, 2000);
     }
