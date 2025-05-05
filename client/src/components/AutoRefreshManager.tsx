@@ -32,8 +32,30 @@ export default function AutoRefreshManager() {
       location.startsWith(route)
     );
     
+    // Check if this is a critical view that needs more aggressive refresh
+    const isCriticalView = location.includes('/planner') || 
+                          location.includes('/monthly/contracts') || 
+                          location.includes('/monthly/contract-detail');
+    
     if (shouldEnableAutoRefresh) {
       console.log(`🔄 Auto-refresh enabled for route: ${location}`);
+      
+      // Stop any existing refresh interval first to avoid duplicates
+      stopAutoRefresh();
+      
+      // If this is a critical view, force an immediate refresh when we enter the page
+      if (isCriticalView) {
+        console.log('⚠️ Critical data view detected - forcing immediate data check');
+        // Import here to avoid circular dependencies
+        import('@/lib/utils/autoRefresh').then(({ triggerVersionCheck }) => {
+          // Small delay to ensure the view is fully loaded first
+          setTimeout(() => {
+            triggerVersionCheck();
+          }, 1000);
+        });
+      }
+      
+      // Start the auto-refresh system
       startAutoRefresh();
     } else {
       console.log(`🛑 Auto-refresh disabled for route: ${location}`);

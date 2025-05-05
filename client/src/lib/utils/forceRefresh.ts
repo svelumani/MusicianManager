@@ -33,12 +33,19 @@ export function forcePlannerReload(month: number, year: number) {
   // Step 1: Clear the entire cache
   queryClient.clear();
   
-  // Step 2: Generate a timestamp for cache busting
-  const timestamp = Date.now();
+  // Step 1.5: Explicitly invalidate critical query keys for extra certainty
+  queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/planners/month', month, 'year', year] });
+  queryClient.invalidateQueries({ queryKey: ['/api/planner-slots'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments'] });
+  queryClient.invalidateQueries({ queryKey: ['plannerAssignments'] });
   
-  // Step 3: Build the URL with all necessary context and forced refresh parameters
+  // Step 2: Generate a unique timestamp for cache busting with microsecond-level precision
+  const uniqueTimestamp = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+  
+  // Step 3: Build the URL with all necessary context and enhanced cache-busting parameters
   // Always use the correct path
-  const url = `/events/planner?month=${month}&year=${year}&refresh=${timestamp}&force=true&nuclear=true`;
+  const url = `/events/planner?month=${month}&year=${year}&refresh=${uniqueTimestamp}&force=true&nuclear=true&cb=${uniqueTimestamp.substring(5)}`;
   
   // Step 4: Log the navigation for debugging
   console.log(`🧨 NUCLEAR RELOAD: Forcing complete page reload with: ${url}`);
@@ -58,16 +65,26 @@ export function forceCurrentViewRefresh() {
   // Step 1: Clear the entire cache
   queryClient.clear();
   
+  // Step 1.5: Explicitly invalidate critical query keys for extra certainty
+  queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/planner-slots'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments'] });
+  queryClient.invalidateQueries({ queryKey: ['plannerAssignments'] });
+  queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
+  
   // Step 2: Get current URL parameters
   const currentParams = new URLSearchParams(window.location.search);
   
   // Step 3: Create a new URLSearchParams object to avoid modifying the original
   const newParams = new URLSearchParams(currentParams);
   
-  // Step 4: Add/update cache busting parameters
-  newParams.set('refresh', Date.now().toString());
+  // Step 4: Add/update cache busting parameters with unique timestamp
+  // Use microsecond-level precision by appending random digits
+  const uniqueTimestamp = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
+  newParams.set('refresh', uniqueTimestamp);
   newParams.set('force', 'true');
   newParams.set('nuclear', 'true');
+  newParams.set('cb', uniqueTimestamp.substring(5)); // Additional cache buster
   
   // Step 5: Get the correct path mapping in case we're on an old URL structure
   const correctPath = getCorrectPath(window.location.pathname);
