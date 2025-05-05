@@ -217,7 +217,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
 
   // Copy response link to clipboard
   const handleCopyLink = (token: string, contractId: number) => {
-    const responseUrl = `${window.location.origin}/contracts/respond?token=${token}&id=${contractId}`;
+    const responseUrl = `${window.location.origin}/monthly/respond?token=${token}`;
     navigator.clipboard.writeText(responseUrl);
     toast({
       title: "Link Copied",
@@ -390,7 +390,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
           {selectedMusician && (
             <div className="my-4">
               <div className="p-2 bg-gray-100 rounded text-sm break-all">
-                {`${window.location.origin}/contracts/respond?token=${selectedMusician.token}&id=${selectedMusician.contractId}`}
+                {`${window.location.origin}/monthly/respond?token=${selectedMusician.token}`}
               </div>
               <div className="flex justify-between mt-4">
                 <Button
@@ -409,7 +409,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
                   asChild
                 >
                   <a 
-                    href={`${window.location.origin}/contracts/respond?token=${selectedMusician.token}&id=${selectedMusician.contractId}`} 
+                    href={`${window.location.origin}/monthly/respond?token=${selectedMusician.token}`} 
                     target="_blank" 
                     rel="noopener noreferrer"
                   >
