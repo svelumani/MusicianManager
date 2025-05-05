@@ -11,6 +11,7 @@ import { getSettings, saveSettings, getEmailSettings, saveEmailSettings } from "
 import { sendMusicianAssignmentEmail, initializeSendGrid, isSendGridConfigured } from "./services/email";
 import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
+import contractResponseRouter from './routes/monthlyContractResponse';
 
 // Utility function to generate a random token
 function generateRandomToken(length = 32) {
@@ -3129,8 +3130,214 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Return the grouped assignments
       return res.json(musicianAssignments);
+    } catch (error) {
+      console.error(`[by-musician] ERROR PROCESSING REQUEST: ${error}`);
+      console.error(`[by-musician] Error stack: ${(error as Error).stack}`);
       
-      for (const slotId of slotIds) {
+      // Return a detailed error response
+      return res.json({
+        _status: "error",
+        _message: "Error fetching musician assignments",
+        _errorType: "ServerError",
+        _details: (error as Error).message,
+        _stack: process.env.NODE_ENV === 'development' ? (error as Error).stack : undefined,
+        // Add a dummy entry to ensure the client doesn't crash
+        999: {
+          musicianId: 999,
+          musicianName: "Error loading assignments",
+          assignments: [],
+          totalFee: 0
+        }
+      });
+    }
+  });
+  
+  // Endpoint to create a monthly contract from selected assignments
+  apiRouter.post("/monthly-contracts", isAuthenticated, async (req, res) => {
+    try {
+      console.log("[monthly-contracts] Creating new monthly contract", req.body);
+      
+      // Validate required parameters
+      if (!req.body.plannerId || !req.body.musicianId || !req.body.assignmentIds || req.body.assignmentIds.length === 0) {
+        return res.status(400).json({
+          message: "Missing required parameters: plannerId, musicianId, and assignmentIds are required"
+        });
+      }
+      
+      const { plannerId, musicianId, assignmentIds, notes } = req.body;
+      
+      // Create monthly contract
+      const contract = await storage.createMonthlyContract({
+        plannerId,
+        musicianId,
+        status: "pending", // Initial status is pending
+        notes: notes || null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
+      // Associate assignments with this contract
+      const updatedAssignments = [];
+      for (const assignmentId of assignmentIds) {
+        const updated = await storage.updatePlannerAssignment(assignmentId, {
+          contractId: contract.id,
+          contractStatus: "pending"
+        });
+        updatedAssignments.push(updated);
+      }
+      
+      // Return the created contract and updated assignments
+      return res.json({
+        contract,
+        assignments: updatedAssignments
+      });
+    } catch (error) {
+      console.error("[monthly-contracts] Error creating contract:", error);
+      return res.status(500).json({
+        message: "Error creating monthly contract",
+        error: (error as Error).message
+      });
+    }
+  });
+  
+  // Get contracts for a specific planner
+  apiRouter.get("/monthly-contracts/planner/:plannerId", isAuthenticated, async (req, res) => {
+    try {
+      const { plannerId } = req.params;
+      
+      if (!plannerId || isNaN(parseInt(plannerId))) {
+        return res.status(400).json({
+          message: "Invalid planner ID"
+        });
+      }
+      
+      const contracts = await storage.getMonthlyContractsByPlanner(parseInt(plannerId));
+      return res.json(contracts);
+    } catch (error) {
+      console.error("[monthly-contracts] Error fetching contracts by planner:", error);
+      return res.status(500).json({
+        message: "Error fetching contracts",
+        error: (error as Error).message
+      });
+    }
+  });
+  
+  // Get a specific contract by ID
+  apiRouter.get("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          message: "Invalid contract ID"
+        });
+      }
+      
+      const contract = await storage.getMonthlyContract(parseInt(id));
+      
+      if (!contract) {
+        return res.status(404).json({
+          message: "Contract not found"
+        });
+      }
+      
+      // Get the musician info
+      const musician = await storage.getMusician(contract.musicianId);
+      
+      // Get assigned dates for this contract
+      const assignments = await storage.getPlannerAssignmentsByContract(contract.id);
+      
+      return res.json({
+        contract,
+        musician,
+        assignments
+      });
+    } catch (error) {
+      console.error("[monthly-contracts] Error fetching contract:", error);
+      return res.status(500).json({
+        message: "Error fetching contract",
+        error: (error as Error).message
+      });
+    }
+  });
+  
+  // Update a contract's status
+  apiRouter.patch("/monthly-contracts/:id/status", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status, notes } = req.body;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          message: "Invalid contract ID"
+        });
+      }
+      
+      if (!status || !["pending", "sent", "signed", "rejected", "canceled"].includes(status)) {
+        return res.status(400).json({
+          message: "Invalid status. Must be one of: pending, sent, signed, rejected, canceled"
+        });
+      }
+      
+      // Update contract status
+      const contract = await storage.updateMonthlyContract(parseInt(id), {
+        status,
+        notes: notes || null,
+        updatedAt: new Date()
+      });
+      
+      // Also update status for all associated assignments
+      await storage.updatePlannerAssignmentsByContract(parseInt(id), {
+        contractStatus: status
+      });
+      
+      return res.json(contract);
+    } catch (error) {
+      console.error("[monthly-contracts] Error updating contract status:", error);
+      return res.status(500).json({
+        message: "Error updating contract status",
+        error: (error as Error).message
+      });
+    }
+  });
+  
+  // Delete a contract
+  apiRouter.delete("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      if (!id || isNaN(parseInt(id))) {
+        return res.status(400).json({
+          message: "Invalid contract ID"
+        });
+      }
+      
+      // First update all associated assignments to remove the contract reference
+      await storage.updatePlannerAssignmentsByContract(parseInt(id), {
+        contractId: null,
+        contractStatus: null
+      });
+      
+      // Then delete the contract
+      const result = await storage.deleteMonthlyContract(parseInt(id));
+      
+      return res.json({
+        message: "Contract deleted successfully",
+        success: result
+      });
+    } catch (error) {
+      console.error("[monthly-contracts] Error deleting contract:", error);
+      return res.status(500).json({
+        message: "Error deleting contract",
+        error: (error as Error).message
+      });
+    }
+  });
+  
+  // The following is the old code that used to be part of the by-musician endpoint
+  // We're keeping it commented out temporarily for reference
+  /*
+  for (const slotId of slotIds) {
         // Enhanced slot ID validation
         if (slotId === undefined || slotId === null) {
           console.warn(`[by-musician] Missing slot ID, skipping`);

@@ -1,196 +1,258 @@
-import sgMail from '@sendgrid/mail';
-import { EmailTemplate } from '../../shared/schema';
+import { Musician, MonthlyContract, PlannerAssignment, PlannerSlot } from '@shared/schema';
+import MailService from '@sendgrid/mail';
 
-// Initialize SendGrid with API key
+// Configure SendGrid if API key is present
 if (process.env.SENDGRID_API_KEY) {
-  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  MailService.setApiKey(process.env.SENDGRID_API_KEY);
 } else {
   console.warn('SENDGRID_API_KEY environment variable is not set. Email sending will not work.');
 }
 
-interface EmailData {
-  to: string;
-  from: string;
-  subject: string;
-  text?: string;
-  html: string;
-}
+const HOST_URL = process.env.HOST_URL || 'http://localhost:5000';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@example.com';
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@example.com';
 
-interface ContractEmailParams {
-  musicianName: string;
-  musicianEmail: string;
-  senderName: string;
-  senderEmail: string;
-  contractId: number;
+interface EmailTemplateData {
+  musician: Musician;
+  contract: MonthlyContract;
+  assignments: Array<{
+    assignment: PlannerAssignment;
+    slot: PlannerSlot;
+    venueName: string;
+  }>;
   responseUrl: string;
-  month: string;
-  year: number;
-  totalAmount?: number;
-  performances?: {
-    date: string;
-    venue: string;
-    startTime: string;
-    fee: number;
-  }[];
-}
-
-/**
- * Sends an email using SendGrid
- */
-export async function sendEmail(emailData: EmailData): Promise<boolean> {
-  if (!process.env.SENDGRID_API_KEY) {
-    console.error('Cannot send email: SENDGRID_API_KEY is not set');
-    return false;
-  }
-
-  try {
-    await sgMail.send(emailData);
-    return true;
-  } catch (error) {
-    console.error('SendGrid email error:', error);
-    return false;
-  }
 }
 
 /**
  * Sends a contract email to a musician
  */
-export async function sendContractEmail(params: ContractEmailParams, template?: EmailTemplate): Promise<boolean> {
-  // Prepare the email content
-  const contractLink = `${params.responseUrl}?id=${params.contractId}&token=TOKEN_PLACEHOLDER`;
-  
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
+export async function sendContractEmail(data: EmailTemplateData): Promise<boolean> {
+  try {
+    if (!process.env.SENDGRID_API_KEY) {
+      console.warn('SendGrid API key not configured. Skipping email send.');
+      return false;
+    }
 
-  // Default template if none provided
-  const defaultHtml = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-      <h2 style="color: #333; text-align: center; margin-bottom: 20px;">Performance Contract: ${params.month} ${params.year}</h2>
-      
-      <p>Hello ${params.musicianName},</p>
-      
-      <p>You have been scheduled to perform in ${params.month} ${params.year}. Please review and sign your contract using the link below.</p>
-      
-      ${params.performances && params.performances.length > 0 ? `
-        <div style="margin: 20px 0; border: 1px solid #eaeaea; border-radius: 3px; overflow: hidden;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background-color: #f8f9fa;">
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #eaeaea;">Date</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #eaeaea;">Venue</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #eaeaea;">Time</th>
-                <th style="padding: 10px; text-align: right; border-bottom: 1px solid #eaeaea;">Fee</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${params.performances.map(performance => `
-                <tr>
-                  <td style="padding: 10px; border-bottom: 1px solid #eaeaea;">${performance.date}</td>
-                  <td style="padding: 10px; border-bottom: 1px solid #eaeaea;">${performance.venue}</td>
-                  <td style="padding: 10px; border-bottom: 1px solid #eaeaea;">${performance.startTime}</td>
-                  <td style="padding: 10px; text-align: right; border-bottom: 1px solid #eaeaea;">${formatCurrency(performance.fee)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-            ${params.totalAmount ? `
-              <tfoot>
-                <tr style="background-color: #f8f9fa;">
-                  <td colspan="3" style="padding: 10px; font-weight: bold;">Total</td>
-                  <td style="padding: 10px; text-align: right; font-weight: bold;">${formatCurrency(params.totalAmount)}</td>
-                </tr>
-              </tfoot>
-            ` : ''}
-          </table>
-        </div>
-      ` : ''}
-      
-      <div style="margin: 30px 0; text-align: center;">
-        <a href="${contractLink}" style="display: inline-block; background-color: #4a90e2; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">View and Sign Contract</a>
-      </div>
-      
-      <p>If you have any questions, please contact ${params.senderName} at ${params.senderEmail}.</p>
-      
-      <p>Thank you,<br>
-      ${params.senderName}</p>
-      
-      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 12px; color: #666; text-align: center;">
-        This email was sent by the Musician Management Platform.
-      </div>
-    </div>
-  `;
-
-  // Use the provided template or default
-  const html = template?.htmlContent || defaultHtml;
-  
-  // Email data
-  const emailData: EmailData = {
-    to: params.musicianEmail,
-    from: params.senderEmail,
-    subject: `Performance Contract for ${params.month} ${params.year}`,
-    html: html,
-    text: `Hello ${params.musicianName}, You have been scheduled to perform in ${params.month} ${params.year}. Please review and sign your contract: ${contractLink}`
-  };
-
-  return await sendEmail(emailData);
-}
-
-/**
- * Sends a contract status update email to the admin
- */
-export async function sendContractStatusUpdateEmail(
-  adminEmail: string, 
-  musicianName: string, 
-  contractId: number, 
-  status: 'signed' | 'rejected', 
-  comments?: string
-): Promise<boolean> {
-  const emailData: EmailData = {
-    to: adminEmail,
-    from: adminEmail, // Can be changed to a no-reply address
-    subject: `Contract #${contractId} ${status === 'signed' ? 'Signed' : 'Rejected'} by ${musicianName}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 5px;">
-        <h2 style="color: ${status === 'signed' ? '#2e7d32' : '#d32f2f'}; text-align: center; margin-bottom: 20px;">
-          Contract ${status === 'signed' ? 'Signed' : 'Rejected'}
-        </h2>
+    const { musician, contract, assignments, responseUrl } = data;
+    
+    // Format month and year
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[contract.month - 1];
+    
+    // Create HTML content
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #3a4f66; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;">
+          Performance Contract for ${monthName} ${contract.year}
+        </h1>
         
-        <p>Hello,</p>
+        <p>Hello ${musician.name},</p>
         
-        <p>
-          This is an automatic notification that <strong>${musicianName}</strong> has 
-          <strong>${status === 'signed' ? 'signed' : 'rejected'}</strong> contract #${contractId}.
-        </p>
+        <p>Your contract for performances in ${monthName} ${contract.year} is ready for review. 
+        Please review the details below and confirm your availability.</p>
         
-        ${comments ? `
-          <div style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 4px;">
-            <strong>Comments:</strong>
-            <p style="margin-top: 5px;">${comments}</p>
+        <h2 style="color: #3a4f66; margin-top: 30px;">Performance Details</h2>
+        
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <tr style="background-color: #f2f2f2;">
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Date</th>
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Time</th>
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Venue</th>
+            <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Fee</th>
+          </tr>
+          ${assignments.map(({ slot, venueName, assignment }) => `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">
+                ${new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+              </td>
+              <td style="padding: 10px; border: 1px solid #ddd;">
+                ${slot.startTime} - ${slot.endTime}
+              </td>
+              <td style="padding: 10px; border: 1px solid #ddd;">
+                ${venueName}
+              </td>
+              <td style="padding: 10px; border: 1px solid #ddd;">
+                $${assignment.actualFee || 0}
+              </td>
+            </tr>
+          `).join('')}
+          <tr style="background-color: #f2f2f2;">
+            <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd; font-weight: bold;">
+              Total:
+            </td>
+            <td style="padding: 10px; border: 1px solid #ddd; font-weight: bold;">
+              $${assignments.reduce((sum, { assignment }) => sum + (assignment.actualFee || 0), 0)}
+            </td>
+          </tr>
+        </table>
+        
+        ${contract.notes ? `
+          <h2 style="color: #3a4f66;">Notes</h2>
+          <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #3a4f66; margin-bottom: 20px;">
+            ${contract.notes}
           </div>
         ` : ''}
         
-        <div style="margin: 30px 0; text-align: center;">
-          <a href="/contracts/${contractId}" style="display: inline-block; background-color: #4a90e2; color: white; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">
-            View Contract Details
+        <div style="margin: 30px 0;">
+          <a href="${responseUrl}?action=sign" 
+             style="display: inline-block; background-color: #4CAF50; color: white; padding: 12px 24px; 
+                    text-decoration: none; border-radius: 4px; margin-right: 10px; font-weight: bold;">
+            Accept Contract
+          </a>
+          
+          <a href="${responseUrl}?action=reject" 
+             style="display: inline-block; background-color: #f44336; color: white; padding: 12px 24px; 
+                    text-decoration: none; border-radius: 4px; font-weight: bold;">
+            Decline Contract
           </a>
         </div>
         
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 12px; color: #666; text-align: center;">
-          This email was sent by the Musician Management Platform.
+        <p>
+          If you have any questions or need to discuss the details, please reply to this email
+          or contact our team directly.
+        </p>
+        
+        <p>Thank you!</p>
+        
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eaeaea; color: #888; font-size: 12px;">
+          <p>
+            This contract is pending your acceptance. Your participation in these events is not confirmed
+            until you accept the contract. If you decline, please provide a reason so we can make alternative arrangements.
+          </p>
         </div>
       </div>
-    `
-  };
+    `;
+    
+    // Create plain text version
+    const text = `
+Performance Contract for ${monthName} ${contract.year}
 
-  return await sendEmail(emailData);
+Hello ${musician.name},
+
+Your contract for performances in ${monthName} ${contract.year} is ready for review. 
+Please review the details below and confirm your availability.
+
+Performance Details:
+${assignments.map(({ slot, venueName, assignment }) => `
+  * ${new Date(slot.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+    ${slot.startTime} - ${slot.endTime}
+    Venue: ${venueName}
+    Fee: $${assignment.actualFee || 0}
+`).join('')}
+
+Total: $${assignments.reduce((sum, { assignment }) => sum + (assignment.actualFee || 0), 0)}
+
+${contract.notes ? `Notes: ${contract.notes}` : ''}
+
+To respond to this contract, please visit: ${responseUrl}
+
+Thank you!
+
+This contract is pending your acceptance. Your participation in these events is not confirmed until you accept the contract.
+    `;
+    
+    // Send the email
+    await MailService.send({
+      to: musician.email,
+      from: FROM_EMAIL,
+      subject: `[Music Contract] ${monthName} ${contract.year} Performance Schedule`,
+      text,
+      html
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to send contract email:', error);
+    return false;
+  }
 }
 
-export default {
-  sendEmail,
-  sendContractEmail,
-  sendContractStatusUpdateEmail
-};
+/**
+ * Sends a notification email when a musician responds to a contract
+ */
+export async function sendContractResponseNotification(
+  contract: MonthlyContract,
+  musician: Musician,
+  action: 'accept' | 'reject',
+  notes?: string
+): Promise<boolean> {
+  try {
+    if (!process.env.SENDGRID_API_KEY || !ADMIN_EMAIL) {
+      console.warn('SendGrid API key or admin email not configured. Skipping notification email.');
+      return false;
+    }
+    
+    // Format month and year
+    const monthNames = ["January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"];
+    const monthName = monthNames[contract.month - 1];
+    
+    const contractUrl = `${HOST_URL}/monthly-contracts/${contract.id}`;
+    
+    // Create HTML content
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #3a4f66; border-bottom: 2px solid #eaeaea; padding-bottom: 10px;">
+          Contract Response Notification
+        </h1>
+        
+        <p>A musician has responded to a contract.</p>
+        
+        <div style="background-color: #f9f9f9; padding: 20px; margin: 20px 0; border-radius: 5px;">
+          <p><strong>Contract:</strong> ${monthName} ${contract.year}</p>
+          <p><strong>Musician:</strong> ${musician.name} (${musician.email})</p>
+          <p><strong>Response:</strong> 
+            <span style="color: ${action === 'accept' ? '#4CAF50' : '#f44336'}; font-weight: bold;">
+              ${action === 'accept' ? 'ACCEPTED' : 'DECLINED'}
+            </span>
+          </p>
+          ${notes ? `
+            <p><strong>Notes:</strong></p>
+            <div style="background-color: #fff; padding: 15px; border-left: 4px solid #3a4f66;">
+              ${notes}
+            </div>
+          ` : ''}
+        </div>
+        
+        <p>
+          <a href="${contractUrl}" 
+             style="display: inline-block; background-color: #3a4f66; color: white; padding: 10px 20px; 
+                    text-decoration: none; border-radius: 4px; font-weight: bold;">
+            View Contract Details
+          </a>
+        </p>
+      </div>
+    `;
+    
+    // Create plain text version
+    const text = `
+Contract Response Notification
+
+A musician has responded to a contract.
+
+Contract: ${monthName} ${contract.year}
+Musician: ${musician.name} (${musician.email})
+Response: ${action === 'accept' ? 'ACCEPTED' : 'DECLINED'}
+${notes ? `Notes: ${notes}` : ''}
+
+View Contract Details: ${contractUrl}
+    `;
+    
+    // Send the email
+    await MailService.send({
+      to: ADMIN_EMAIL,
+      from: FROM_EMAIL,
+      subject: `[Contract ${action === 'accept' ? 'Accepted' : 'Declined'}] ${musician.name} - ${monthName} ${contract.year}`,
+      text,
+      html
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to send contract response notification:', error);
+    return false;
+  }
+}
+
+// Export functions directly, do not use export default

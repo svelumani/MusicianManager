@@ -11,7 +11,7 @@ import {
 } from '../../shared/schema';
 import { randomUUID } from 'crypto';
 import { format } from 'date-fns';
-import emailService from '../services/emailService';
+import { sendContractEmail } from '../services/emailService';
 import { isAuthenticated } from '../auth';
 
 const contractRouter = Router();
@@ -220,12 +220,12 @@ contractRouter.post('/respond', async (req, res) => {
     // Send notification email to admin if configured
     try {
       if (contract && process.env.SENDGRID_API_KEY && process.env.ADMIN_EMAIL) {
-        await emailService.sendContractStatusUpdateEmail(
-          process.env.ADMIN_EMAIL,
-          musician.name,
-          Number(contractId),
-          action === 'sign' ? 'signed' : 'rejected',
-          comments
+        // Use the sendContractResponseNotification function from our emailService
+        await sendContractResponseNotification(
+          contract,
+          musician,
+          action === 'sign' ? 'accept' : 'reject',
+          comments || undefined
         );
       }
     } catch (emailError) {
