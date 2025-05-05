@@ -129,7 +129,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
     refetch: refetchMusicians
   } = useQuery<MusicianContract[]>({
     queryKey: [`/api/monthly-contracts/planner/${plannerId}/musicians`],
-    enabled: !!plannerId && selectedTab === "musicians",
+    enabled: !!plannerId && selectedTab === "musicians"
   });
 
   // Mutation to send a contract
@@ -351,7 +351,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contracts.map((contract: any) => (
+                  {(contracts || []).map((contract: Contract) => (
                     <TableRow key={contract.id}>
                       <TableCell>{contract.id}</TableCell>
                       <TableCell>
@@ -437,7 +437,7 @@ export default function ContractsView({ plannerId, month, year }: ContractsViewP
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {contractMusicians.map((musician: any) => (
+                  {(contractMusicians || []).map((musician: MusicianContract) => (
                     <TableRow key={musician.id}>
                       <TableCell>{musician.id}</TableCell>
                       <TableCell>

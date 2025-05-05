@@ -13,6 +13,8 @@ const plannerContractsMusicianRouter = Router();
 
 // Get all musicians in all contracts for a planner
 plannerContractsMusicianRouter.get('/planner/:plannerId/musicians', isAuthenticated, async (req, res) => {
+  // Set header to explicitly return JSON
+  res.setHeader('Content-Type', 'application/json');
   try {
     const { plannerId } = req.params;
     
