@@ -1,143 +1,117 @@
 /**
- * useVersionedQuery - A hook for data fetching with built-in version tracking
+ * Versioned Query Hook
  * 
- * This is a wrapper around TanStack Query's useQuery that automatically handles
- * version tracking to ensure data is always fresh regardless of HTTP caching.
+ * This custom hook extends React Query with version-aware caching
+ * that integrates with the server's data versioning system.
+ * 
+ * It allows components to automatically refresh their data when
+ * the server indicates that newer data is available, without relying
+ * on polling or manual refreshes.
  */
-import { useQuery, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
+import { useQuery, UseQueryOptions, UseQueryResult } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import {
-  VersionedEntity,
-  getStoredVersion,
-  updateStoredVersion,
-  generateVersionHash,
-  isDataFresh
-} from '@/lib/utils/versionTracker';
-import { apiRequest } from '@/lib/queryClient';
+import { initWebSocketConnection } from '@/lib/ws/dataSync';
+import { queryClient } from '@/lib/queryClient';
 
-interface VersionedQueryOptions<TData> extends Omit<UseQueryOptions<TData>, 'queryKey' | 'queryFn'> {
-  // The entity type being fetched
-  entity: VersionedEntity;
-  // The API endpoint to fetch data from
-  endpoint: string;
-  // The query parameters to include
-  params?: Record<string, string | number>;
-  // Whether to force a refresh
-  forceRefresh?: boolean;
-  // A custom transformation function for the response data
-  transform?: (data: any) => TData;
-}
+// Map of version keys to their latest known version numbers
+const knownVersions: Record<string, number> = {};
 
 /**
- * A hook that combines React Query with version tracking to ensure fresh data
+ * Custom hook that extends useQuery with version checking to ensure data freshness
  */
-export function useVersionedQuery<TData = any>({
-  entity,
-  endpoint,
-  params = {},
-  forceRefresh = false,
-  transform,
-  ...queryOptions
-}: VersionedQueryOptions<TData>) {
-  // Local version state
-  const [versionHash, setVersionHash] = useState<string>('');
-  const queryClient = useQueryClient();
-
-  // Build the full URL with parameters
-  const url = buildUrl(endpoint, params);
+export function useVersionedQuery<T>(
+  endpoint: string,
+  versionKey: string,
+  options?: Omit<UseQueryOptions<T>, 'queryKey'>
+): UseQueryResult<T> {
+  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
   
-  // Generate a unique query key that includes the entity and version
-  const queryKey = [`${entity}:${url}`, versionHash];
+  // Initialize WebSocket connection if not already connected
+  useEffect(() => {
+    initWebSocketConnection();
+  }, []);
 
-  // The actual query
-  const queryResult = useQuery<TData>({
-    queryKey,
-    queryFn: async () => {
-      console.log(`🔍 Fetching versioned data for ${entity} from ${url}`);
-      
-      try {
-        // Add a timestamp to the URL to bypass cache
-        const timestamp = Date.now();
-        const urlWithTimestamp = `${url}${url.includes('?') ? '&' : '?'}_t=${timestamp}`;
-        
-        // Fetch the data
-        const response = await apiRequest(urlWithTimestamp);
-        
-        // Generate a version hash from the response
-        const newVersionHash = generateVersionHash(response);
-        console.log(`📊 Generated version hash for ${entity}: ${newVersionHash}`);
-        
-        // Update the stored version hash
-        updateStoredVersion(entity, newVersionHash);
-        
-        // Set the local version hash
-        setVersionHash(newVersionHash);
-        
-        // Apply any transformation
-        return transform ? transform(response) : response;
-      } catch (error) {
-        console.error(`Error fetching versioned data for ${entity}:`, error);
-        throw error;
-      }
-    },
-    ...queryOptions,
+  // First, get the current version to use as a dependency for the data query
+  const versionQuery = useQuery({
+    queryKey: ['/api/versions'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 60000, // Fallback polling every minute in case WebSocket fails
+    ...options
   });
 
-  // On mount or when forceRefresh changes, check if data needs to be refreshed
+  // Update the current version when version data changes
   useEffect(() => {
-    const storedVersion = getStoredVersion(entity);
-    
-    // Force a refresh if requested or if no version exists yet
-    if (forceRefresh || !storedVersion) {
-      console.log(`🔄 Forcing refresh for ${entity}${forceRefresh ? ' (explicit)' : ' (no stored version)'}`);
+    if (versionQuery.data && versionKey in versionQuery.data) {
+      const newVersion = versionQuery.data[versionKey];
       
-      // Generate a new unique version hash to force refetch
-      const newVersionHash = `force_${Date.now()}`;
-      setVersionHash(newVersionHash);
-      return;
-    }
-    
-    // If we have data, check if it's fresh
-    if (queryResult.data) {
-      const dataVersion = generateVersionHash(queryResult.data);
-      const isFresh = isDataFresh(entity, dataVersion);
-      
-      if (!isFresh) {
-        console.log(`🔄 Data is stale for ${entity}, refreshing...`);
-        setVersionHash(dataVersion);
-        queryClient.invalidateQueries({ queryKey: [entity] });
+      // Check if this is a new version
+      if (knownVersions[versionKey] !== newVersion) {
+        console.log(`New version detected for ${versionKey}: ${newVersion}`);
+        
+        // Update the known version
+        knownVersions[versionKey] = newVersion;
+        
+        // Invalidate related queries if needed
+        if (currentVersion !== null && newVersion > currentVersion) {
+          queryClient.invalidateQueries({ queryKey: [endpoint] });
+        }
+        
+        setCurrentVersion(newVersion);
       }
-    } else {
-      // If no data yet, use the stored version
-      setVersionHash(storedVersion);
     }
-  }, [entity, forceRefresh, queryResult.data, queryClient]);
+  }, [versionQuery.data, versionKey, endpoint, currentVersion]);
 
-  return {
-    ...queryResult,
-    // Add extra properties
-    isVersioned: true,
-    currentVersion: versionHash,
-    // Function to force a refresh regardless of version
-    forceRefresh: () => {
-      const newVersionHash = `force_${Date.now()}`;
-      setVersionHash(newVersionHash);
-      queryClient.invalidateQueries({ queryKey });
-    }
-  };
+  // Then fetch the actual data, using the version as part of the query key
+  return useQuery({
+    queryKey: [endpoint, currentVersion],
+    enabled: currentVersion !== null, // Only fetch when we have a version
+    ...options
+  });
 }
 
 /**
- * Helper to build a URL with query parameters
+ * Hook to check if any data has been updated recently
  */
-function buildUrl(endpoint: string, params: Record<string, string | number>): string {
-  if (Object.keys(params).length === 0) {
-    return endpoint;
-  }
+export function useRecentDataUpdates(
+  timeWindowMs: number = 5000
+): boolean {
+  const [hasRecentUpdates, setHasRecentUpdates] = useState(false);
   
-  const queryParams = Object.entries(params)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
-    .join('&');
-    
-  return `${endpoint}${endpoint.includes('?') ? '&' : '?'}${queryParams}`;
+  const versionQuery = useQuery({
+    queryKey: ['/api/versions'],
+    refetchInterval: 30000,
+  });
+  
+  useEffect(() => {
+    if (versionQuery.data) {
+      const versions = versionQuery.data;
+      const now = Date.now();
+      
+      // Check if any versions have been updated recently
+      let updated = false;
+      for (const key in versions) {
+        if (knownVersions[key] !== undefined && knownVersions[key] !== versions[key]) {
+          knownVersions[key] = versions[key];
+          updated = true;
+          console.log(`Data updated: ${key} (version ${versions[key]})`);
+        } else if (knownVersions[key] === undefined) {
+          // Initialize if this is the first time seeing this version
+          knownVersions[key] = versions[key];
+        }
+      }
+      
+      if (updated) {
+        setHasRecentUpdates(true);
+        
+        // Reset after the time window
+        const timeout = setTimeout(() => {
+          setHasRecentUpdates(false);
+        }, timeWindowMs);
+        
+        return () => clearTimeout(timeout);
+      }
+    }
+  }, [versionQuery.data, timeWindowMs]);
+  
+  return hasRecentUpdates;
 }
