@@ -59,8 +59,11 @@ const MonthlyContractDetailPage = () => {
   });
 
   // Format month names
-  const getMonthName = (month: number) => {
-    return format(new Date(2000, month - 1, 1), 'MMMM');
+  const getMonthName = (month: number | null | undefined) => {
+    if (!month) return 'Unknown';
+    // Ensure month is between 1-12
+    const validMonth = Math.max(1, Math.min(12, month));
+    return format(new Date(2000, validMonth - 1, 1), 'MMMM');
   };
 
   // Get status badge color
@@ -199,7 +202,15 @@ const MonthlyContractDetailPage = () => {
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Created</h3>
                       <p className="mt-1 text-base font-medium">
-                        {contract.createdAt ? format(new Date(contract.createdAt), 'MMMM d, yyyy h:mm a') : 'N/A'}
+                        {contract.createdAt ? 
+                          (() => {
+                            try {
+                              return format(new Date(contract.createdAt), 'MMMM d, yyyy h:mm a');
+                            } catch (e) {
+                              return 'Invalid date';
+                            }
+                          })() 
+                          : 'N/A'}
                       </p>
                     </div>
                   </div>
@@ -209,7 +220,13 @@ const MonthlyContractDetailPage = () => {
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Sent Date</h3>
                         <p className="mt-1 text-base font-medium">
-                          {format(new Date(contract.sentAt), 'MMMM d, yyyy h:mm a')}
+                          {(() => {
+                            try {
+                              return format(new Date(contract.sentAt), 'MMMM d, yyyy h:mm a');
+                            } catch (e) {
+                              return 'Invalid date';
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -307,7 +324,13 @@ const MonthlyContractDetailPage = () => {
                       <div>
                         <p className="font-medium">Contract Created</p>
                         <p className="text-sm text-gray-500">
-                          {format(new Date(contract.createdAt), 'MMMM d, yyyy h:mm a')}
+                          {(() => {
+                            try {
+                              return format(new Date(contract.createdAt), 'MMMM d, yyyy h:mm a');
+                            } catch (e) {
+                              return 'Invalid date';
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -321,7 +344,13 @@ const MonthlyContractDetailPage = () => {
                       <div>
                         <p className="font-medium">Contract Sent</p>
                         <p className="text-sm text-gray-500">
-                          {format(new Date(contract.sentAt), 'MMMM d, yyyy h:mm a')}
+                          {(() => {
+                            try {
+                              return format(new Date(contract.sentAt), 'MMMM d, yyyy h:mm a');
+                            } catch (e) {
+                              return 'Invalid date';
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>
