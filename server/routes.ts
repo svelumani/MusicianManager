@@ -26,7 +26,7 @@ import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
 import versionRouter from './routes/versions';
 import { incrementVersion } from './services/dataVersion';
-import { getVersionKeyToEntity, getEntityToTableName } from './services/entityMapping';
+import { getVersionKeyToEntity, getEntityToTableName, VERSION_KEYS } from './services/entityMapping';
 import { 
   initWebSocketServer, 
   notifyDataUpdate, 
