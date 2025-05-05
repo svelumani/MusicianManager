@@ -4600,17 +4600,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       console.log("Fetching musician pay rates, musicianId:", musicianId);
       
+      // Direct database query to check if data exists
+      try {
+        const dbResult = await pool.query(`SELECT COUNT(*) FROM musician_pay_rates`);
+        console.log("Direct database check - total pay rates in database:", dbResult.rows[0].count);
+        
+        if (musicianId) {
+          const musicianResult = await pool.query(
+            `SELECT COUNT(*) FROM musician_pay_rates WHERE musician_id = $1`, 
+            [musicianId]
+          );
+          console.log(`Direct database check - pay rates for musician ${musicianId}:`, musicianResult.rows[0].count);
+        }
+      } catch (dbError) {
+        console.error("Failed to directly query database:", dbError);
+      }
+      
       let payRates = musicianId 
         ? await storage.getMusicianPayRatesByMusicianId(musicianId)
         : await storage.getMusicianPayRates();
       
-      console.log(`Retrieved ${payRates.length} pay rates.`);
+      console.log(`Retrieved ${payRates.length} pay rates through storage interface.`);
       
       // Debug the returned structure - first item if available
       if (payRates.length > 0) {
         console.log("Sample pay rate structure:", JSON.stringify(payRates[0]));
       } else {
-        console.log("No pay rates found. Will return an empty array.");
+        console.log("No pay rates found through storage interface. Will return an empty array.");
       }
       
       // Log if we found rates for the specific musician (debug only)
