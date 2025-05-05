@@ -724,9 +724,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                               <span className="text-gray-600">
                                                 {formatCurrency(calculateFeeForAssignment(assignment))}
                                                 <span className="text-xs block text-right">
-                                                  (${assignment.actualFee && assignment.actualFee > 0 
-                                                    ? Math.round(assignment.actualFee / hours) 
-                                                    : Math.round(hourlyRate)}/hr)
+                                                  (${Math.round(hourlyRate)}/hr)
                                                 </span>
                                               </span>
                                             </TooltipTrigger>
