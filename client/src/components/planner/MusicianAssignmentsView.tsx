@@ -22,6 +22,7 @@ interface MusicianAssignmentsViewProps {
 
 const CONTRACT_STATUS_COLORS = {
   pending: 'bg-gray-100 text-gray-800',
+  'contract generated': 'bg-teal-100 text-teal-800',
   sent: 'bg-blue-100 text-blue-800',
   signed: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-800',
@@ -31,6 +32,7 @@ const CONTRACT_STATUS_COLORS = {
 
 const CONTRACT_STATUS_ICONS = {
   pending: <Clock className="h-4 w-4 mr-1" />,
+  'contract generated': <FileText className="h-4 w-4 mr-1" />,
   sent: <Send className="h-4 w-4 mr-1" />,
   signed: <CheckCircle className="h-4 w-4 mr-1" />,
   rejected: <AlertCircle className="h-4 w-4 mr-1" />,
@@ -265,6 +267,7 @@ export default function MusicianAssignmentsView({ plannerId, month, year }: Musi
           // Group assignments by contract status
           const contractGroups: {[key: string]: any[]} = {
             pending: [],
+            'contract generated': [],
             sent: [],
             signed: [],
             rejected: [],

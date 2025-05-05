@@ -462,11 +462,12 @@ contractRouter.post('/generate', isAuthenticated, async (req, res) => {
         console.log(`Added date ${slot.date} to contract:`, contractDate);
         
         // Update the assignment to point to this contract
+        // Using "contract generated" status instead of "pending" for clarity
         await db
           .update(plannerAssignments)
           .set({
             contractId: contract.id,
-            contractStatus: 'pending'
+            contractStatus: 'contract generated'
           })
           .where(eq(plannerAssignments.id, assignment.id));
       }
