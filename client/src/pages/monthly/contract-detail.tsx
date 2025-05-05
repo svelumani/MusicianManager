@@ -116,31 +116,45 @@ const MonthlyContractDetailPage = () => {
     }
   }, [urlParams.timestamp, urlParams.refresh, contractId, queryClient]);
   
-  // Query to fetch the monthly contract with cache busting timestamp
+  // Query to fetch the monthly contract with enhanced cache busting
   const {
     data: contract,
     isLoading: isContractLoading,
     error: contractError,
   } = useQuery({
-    queryKey: [`/api/monthly-contracts/${contractId}`, urlParams.timestamp || timestampRef.current],
+    queryKey: [`/api/monthly-contracts/${contractId}`, urlParams.timestamp || `${timestampRef.current}_${Math.floor(Math.random() * 10000)}`],
     queryFn: async () => {
-      console.log(`Loading contract ${contractId} with timestamp:`, urlParams.timestamp || timestampRef.current);
-      return await apiRequest(`/api/monthly-contracts/${contractId}`);
+      // Generate a unique cache-busting parameter
+      const cacheBuster = `_cb=${Date.now()}${Math.floor(Math.random() * 10000)}`;
+      const url = `/api/monthly-contracts/${contractId}?${cacheBuster}`;
+      
+      console.log(`Loading contract ${contractId} with aggressive cache prevention`, url);
+      return await apiRequest(url);
     },
     enabled: !!contractId,
+    // Make sure data is never considered stale to prevent issues with other components
+    staleTime: 0, 
+    // But always refetch when the component is mounted to ensure fresh data
+    refetchOnMount: true
   });
 
-  // Query to fetch the contract assignments (musicians) with cache busting
+  // Query to fetch the contract assignments (musicians) with enhanced cache busting
   const {
     data: assignments = [],
     isLoading: isAssignmentsLoading,
   } = useQuery({
-    queryKey: [`/api/monthly-contracts/${contractId}/assignments`, urlParams.timestamp || timestampRef.current],
+    queryKey: [`/api/monthly-contracts/${contractId}/assignments`, urlParams.timestamp || `${timestampRef.current}_${Math.floor(Math.random() * 10000)}`],
     queryFn: async () => {
-      console.log(`Loading assignments for contract ${contractId} with timestamp:`, urlParams.timestamp || timestampRef.current);
-      return await apiRequest(`/api/monthly-contracts/${contractId}/assignments`);
+      // Generate a unique cache-busting parameter
+      const cacheBuster = `_cb=${Date.now()}${Math.floor(Math.random() * 10000)}`;
+      const url = `/api/monthly-contracts/${contractId}/assignments?${cacheBuster}`;
+      
+      console.log(`Loading assignments for contract ${contractId} with aggressive cache prevention`, url);
+      return await apiRequest(url);
     },
     enabled: !!contractId,
+    staleTime: 0,
+    refetchOnMount: true
   });
 
   // Mutation for resending contract
