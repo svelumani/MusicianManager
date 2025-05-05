@@ -2915,10 +2915,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid assignment ID" });
       }
       
+      // Get the current assignment to know what we're updating
+      const currentAssignment = await storage.getPlannerAssignment(id);
+      if (!currentAssignment) {
+        return res.status(404).json({ message: "Assignment not found" });
+      }
+      
       const assignmentData = insertPlannerAssignmentSchema.partial().parse(req.body);
+      
+      // If musician is being changed, check for time conflicts
+      if (assignmentData.musicianId && assignmentData.musicianId !== currentAssignment.musicianId) {
+        // Get the slot info to check date and time
+        const slot = await storage.getPlannerSlot(currentAssignment.slotId);
+        if (!slot) {
+          return res.status(404).json({ message: "Associated planner slot not found" });
+        }
+        
+        // Convert to ISO date string format for consistent handling
+        const dateStr = new Date(slot.date).toISOString().split('T')[0];
+        console.log(`Checking availability for new musician ${assignmentData.musicianId} on date ${dateStr} (slot: ${slot.id})`);
+        
+        // Check if the new musician is available for this time slot
+        const isAvailable = await storage.isMusicianAvailableForDate(
+          assignmentData.musicianId, 
+          dateStr,
+          currentAssignment.slotId // Pass the current slot ID for time conflict checking
+        );
+        
+        if (!isAvailable) {
+          return res.status(400).json({ 
+            message: "Cannot reassign slot to this musician",
+            error: "MUSICIAN_UNAVAILABLE",
+            details: "This musician is unavailable for this time slot. They may be marked as unavailable on this date or already have another assignment at a conflicting time."
+          });
+        }
+      }
+      
+      // All checks passed, update the assignment
       const assignment = await storage.updatePlannerAssignment(id, assignmentData);
       if (!assignment) {
-        return res.status(404).json({ message: "Assignment not found" });
+        return res.status(404).json({ message: "Failed to update assignment" });
       }
       res.json(assignment);
     } catch (error) {
