@@ -154,9 +154,9 @@ const MonthlyContractDetailPage = () => {
       <div className="flex flex-col space-y-4">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">{contract.name || `Monthly Contract #${contract.id}`}</h1>
-          <Badge className={`${getStatusColor(contract.status)} text-white px-3 py-1.5 text-lg flex items-center`}>
-            {getStatusIcon(contract.status)}
-            {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
+          <Badge className={`${getStatusColor(contract.status || '')} text-white px-3 py-1.5 text-lg flex items-center`}>
+            {getStatusIcon(contract.status || '')}
+            {contract.status ? contract.status.charAt(0).toUpperCase() + contract.status.slice(1) : 'Unknown'}
           </Badge>
         </div>
 
@@ -184,9 +184,9 @@ const MonthlyContractDetailPage = () => {
                     </div>
                     <div>
                       <h3 className="text-sm font-medium text-gray-500">Status</h3>
-                      <Badge className={`${getStatusColor(contract.status)} text-white mt-1 flex w-fit`}>
-                        {getStatusIcon(contract.status)}
-                        {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
+                      <Badge className={`${getStatusColor(contract.status || '')} text-white mt-1 flex w-fit`}>
+                        {getStatusIcon(contract.status || '')}
+                        {contract.status ? contract.status.charAt(0).toUpperCase() + contract.status.slice(1) : 'Unknown'}
                       </Badge>
                     </div>
                   </div>
@@ -223,7 +223,7 @@ const MonthlyContractDetailPage = () => {
               </CardContent>
 
               <CardFooter className="flex flex-wrap gap-2">
-                {contract.status === 'draft' && (
+                {contract.status && contract.status === 'draft' && (
                   <Button>
                     <Send className="mr-2 h-4 w-4" />
                     Send Contract
