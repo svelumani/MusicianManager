@@ -44,15 +44,45 @@ export function useVersionedQuery<T>(
   // Construct fetch function with API request
   const fetchFn = async () => {
     try {
-      // Fetch data from API
-      const response = await fetch(endpoint + (endpoint.includes('?') ? '&' : '?') + 
-        new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString());
+      // First, get the current server data version
+      const versionsResponse = await fetch('/api/versions', {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!versionsResponse.ok) {
+        console.warn('Failed to fetch versions, proceeding with data fetch anyway');
+      } else {
+        // Log versions for debugging
+        const versions = await versionsResponse.json();
+        console.log(`[VersionedQuery] ${entity} data version: ${versions[entity] || 'unknown'}`);
+      }
+      
+      // Construct the URL with a cache-busting timestamp
+      const timestamp = Date.now();
+      const url = endpoint + 
+        (endpoint.includes('?') ? '&' : '?') + 
+        new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)])).toString() +
+        `&_t=${timestamp}`;
+      
+      // Fetch data from API with no-cache headers
+      const response = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
         
       if (!response.ok) {
         throw new Error(`API error: ${response.status}`);
       }
       
       const data = await response.json();
+      
+      // Log data for debugging
+      console.log(`[VersionedQuery] ${entity} data fetched at ${new Date().toISOString()}`);
       
       // Transform data if transform function is provided
       return transform ? transform(data) : data;

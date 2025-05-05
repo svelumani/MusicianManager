@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Badge } from "@/components/ui/badge";
 import InlineMusicianSelect from "./InlineMusicianSelect";
 import SimplifiedContractSender from "./SimplifiedContractSender";
-import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw } from "lucide-react";
+import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw, Clock } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useVersionedQuery } from "@/hooks/use-versioned-query";
@@ -57,11 +57,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     data: plannerSlots,
     isLoading: isSlotsLoading,
     forceRefresh: forceRefreshSlots
-  } = useVersionedQuery({
+  } = useVersionedQuery<Slot[]>({
     entity: 'plannerSlots',
     endpoint: `/api/planner-slots`,
     params: { plannerId: planner?.id },
     enabled: !!planner?.id,
+    transform: (data) => Array.isArray(data) ? data : []
   });
 
   // Query to get all planner assignments for this planner
@@ -69,7 +70,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
     forceRefresh: forceRefreshAssignments
-  } = useVersionedQuery<any[]>({
+  } = useVersionedQuery<Assignment[]>({
     entity: 'plannerAssignments',
     endpoint: '/api/planner-assignments',
     params: { plannerId: planner?.id },
@@ -86,7 +87,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     data: musicians,
     isLoading: isMusiciansLoading,
     forceRefresh: forceRefreshMusicians
-  } = useVersionedQuery<any[]>({
+  } = useVersionedQuery<Musician[]>({
     entity: 'musicians',
     endpoint: '/api/musicians',
     transform: (data) => Array.isArray(data) ? data : [],
@@ -109,16 +110,18 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     data: payRates,
     isLoading: isPayRatesLoading,
     forceRefresh: forceRefreshPayRates
-  } = useVersionedQuery<any[]>({
+  } = useVersionedQuery<PayRate[]>({
     entity: 'musicianPayRates',
     endpoint: '/api/musician-pay-rates',
     transform: (rates) => {
       if (!Array.isArray(rates)) return [];
       
       // Debug: Log James Wilson's rates for Club Performance
-      const jamesRates = rates.filter((r: any) => r.musicianId === 7);
-      const clubRates = rates.filter((r: any) => r.eventCategoryId === 7);
-      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 7);
+      const jamesRates = rates.filter((r: PayRate) => r.musicianId === 7);
+      const clubRates = rates.filter((r: PayRate) => r.eventCategoryId === 7);
+      const jamesClubRates = rates.filter((r: PayRate) => 
+        r.musicianId === 7 && r.eventCategoryId === 7
+      );
       
       console.log("DEBUG - All pay rates count:", rates.length);
       console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
@@ -559,6 +562,20 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
               <span className="text-xs text-gray-500">
                 Last saved: {format(lastSaved, "HH:mm:ss")}
               </span>
+            )}
+          </div>
+          
+          {/* Version information */}
+          <div className="flex items-center space-x-2 text-xs text-gray-500 border-l pl-2">
+            <div className="flex items-center">
+              <Calendar className="h-3 w-3 mr-1" />
+              <span>Data version: {planner?.version || '-'}</span>
+            </div>
+            {planner?.updatedAt && (
+              <div className="flex items-center ml-2">
+                <Clock className="h-3 w-3 mr-1" />
+                <span>Updated: {format(new Date(planner.updatedAt), "MMM d, HH:mm:ss")}</span>
+              </div>
             )}
           </div>
           
