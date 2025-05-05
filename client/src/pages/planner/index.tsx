@@ -1,22 +1,13 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
-import { Link } from "wouter";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import PlannerGrid from "@/components/planner/PlannerGrid";
 import MonthSelector from "@/components/planner/MonthSelector";
-import MusicianAssignments from "@/components/planner/MusicianAssignments";
+import PlannerTabs from "@/components/planner/PlannerTabs";
 
 const PlannerPage = () => {
   const { toast } = useToast();
@@ -155,26 +146,20 @@ const PlannerPage = () => {
               )}
             </Button>
           )}
-          {/* "View Invoices" button removed for UI streamlining */}
         </div>
       </div>
 
       {planner ? (
-        <div className="space-y-8">
-          <PlannerGrid 
-            planner={planner} 
-            venues={Array.isArray(venues) ? venues : []} 
-            categories={Array.isArray(categories) ? categories : []}
-            selectedMonth={selectedMonth}
-          />
-          
-          <MusicianAssignments 
-            plannerId={planner.id}
-            plannerName={planner.name}
-            month={currentMonth}
-            year={currentYear}
-          />
-        </div>
+        <PlannerTabs 
+          planner={planner}
+          venues={Array.isArray(venues) ? venues : []}
+          categories={Array.isArray(categories) ? categories : []}
+          selectedMonth={selectedMonth}
+          plannerId={planner.id}
+          plannerName={planner.name}
+          month={currentMonth}
+          year={currentYear}
+        />
       ) : (
         <Card>
           <CardHeader>
