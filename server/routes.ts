@@ -25,6 +25,7 @@ import { availability } from "@shared/schema";
 import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import contractRouter from './routes/contract-routes';
+import setupMonthlyContractRoutes from './routes/monthly-contract-routes';
 import { 
   insertUserSchema, 
   insertVenueSchema, 

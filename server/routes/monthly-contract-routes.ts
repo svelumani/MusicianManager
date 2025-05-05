@@ -9,7 +9,7 @@ import {
   contractTemplates,
 } from '../../shared/schema';
 import { isAuthenticated } from '../auth';
-import IStorage from '../storage';
+import { IStorage } from '../storage';
 
 export default function setupMonthlyContractRoutes(apiRouter: Router, storage: IStorage) {
   // Preview Monthly Contract
@@ -34,22 +34,22 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       
       // For each musician, get their details and dates
       const musicians = await Promise.all(
-        contractMusicians.map(async (cm) => {
+        contractMusicians.map(async (cm: any) => {
           const musician = await storage.getMusician(cm.musicianId);
           const dates = await storage.getMonthlyContractDates(cm.id);
           
           return {
             id: cm.id,
             musician: {
-              id: musician.id,
-              name: musician.name,
-              email: musician.email,
-              type: musician.type || "Unknown"
+              id: musician?.id || 0,
+              name: musician?.name || "Unknown Musician",
+              email: musician?.email || "",
+              type: musician?.type || "Unknown"
             },
-            dates: dates.map(date => ({
+            dates: dates.map((date: any) => ({
               date: date.date,
-              fee: date.fee,
-              notes: date.notes
+              fee: date.fee || 0,
+              notes: date.notes || ""
             }))
           };
         })
@@ -61,7 +61,7 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
         "July", "August", "September", "October", "November", "December"
       ];
       
-      const monthName = monthNames[contract.contract.month - 1];
+      const monthName = monthNames[contract.month - 1];
       
       const html = `
       <!DOCTYPE html>
@@ -69,7 +69,7 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${contract.contract.name || `Monthly Contract - ${monthName} ${contract.contract.year}`}</title>
+        <title>${contract.name || `Monthly Contract - ${monthName} ${contract.year}`}</title>
         <style>
           body {
             font-family: Arial, sans-serif;
@@ -139,14 +139,14 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       </head>
       <body>
         <div class="header">
-          <div class="contract-title">${contract.contract.name || `Monthly Contract - ${monthName} ${contract.contract.year}`}</div>
+          <div class="contract-title">${contract.name || `Monthly Contract - ${monthName} ${contract.year}`}</div>
         </div>
         
         <div class="contract-info">
-          <p><strong>Contract ID:</strong> ${contract.contract.id}</p>
-          <p><strong>Period:</strong> ${monthName} ${contract.contract.year}</p>
-          <p><strong>Status:</strong> ${contract.contract.status?.toUpperCase() || 'DRAFT'}</p>
-          <p><strong>Created Date:</strong> ${new Date(contract.contract.createdAt).toLocaleDateString()}</p>
+          <p><strong>Contract ID:</strong> ${contract.id}</p>
+          <p><strong>Period:</strong> ${monthName} ${contract.year}</p>
+          <p><strong>Status:</strong> ${contract.status?.toUpperCase() || 'DRAFT'}</p>
+          <p><strong>Created Date:</strong> ${new Date(contract.createdAt).toLocaleDateString()}</p>
         </div>
         
         <div class="terms-section">
@@ -474,7 +474,7 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
 }
 
 // Helper function for formatting currency
-function formatMoney(amount) {
+function formatMoney(amount: number): string {
   return new Intl.NumberFormat('en-US', { 
     style: 'currency', 
     currency: 'USD',
