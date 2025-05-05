@@ -226,14 +226,23 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     });
   };
 
-  // Query to get current version info - using standard React Query to avoid UpdateEntity type issue
+  // Define an interface for the version data
+  interface VersionInfo {
+    monthly_planners?: number;
+    planner_slots?: number;
+    planner_assignments?: number;
+    monthly_contracts?: number;
+    [key: string]: number | undefined;
+  }
+
+  // Query to get current version info - using standard React Query
   const {
     data: versionInfo,
     isLoading: isVersionsLoading
-  } = useQuery({
+  } = useQuery<VersionInfo>({
     queryKey: ['/api/versions'],
     refetchInterval: 30000, // Check every 30 seconds
-    select: (data) => data || {}
+    select: (data) => data || {} as VersionInfo
   });
 
   // Auto-save feature
@@ -583,7 +592,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                 <div className="flex items-center space-x-2 text-xs text-gray-500 border-l pl-2 cursor-help">
                   <div className="flex items-center">
                     <Calendar className="h-3 w-3 mr-1" />
-                    <span>Monthly planner v{versionInfo?.monthly_planners || planner?.version || '-'}</span>
+                    <span>Server version: v{versionInfo?.monthly_planners || '-'}</span>
                   </div>
                   {planner?.updatedAt && (
                     <div className="flex items-center ml-2">
@@ -596,7 +605,19 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
               <TooltipContent>
                 <div className="text-xs space-y-1">
                   <div className="font-bold">Data Versions Info:</div>
-                  <div>Planner: v{planner?.version || '-'}</div>
+                  <div className="grid grid-cols-2 gap-x-2">
+                    <div>Monthly Planners:</div>
+                    <div className="font-medium">v{versionInfo?.monthly_planners || '-'}</div>
+                    
+                    <div>Planner Slots:</div>
+                    <div className="font-medium">v{versionInfo?.planner_slots || '-'}</div>
+                    
+                    <div>Assignments:</div>
+                    <div className="font-medium">v{versionInfo?.planner_assignments || '-'}</div>
+                    
+                    <div>Client Version:</div>
+                    <div className="font-medium">v{planner?.version || '-'}</div>
+                  </div>
                   <div>Last Auto-save: {lastSaved ? format(lastSaved, "HH:mm:ss") : 'None'}</div>
                   <hr className="my-1" />
                   <div>To manually refresh data, click the "Refresh Data" button.</div>
@@ -611,16 +632,35 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
               variant="outline"
               size="sm"
               onClick={() => {
+                // Force a complete data refresh
                 queryClient.invalidateQueries();
+                
+                // Re-fetch the versions and data explicitly
+                queryClient.refetchQueries({
+                  queryKey: ['/api/versions'],
+                  type: 'active'
+                });
+                
+                queryClient.refetchQueries({
+                  queryKey: ['/api/planner-assignments'],
+                  type: 'active'
+                });
+                
+                queryClient.refetchQueries({
+                  queryKey: ['/api/planner-slots'],
+                  type: 'active'
+                });
+                
+                // Show feedback to the user
                 toast({
                   title: "Data Refreshed",
-                  description: "Planner data has been refreshed with the latest information"
+                  description: `Refreshed to server version v${versionInfo?.monthly_planners || '?'}`
                 });
               }}
-              className="flex items-center gap-1"
+              className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100"
             >
               <RefreshCw className="h-4 w-4" />
-              <span>Refresh Data</span>
+              <span>Refresh to Latest (v{versionInfo?.monthly_planners || '?'})</span>
             </Button>
           </div>
           
