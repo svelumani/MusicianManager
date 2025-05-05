@@ -16,6 +16,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import PlannerGrid from "@/components/planner/PlannerGrid";
 import MonthSelector from "@/components/planner/MonthSelector";
+import MusicianAssignments from "@/components/planner/MusicianAssignments";
 
 const PlannerPage = () => {
   const { toast } = useToast();
@@ -159,12 +160,21 @@ const PlannerPage = () => {
       </div>
 
       {planner ? (
-        <PlannerGrid 
-          planner={planner} 
-          venues={Array.isArray(venues) ? venues : []} 
-          categories={Array.isArray(categories) ? categories : []}
-          selectedMonth={selectedMonth}
-        />
+        <div className="space-y-8">
+          <PlannerGrid 
+            planner={planner} 
+            venues={Array.isArray(venues) ? venues : []} 
+            categories={Array.isArray(categories) ? categories : []}
+            selectedMonth={selectedMonth}
+          />
+          
+          <MusicianAssignments 
+            plannerId={planner.id}
+            plannerName={planner.name}
+            month={currentMonth}
+            year={currentYear}
+          />
+        </div>
       ) : (
         <Card>
           <CardHeader>

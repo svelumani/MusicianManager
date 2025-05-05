@@ -6548,11 +6548,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate Monthly Contract
   apiRouter.post("/monthly-contracts/generate", isAuthenticated, async (req, res) => {
     try {
-      const { plannerId, month, year, templateId } = req.body;
+      const { plannerId, month, year, templateId, musicianId } = req.body;
       
       if (!plannerId || !month || !year) {
         return res.status(400).json({ message: "Missing required fields: plannerId, month, year" });
       }
+      
+      console.log(`Generating contract for planner ${plannerId}, month ${month}, year ${year}${musicianId ? `, specifically for musician ${musicianId}` : ''}`);
       
       // 1. Validate planner exists
       const planner = await storage.getMonthlyPlanner(plannerId);
@@ -6598,7 +6600,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // 5. Group assignments by musician
       const musicianAssignments = {};
-      assignments.forEach(assignment => {
+      
+      // Filter for specific musician if musicianId provided
+      const filteredAssignments = musicianId 
+        ? assignments.filter(assignment => assignment.musicianId === parseInt(musicianId))
+        : assignments;
+      
+      console.log(`Found ${filteredAssignments.length} assignments ${musicianId ? `for musician ${musicianId}` : 'across all musicians'}`);
+      
+      filteredAssignments.forEach(assignment => {
         if (!musicianAssignments[assignment.musicianId]) {
           musicianAssignments[assignment.musicianId] = [];
         }
