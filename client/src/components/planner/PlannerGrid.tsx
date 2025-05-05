@@ -229,9 +229,13 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   // Define an interface for the version data
   interface VersionInfo {
     monthly_planners?: number;
+    planner_data?: number;  // Alternative key used by server
     planner_slots?: number;
+    planners_slots?: number; // Alternative key
     planner_assignments?: number;
+    planners_assignments?: number; // Alternative key
     monthly_contracts?: number;
+    monthly_data?: number;  // Alternative key
     [key: string]: number | undefined;
   }
 
@@ -592,7 +596,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                 <div className="flex items-center space-x-2 text-xs text-gray-500 border-l pl-2 cursor-help">
                   <div className="flex items-center">
                     <Calendar className="h-3 w-3 mr-1" />
-                    <span>Server version: v{versionInfo?.monthly_planners || '-'}</span>
+                    <span>Server version: v{versionInfo?.monthly_planners || versionInfo?.planner_data || '-'}</span>
                   </div>
                   {planner?.updatedAt && (
                     <div className="flex items-center ml-2">
@@ -607,13 +611,16 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                   <div className="font-bold">Data Versions Info:</div>
                   <div className="grid grid-cols-2 gap-x-2">
                     <div>Monthly Planners:</div>
-                    <div className="font-medium">v{versionInfo?.monthly_planners || '-'}</div>
+                    <div className="font-medium">v{versionInfo?.monthly_planners || versionInfo?.planner_data || '-'}</div>
                     
                     <div>Planner Slots:</div>
-                    <div className="font-medium">v{versionInfo?.planner_slots || '-'}</div>
+                    <div className="font-medium">v{versionInfo?.planner_slots || versionInfo?.planners_slots || '-'}</div>
                     
                     <div>Assignments:</div>
-                    <div className="font-medium">v{versionInfo?.planner_assignments || '-'}</div>
+                    <div className="font-medium">v{versionInfo?.planner_assignments || versionInfo?.planners_assignments || '-'}</div>
+                    
+                    <div>Monthly Data:</div>
+                    <div className="font-medium">v{versionInfo?.monthly_data || '-'}</div>
                     
                     <div>Client Version:</div>
                     <div className="font-medium">v{planner?.version || '-'}</div>
@@ -654,13 +661,13 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
                 // Show feedback to the user
                 toast({
                   title: "Data Refreshed",
-                  description: `Refreshed to server version v${versionInfo?.monthly_planners || '?'}`
+                  description: `Refreshed to latest server version`
                 });
               }}
-              className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100"
+              className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 border-blue-200"
             >
               <RefreshCw className="h-4 w-4" />
-              <span>Refresh to Latest (v{versionInfo?.monthly_planners || '?'})</span>
+              <span>Refresh to Latest Data</span>
             </Button>
           </div>
           
