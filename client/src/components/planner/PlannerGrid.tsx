@@ -186,6 +186,9 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       description: "Changing planner status to draft...",
     });
     
+    // Generate a unique timestamp for cache busting
+    const timestamp = new Date().getTime();
+    
     // Make a copy of the current planner
     const updatedPlanner = {
       ...planner,
@@ -198,22 +201,20 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     .then(response => {
       console.log("Planner status updated to draft:", response);
       
-      // Directly apply the status change to the current component state
-      // Without any redirects or reloads that could cause data loss
+      // Use a comprehensive cache invalidation strategy:
       
-      // This approach mutates the planner in-place rather than fetching new data
-      if (typeof window !== 'undefined' && window.plannerData) {
-        // For global state if available
-        window.plannerData = response;
-      }
-      
-      // Force a hard refresh of this planner's data
-      queryClient.setQueryData(['/api/planners/month', month, 'year', year], { 
-        ...response 
-      });
-      
-      // Clear all related caches to ensure fresh data
+      // 1. Invalidate all planner data
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
+      
+      // 2. Invalidate specific month/year data with all possible patterns
+      queryClient.invalidateQueries({ queryKey: ['/api/planners/month'] });
+      
+      // 3. Force remove the specific planner data from cache to ensure fresh fetch
+      queryClient.removeQueries({ queryKey: ['/api/planners/month', month, 'year', year] });
+      
+      // 4. Also invalidate any planner slots and assignments
+      queryClient.invalidateQueries({ queryKey: ['/api/planner-slots'] });
+      queryClient.invalidateQueries({ queryKey: ['plannerAssignments'] });
       
       // Show success message
       toast({
@@ -222,7 +223,8 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       });
       
       // Force a browser refresh with query params to ensure we get the right planner
-      window.location.href = `/planner?month=${month}-${year}&id=${planner.id}&t=${new Date().getTime()}`;
+      // Use multiple timestamp parameters to ensure no caching happens at any level
+      window.location.href = `/planner?month=${month}-${year}&id=${planner.id}&t=${timestamp}&status=draft&refresh=true`;
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);

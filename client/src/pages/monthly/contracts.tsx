@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -67,14 +67,18 @@ const MonthlyContractsPage = () => {
     return format(new Date(2000, month - 1, 1), 'MMMM');
   };
   
-  // Query to get monthly contracts
+  // Query to get monthly contracts with timestamp to prevent caching issues
+  const timestamp = useRef(new Date().getTime()).current;
+  
   const {
     data: contracts = [],
     isLoading,
     error,
+    refetch: refetchContracts
   } = useQuery({
-    queryKey: ['/api/monthly-contracts'],
+    queryKey: ['/api/monthly-contracts', timestamp],
     queryFn: async () => {
+      console.log("Fetching monthly contracts with timestamp:", timestamp);
       const contractsData = await apiRequest('/api/monthly-contracts');
       
       // For each contract, fetch additional details like dates
@@ -82,8 +86,8 @@ const MonthlyContractsPage = () => {
         const contractsWithDetails = await Promise.all(
           contractsData.map(async (contract) => {
             try {
-              // Get the dates for this contract
-              const assignments = await apiRequest(`/api/monthly-contracts/${contract.id}/assignments`);
+              // Get the dates for this contract with cache-busting parameter
+              const assignments = await apiRequest(`/api/monthly-contracts/${contract.id}/assignments?t=${timestamp}`);
               
               // Calculate total number of dates across all musicians
               let allDates: any[] = [];
