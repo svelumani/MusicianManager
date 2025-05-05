@@ -24,6 +24,7 @@ import { availability } from "@shared/schema";
 import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
+import versionRouter from './routes/versions';
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -6740,6 +6741,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount the monthly contract preview router
   apiRouter.use("/monthly-contracts", monthlyContractPreviewRouter);
+  
+  // Mount the data versions router
+  apiRouter.use("/versions", versionRouter);
   
   // Mount the API router
   app.use("/api", apiRouter);

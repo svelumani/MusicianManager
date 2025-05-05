@@ -4,7 +4,7 @@
  * This service manages versioning of data to ensure clients always have the latest data.
  * It provides a way to increment versions when data changes and get current versions.
  */
-import { db } from "@/server/db";
+import { db } from "../db";
 import { dataVersions } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -86,7 +86,7 @@ export async function getAllVersions(): Promise<Record<string, number>> {
     // Convert to a key-value object
     const versionMap: Record<string, number> = {};
     
-    allVersions.forEach(v => {
+    allVersions.forEach((v: {name: string, version: number}) => {
       versionMap[v.name] = v.version;
     });
     

@@ -4,7 +4,7 @@
  * These routes provide access to data versions for client-side versioning.
  */
 import express from "express";
-import { getAllVersions } from "@/server/services/dataVersion";
+import { getAllVersions } from "../services/dataVersion";
 
 const router = express.Router();
 
