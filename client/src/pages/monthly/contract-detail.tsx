@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { forcePlannerReload } from "@/lib/utils/forceRefresh"; 
 import {
   CheckCircle,
   Clock,
@@ -58,7 +59,9 @@ import {
   Copy,
   ExternalLink,
   Mail,
-  Ban
+  Ban,
+  Calendar,
+  Edit,
 } from "lucide-react";
 
 const MonthlyContractDetailPage = () => {
@@ -66,6 +69,7 @@ const MonthlyContractDetailPage = () => {
   const contractId = params.id ? parseInt(params.id) : null;
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, navigate] = useLocation();
   const [showResponseLinkDialog, setShowResponseLinkDialog] = useState(false);
   const [selectedMusician, setSelectedMusician] = useState<any>(null);
   
@@ -86,6 +90,18 @@ const MonthlyContractDetailPage = () => {
   
   const urlParams = getQueryParams();
   const [showDatesDialog, setShowDatesDialog] = useState(false);
+  
+  // Function to navigate to planner with fresh data
+  const goToPlannerWithFreshData = () => {
+    if (contract) {
+      toast({
+        title: "Loading Planner",
+        description: "Loading the most up-to-date planner data...",
+      });
+      // Use our nuclear force refresh to guarantee fresh data
+      forcePlannerReload(contract.month, contract.year);
+    }
+  };
 
   // Add cache invalidation if refresh parameters are present
   useEffect(() => {
@@ -374,6 +390,16 @@ const MonthlyContractDetailPage = () => {
               </CardContent>
 
               <CardFooter className="flex flex-wrap gap-2">
+                {/* View/Edit Planner Button - Always visible */}
+                <Button 
+                  variant="secondary"
+                  onClick={goToPlannerWithFreshData}
+                  className="mr-auto"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  View/Edit Planner
+                </Button>
+                
                 {contract.status === 'draft' && (
                   <Button>
                     <Send className="mr-2 h-4 w-4" />
