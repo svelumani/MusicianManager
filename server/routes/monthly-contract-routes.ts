@@ -11,6 +11,18 @@ import {
 import { isAuthenticated } from '../auth';
 import { IStorage } from '../storage';
 
+// Helper function to get month name from month number
+function getMonthName(month?: number): string {
+  if (!month || month < 1 || month > 12) return 'Unknown';
+  
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  
+  return months[month - 1];
+}
+
 export default function setupMonthlyContractRoutes(apiRouter: Router, storage: IStorage) {
   // Preview Monthly Contract
   apiRouter.get("/monthly-contracts/:contractId/preview", isAuthenticated, async (req, res) => {
@@ -24,7 +36,7 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       }
       
       // Get the contract template
-      const template = await storage.getContractTemplate(contract.contract.templateId);
+      const template = await storage.getContractTemplate(contract.templateId);
       if (!template) {
         return res.status(404).json({ message: "Contract template not found" });
       }
@@ -38,13 +50,22 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
           const musician = await storage.getMusician(cm.musicianId);
           const dates = await storage.getMonthlyContractDates(cm.id);
           
+          // Get musician type info
+          let musicianTypeName = "Musician";
+          if (musician && musician.typeId) {
+            const musicianType = await storage.getMusicianType(musician.typeId);
+            if (musicianType) {
+              musicianTypeName = musicianType.title || musicianType.name || "Musician";
+            }
+          }
+          
           return {
             id: cm.id,
             musician: {
               id: musician?.id || 0,
               name: musician?.name || "Unknown Musician",
               email: musician?.email || "",
-              type: musician?.type || "Unknown"
+              type: musicianTypeName
             },
             dates: dates.map((date: any) => ({
               date: date.date,
@@ -275,6 +296,15 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       // Get the musician
       const musician = await storage.getMusician(contractMusician.musicianId);
       
+      // Get musician type info
+      let musicianTypeName = "Musician";
+      if (musician && musician.typeId) {
+        const musicianType = await storage.getMusicianType(musician.typeId);
+        if (musicianType) {
+          musicianTypeName = musicianType.title || musicianType.name || "Musician";
+        }
+      }
+      
       // Get the dates
       const dates = await storage.getMonthlyContractDates(musicianContractId);
       
@@ -365,9 +395,9 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
         </div>
         
         <div class="response-info">
-          <h2>${musician.name}</h2>
-          <p><strong>Instrument/Type:</strong> ${musician.type || 'Not specified'}</p>
-          <p><strong>Email:</strong> ${musician.email}</p>
+          <h2>${musician?.name || 'Musician'}</h2>
+          <p><strong>Instrument/Type:</strong> ${musicianTypeName}</p>
+          <p><strong>Email:</strong> ${musician?.email || 'No email provided'}</p>
           <p>
             <strong>Status:</strong> 
             <span class="status status-${contractMusician.status === 'accepted' ? 'accepted' : contractMusician.status === 'rejected' ? 'rejected' : 'pending'}">
