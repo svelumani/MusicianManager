@@ -32,13 +32,7 @@ export default function GenerateContractButton({
       year: number;
       musicianId?: number;
       assignmentIds?: number[];
-    }) => apiRequest('/api/monthly-contracts/generate', {
-      method: 'POST',
-      body: JSON.stringify(data),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    }),
+    }) => apiRequest('/api/monthly-contracts/generate', 'POST', data),
     onSuccess: () => {
       toast({
         title: 'Contract generated',
