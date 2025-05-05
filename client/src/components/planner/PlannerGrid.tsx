@@ -64,47 +64,32 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     enabled: !!planner?.id,
   });
 
-  // Query to get planner assignments using versioned query
+  // Query to get all planner assignments for this planner
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
     forceRefresh: forceRefreshAssignments
-  } = useVersionedQuery({
+  } = useVersionedQuery<any[]>({
     entity: 'plannerAssignments',
     endpoint: '/api/planner-assignments',
     params: { plannerId: planner?.id },
     enabled: !!plannerSlots && plannerSlots.length > 0,
-    transform: async (data) => {
-      if (!plannerSlots || plannerSlots.length === 0) {
-        console.log("No planner slots available, skipping assignment fetch");
-        return [];
-      }
-      
-      // Use a cleaner approach to build the query with all slot IDs
-      const slotIds = plannerSlots.map((slot: any) => slot.id);
-      console.log("Fetching assignments for slots:", slotIds);
-      
-      // Build individual queries for each slot to avoid URL length issues
-      const promises = slotIds.map((id: number) => 
-        apiRequest(`/api/planner-assignments?slotId=${id}`)
-      );
-      
-      // Combine all results from the individual requests
-      const results = await Promise.all(promises);
-      // Flatten the array of arrays
-      const combined = results.flat();
-      console.log("Combined assignments:", combined.length);
-      return combined;
+    transform: (data) => {
+      // This is a synchronous transform just to satisfy TypeScript
+      // The actual data fetching is done in the API
+      return Array.isArray(data) ? data : [];
     }
   });
 
-  // Query to get musicians with proper typing
+  // Query to get musicians with version tracking
   const {
     data: musicians,
     isLoading: isMusiciansLoading,
-  } = useQuery<any[]>({
-    queryKey: ['/api/musicians'],
-    select: (data) => Array.isArray(data) ? data : [],
+    forceRefresh: forceRefreshMusicians
+  } = useVersionedQuery<any[]>({
+    entity: 'musicians',
+    endpoint: '/api/musicians',
+    transform: (data) => Array.isArray(data) ? data : [],
   });
 
   // Query to get musician availability data
@@ -362,7 +347,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Get assignments for a slot
   const getAssignmentsForSlot = (slotId: number): Assignment[] => {
-    if (!plannerAssignments || plannerAssignments.length === 0) return [];
+    if (!plannerAssignments || !Array.isArray(plannerAssignments) || plannerAssignments.length === 0) return [];
     return plannerAssignments.filter((assignment: Assignment) => assignment.slotId === slotId);
   };
 
@@ -567,16 +552,22 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
             )}
           </div>
           
-          <Button 
-            onClick={forceReloadWithCorrectContext}
+          <DataRefreshControl 
+            entities={['plannerSlots', 'plannerAssignments', 'musicians']}
+            onRefresh={() => {
+              forceRefreshSlots();
+              forceRefreshAssignments();
+              toast({
+                title: "Data Refreshed",
+                description: "Planner data has been refreshed with the latest information"
+              });
+            }}
             variant="outline"
             size="sm"
+            iconOnly={false}
+            label="Refresh Planner"
             className="mr-2"
-            title="Force refresh data to ensure you see the latest information"
-          >
-            <RefreshCw className="h-4 w-4 mr-1" />
-            Force Refresh
-          </Button>
+          />
           
           {/* Additional UI controls removed for streamlining */}
           
