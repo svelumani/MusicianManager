@@ -5,15 +5,19 @@
  * through WebSockets. It provides a visual indicator and toast notifications
  * when data changes occur on the server.
  */
-import { useEffect, useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Check, Wifi, WifiOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { onSystemMessage, UpdateEntity } from '@/lib/ws/dataSync';
-import { queryClient } from '@/lib/queryClient';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { 
+  initWebSocketConnection, 
+  onSystemMessage, 
+  onConnectionStatus,
+  onDataUpdate,
+  UpdateEntity
+} from '@/lib/ws/dataSync';
 
 interface DataUpdateNotificationProps {
   /** Which entity type to listen for updates on */
@@ -26,254 +30,250 @@ interface DataUpdateNotificationProps {
   className?: string;
 }
 
-// Map entity types to human-readable names
-const entityLabels: Record<UpdateEntity, string> = {
-  planners: 'Monthly Calendar',
-  plannerSlots: 'Calendar Events',
-  plannerAssignments: 'Musician Assignments',
-  musicians: 'Musicians',
-  venues: 'Venues',
-  categories: 'Categories',
-  musicianPayRates: 'Pay Rates',
-  eventCategories: 'Event Types',
-  availability: 'Musician Availability',
-  monthlyContracts: 'Monthly Contracts',
-  all: 'All Data'
-};
-
+/**
+ * Component that displays a notification when data is updated in real-time
+ */
 export function DataUpdateNotification({
   entityType = 'all',
-  showConnectionStatus = true,
+  showConnectionStatus = false,
   showToasts = true,
-  className
+  className = ''
 }: DataUpdateNotificationProps) {
-  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [hasUpdate, setHasUpdate] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
 
-  // Check connection status
+  // Initialize WebSocket connection
   useEffect(() => {
-    const checkConnection = () => {
-      // This is a rough approximation - in a real app, you'd use the actual WebSocket state
-      setIsConnected(navigator.onLine);
-    };
-
-    // Check immediately
-    checkConnection();
-
-    // Add event listeners for connection status
-    window.addEventListener('online', () => setIsConnected(true));
-    window.addEventListener('offline', () => setIsConnected(false));
-
-    // Regularly check connection
-    const interval = setInterval(checkConnection, 10000);
-
-    return () => {
-      window.removeEventListener('online', () => setIsConnected(true));
-      window.removeEventListener('offline', () => setIsConnected(false));
-      clearInterval(interval);
-    };
-  }, []);
-
-  // Listen for system messages
-  useEffect(() => {
-    const unsubscribe = onSystemMessage((message) => {
-      if (showToasts) {
-        toast({
-          title: 'System Message',
-          description: message,
-          duration: 5000,
-        });
-      }
-    });
-
-    return unsubscribe;
-  }, [showToasts, toast]);
-
-  // Listen for data updates by updating the component when query cache is updated
-  useEffect(() => {
-    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
-      setLastUpdate(new Date());
-    });
-
-    return unsubscribe;
-  }, []);
-
-  // Function to manually refresh data
-  const refreshData = async () => {
-    setIsUpdating(true);
-    try {
-      // Determine which queries to invalidate based on entityType
-      if (entityType === 'all') {
-        await queryClient.invalidateQueries();
-      } else {
-        // Construct the appropriate query key based on the entity type
-        const queryKey = [`/api/${getEndpointFromEntity(entityType)}`];
-        await queryClient.invalidateQueries({ queryKey });
-      }
-      setLastUpdate(new Date());
+    initWebSocketConnection();
+    
+    // Set up connection status handler
+    const connectionStatusHandler = (isConnected: boolean, isReconnecting: boolean) => {
+      setConnected(isConnected);
+      setReconnecting(isReconnecting);
       
-      if (showToasts) {
+      if (isConnected && showToasts) {
         toast({
-          title: 'Data Refreshed',
-          description: `${entityLabels[entityType]} data has been updated.`,
-          duration: 3000,
+          title: "Connected to server",
+          description: "You'll receive real-time updates for changes",
+          variant: "default"
         });
       }
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-      if (showToasts) {
+      
+      if (!isConnected && showToasts) {
         toast({
-          variant: 'destructive',
-          title: 'Refresh Failed',
-          description: 'Could not refresh data. Please try again.',
-          duration: 5000,
+          title: "Connection lost",
+          description: "Reconnecting to server...",
+          variant: "destructive"
         });
       }
-    } finally {
-      setIsUpdating(false);
+    };
+    
+    // Set up data update handler
+    const updateHandler = (entity: UpdateEntity) => {
+      console.log(`Data update received for: ${entity}`);
+      
+      // If we're listening for all updates, or this specific entity
+      if (entityType === 'all' || entityType === entity) {
+        setHasUpdate(true);
+        
+        // Auto-refresh the data
+        if (entity === 'all') {
+          queryClient.invalidateQueries();
+        } else {
+          // Map entity types to their respective API endpoints
+          const endpoint = getEndpointFromEntity(entity);
+          if (endpoint) {
+            queryClient.invalidateQueries({ queryKey: [endpoint] });
+          }
+        }
+        
+        // Show toast notification if enabled
+        if (showToasts) {
+          toast({
+            title: "Data Updated",
+            description: `New ${entity === 'all' ? 'data' : entity} is available`,
+            variant: "default",
+            action: (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleRefresh()}
+              >
+                Refresh
+              </Button>
+            )
+          });
+        }
+      }
+    };
+    
+    // Set up system message handler
+    const messageHandler = (message: string) => {
+      if (showToasts) {
+        toast({
+          title: "System Message",
+          description: message,
+          variant: "default"
+        });
+      }
+    };
+    
+    // Register handlers
+    const cleanupDataUpdate = onDataUpdate(updateHandler);
+    const cleanupConnectionStatus = onConnectionStatus(connectionStatusHandler);
+    const cleanupSystemMessage = onSystemMessage(messageHandler);
+    
+    return () => {
+      cleanupDataUpdate();
+      cleanupConnectionStatus();
+      cleanupSystemMessage();
+      // Don't close the connection on unmount as it might be used by other components
+    };
+  }, [entityType, showToasts, queryClient, toast]);
+  
+  const handleRefresh = useCallback(() => {
+    // Invalidate relevant queries
+    if (entityType === 'all') {
+      queryClient.invalidateQueries();
+    } else {
+      const endpoint = getEndpointFromEntity(entityType);
+      if (endpoint) {
+        queryClient.invalidateQueries({ queryKey: [endpoint] });
+      }
     }
-  };
-
+    
+    // Reset update flag
+    setHasUpdate(false);
+    
+    // Show toast notification
+    if (showToasts) {
+      toast({
+        title: "Data Refreshed",
+        description: "You now have the most recent data",
+        variant: "default"
+      });
+    }
+  }, [entityType, queryClient, toast, showToasts]);
+  
   function getEndpointFromEntity(entity: UpdateEntity): string {
-    // Convert entity type to API endpoint
     switch (entity) {
-      case 'planners': return 'planners';
-      case 'plannerSlots': return 'planner-slots';
-      case 'plannerAssignments': return 'planner-assignments';
-      case 'musicians': return 'musicians';
-      case 'venues': return 'venues';
-      case 'categories': return 'categories';
-      case 'musicianPayRates': return 'musician-pay-rates';
-      case 'eventCategories': return 'event-categories';
-      case 'availability': return 'availability';
-      case 'monthlyContracts': return 'monthly-contracts';
-      default: return 'all-data';
+      case 'planners':
+        return '/api/planners';
+      case 'plannerSlots':
+        return '/api/planner-slots';
+      case 'plannerAssignments':
+        return '/api/planner-assignments';
+      case 'musicians':
+        return '/api/musicians';
+      case 'venues':
+        return '/api/venues';
+      case 'categories':
+        return '/api/event-categories';
+      case 'musicianPayRates':
+        return '/api/musician-pay-rates';
+      case 'eventCategories':
+        return '/api/event-categories';
+      case 'availability':
+        return '/api/availability';
+      case 'monthlyContracts':
+        return '/api/monthly-contracts';
+      default:
+        return '';
     }
   }
-
+  
+  // If nothing to show, return null
+  if (!hasUpdate && !showConnectionStatus) {
+    return null;
+  }
+  
   return (
-    <div className={cn('flex items-center space-x-2', className)}>
+    <div className={`flex items-center gap-2 ${className}`}>
       {showConnectionStatus && (
         <Badge 
-          variant={isConnected ? 'secondary' : 'destructive'}
-          className="flex items-center gap-1"
+          variant={connected ? "outline" : "destructive"} 
+          className={`text-xs ${connected ? 'bg-green-50' : ''} ${reconnecting ? 'animate-pulse' : ''}`}
         >
-          {isConnected ? (
+          {connected ? (
             <>
-              <Wifi className="h-3 w-3" />
-              <span className="text-xs">Connected</span>
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              Connected
             </>
           ) : (
             <>
-              <WifiOff className="h-3 w-3" />
-              <span className="text-xs">Offline</span>
+              <AlertCircle className="h-3 w-3 mr-1" />
+              {reconnecting ? 'Reconnecting...' : 'Disconnected'}
             </>
           )}
         </Badge>
       )}
-
-      {lastUpdate && (
-        <Badge variant="outline" className="text-xs">
-          Last updated: {lastUpdate.toLocaleTimeString()}
+      
+      {hasUpdate && (
+        <Badge 
+          variant="outline" 
+          className="text-xs bg-yellow-50 animate-pulse"
+        >
+          <RefreshCw className="h-3 w-3 mr-1" />
+          Updates Available
         </Badge>
       )}
-
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={refreshData}
-        disabled={isUpdating || !isConnected}
-        className={cn(
-          "gap-1 h-8 px-2 transition-all duration-200",
-          isUpdating && "opacity-70"
-        )}
-      >
-        {isUpdating ? (
-          <>
-            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-            <span>Refreshing...</span>
-          </>
-        ) : (
-          <>
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span>Refresh {entityLabels[entityType]}</span>
-          </>
-        )}
-      </Button>
+      
+      {hasUpdate && (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleRefresh}
+          className="text-xs h-7 flex items-center gap-1"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Refresh
+        </Button>
+      )}
     </div>
   );
 }
 
-// More comprehensive component that shows updates for all entity types
+/**
+ * Simple refresh control for quick data refreshes
+ */
 export function DataRefreshControl() {
-  const [isExpanded, setIsExpanded] = useState(false);
-
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  const handleRefresh = useCallback(() => {
+    setIsUpdating(true);
+    
+    // Force all queries to refetch
+    queryClient.invalidateQueries();
+    
+    setTimeout(() => {
+      setIsUpdating(false);
+      toast({
+        title: "Data Refreshed",
+        description: "You now have the most recent data",
+        variant: "default"
+      });
+    }, 500);
+  }, [queryClient, toast]);
+  
   return (
-    <Alert className="mb-4 bg-white shadow border-blue-100">
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <RefreshCw className="h-4 w-4 text-blue-500" />
-          <AlertTitle>Real-time Data Updates</AlertTitle>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="h-7 px-2"
-        >
-          {isExpanded ? "Show Less" : "Show More"}
-        </Button>
-      </div>
-      
-      <AlertDescription className="mt-2">
-        <p className="text-sm text-muted-foreground mb-2">
-          Data updates automatically in real-time. You can also manually refresh specific data below.
-        </p>
-        
-        <DataUpdateNotification 
-          entityType="all" 
-          className="mb-2" 
-        />
-        
-        {isExpanded && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
-            <DataUpdateNotification 
-              entityType="planners" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="plannerSlots" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="plannerAssignments" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="musicians" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="venues" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="categories" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="musicianPayRates" 
-              showConnectionStatus={false} 
-            />
-            <DataUpdateNotification 
-              entityType="eventCategories" 
-              showConnectionStatus={false} 
-            />
-          </div>
-        )}
-      </AlertDescription>
-    </Alert>
+    <div className="inline-flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleRefresh}
+        className={`p-0 h-7 w-7 rounded-full ${isUpdating ? 'animate-spin' : ''}`}
+        aria-label="Refresh data"
+      >
+        <RefreshCw className="h-4 w-4" />
+      </Button>
+      {isUpdating && (
+        <span className="text-xs text-muted-foreground">Updating...</span>
+      )}
+    </div>
   );
 }

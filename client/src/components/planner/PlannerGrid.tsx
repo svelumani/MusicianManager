@@ -562,26 +562,24 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
             )}
           </div>
           
-          <DataRefreshControl 
-            entities={['plannerSlots', 'plannerAssignments', 'musicians', 'musicianPayRates', 'categories', 'availability']}
-            onRefresh={() => {
-              forceRefreshSlots();
-              forceRefreshAssignments();
-              forceRefreshMusicians();
-              forceRefreshPayRates();
-              forceRefreshCategories();
-              forceRefreshAvailability();
-              toast({
-                title: "Data Refreshed",
-                description: "Planner data has been refreshed with the latest information"
-              });
-            }}
-            variant="outline"
-            size="sm"
-            iconOnly={false}
-            label="Refresh Planner"
-            className="mr-2"
-          />
+          {/* Real-time update indicator */}
+          <div className="flex items-center mr-2">
+            <Button 
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                queryClient.invalidateQueries();
+                toast({
+                  title: "Data Refreshed",
+                  description: "Planner data has been refreshed with the latest information"
+                });
+              }}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Refresh Data</span>
+            </Button>
+          </div>
           
           {/* Additional UI controls removed for streamlining */}
           

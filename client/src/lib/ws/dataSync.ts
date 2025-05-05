@@ -7,7 +7,7 @@
  */
 import { queryClient } from '@/lib/queryClient';
 
-// Entity types that can be updated
+// Define entity types that can be updated
 export type UpdateEntity = 
   | 'planners'
   | 'plannerSlots'
@@ -21,13 +21,13 @@ export type UpdateEntity =
   | 'monthlyContracts'
   | 'all';
 
-// Message types from server
+// Define types of notifications that can be received
 export type NotificationType = 
   | 'data-update' 
   | 'refresh-required' 
   | 'system-message';
 
-// Message structure
+// Define the structure of update messages from the server
 export interface UpdateMessage {
   type: NotificationType;
   entity?: UpdateEntity;
@@ -35,126 +35,209 @@ export interface UpdateMessage {
   timestamp: number;
 }
 
-// Callback for system messages
+// Callback types for different events
+export type DataUpdateCallback = (entity: UpdateEntity) => void;
+export type ConnectionStatusCallback = (connected: boolean, reconnecting: boolean) => void;
 export type SystemMessageCallback = (message: string) => void;
 
-// Map entity names to their API endpoint paths for cache invalidation
-const entityToQueryKey: Record<UpdateEntity, string[]> = {
-  planners: ['/api/planners'],
-  plannerSlots: ['/api/planner-slots'],
-  plannerAssignments: ['/api/planner-assignments'],
-  musicians: ['/api/musicians'],
-  venues: ['/api/venues'],
-  categories: ['/api/categories'],
-  musicianPayRates: ['/api/musician-pay-rates'],
-  eventCategories: ['/api/event-categories'],
-  availability: ['/api/availability'],
-  monthlyContracts: ['/api/monthly-contracts'],
-  all: ['all-data'] // Special case that will trigger a full refresh
-};
-
-// Connection state
-let ws: WebSocket | null = null;
+// WebSocket connection state
+let socket: WebSocket | null = null;
 let reconnectAttempts = 0;
-let reconnectTimeout: NodeJS.Timeout | null = null;
-let isConnecting = false;
-let systemMessageCallbacks: SystemMessageCallback[] = [];
+let maxReconnectAttempts = 10;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let isConnected = false;
+let isReconnecting = false;
+
+// Callback registries
+const dataUpdateCallbacks: DataUpdateCallback[] = [];
+const connectionStatusCallbacks: ConnectionStatusCallback[] = [];
+const systemMessageCallbacks: SystemMessageCallback[] = [];
 
 /**
  * Create and initialize the WebSocket connection
  */
 export function initWebSocketConnection(): void {
-  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) || isConnecting) {
-    return; // Already connected or connecting
-  }
-
-  isConnecting = true;
-  console.log('Initializing WebSocket connection for real-time updates...');
-
-  // Determine WebSocket URL based on current protocol and host
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-  // Create WebSocket
-  ws = new WebSocket(wsUrl);
-
-  // Connection opened
-  ws.addEventListener('open', () => {
-    console.log('WebSocket connection established');
-    isConnecting = false;
-    reconnectAttempts = 0; // Reset reconnect counter on successful connection
+  // Only initialize once
+  if (socket !== null) return;
+  
+  console.log("Initializing WebSocket connection for real-time updates...");
+  
+  try {
+    // Create WebSocket with correct protocol based on page protocol
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
     
-    // Optionally send client info to server
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'client-info',
-        clientType: 'web-app',
-        timestamp: Date.now()
-      }));
-    }
-  });
+    socket = new WebSocket(wsUrl);
+    
+    // Set up event handlers
+    socket.addEventListener('open', handleOpen);
+    socket.addEventListener('message', handleMessage);
+    socket.addEventListener('close', handleClose);
+    socket.addEventListener('error', handleError);
+  } catch (error) {
+    console.error('Failed to create WebSocket connection:', error);
+    scheduleReconnect();
+  }
+}
 
-  // Listen for messages
-  ws.addEventListener('message', (event) => {
+/**
+ * Handle successful WebSocket connection
+ */
+function handleOpen(event: Event): void {
+  console.log('WebSocket connection established');
+  isConnected = true;
+  isReconnecting = false;
+  reconnectAttempts = 0;
+  
+  // Notify all connection status callbacks
+  connectionStatusCallbacks.forEach(callback => {
     try {
-      const message: UpdateMessage = JSON.parse(event.data);
-      handleServerMessage(message);
+      callback(true, false);
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
+      console.error('Error in connection status callback:', error);
     }
   });
+}
 
-  // Connection closed
-  ws.addEventListener('close', () => {
-    console.log('WebSocket connection closed');
-    isConnecting = false;
-    ws = null;
-    scheduleReconnect();
-  });
+/**
+ * Handle incoming WebSocket messages
+ */
+function handleMessage(event: MessageEvent): void {
+  try {
+    const message: UpdateMessage = JSON.parse(event.data);
+    console.log('WebSocket message received:', message);
+    
+    handleServerMessage(message);
+  } catch (error) {
+    console.error('Error parsing WebSocket message:', error);
+  }
+}
 
-  // Connection error
-  ws.addEventListener('error', (error) => {
-    console.error('WebSocket error:', error);
-    isConnecting = false;
-    scheduleReconnect();
+/**
+ * Handle WebSocket connection close
+ */
+function handleClose(event: CloseEvent): void {
+  console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+  isConnected = false;
+  
+  // Notify all callbacks of disconnection
+  connectionStatusCallbacks.forEach(callback => {
+    try {
+      callback(false, false);
+    } catch (error) {
+      console.error('Error in connection status callback:', error);
+    }
   });
+  
+  // Attempt to reconnect
+  scheduleReconnect();
+}
+
+/**
+ * Handle WebSocket errors
+ */
+function handleError(event: Event): void {
+  console.error('WebSocket error:', event);
+  
+  // Socket will be closed after an error, which will trigger reconnect
 }
 
 /**
  * Schedule a reconnection attempt with exponential backoff
  */
 function scheduleReconnect(): void {
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
+  // Don't schedule if we've hit the max attempts or already have a pending reconnect
+  if (reconnectAttempts >= maxReconnectAttempts || reconnectTimer !== null) {
+    return;
   }
-
-  // Exponential backoff with max delay of 30 seconds
-  const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 30000);
-  reconnectAttempts++;
-
-  console.log(`Scheduling WebSocket reconnect in ${delay}ms (attempt ${reconnectAttempts})`);
   
-  reconnectTimeout = setTimeout(() => {
+  // Calculate backoff time (1s, 2s, 4s, 8s, etc.)
+  const backoffTime = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+  reconnectAttempts++;
+  isReconnecting = true;
+  
+  console.log(`Scheduling WebSocket reconnect in ${backoffTime}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+  
+  // Notify all callbacks of reconnection attempt
+  connectionStatusCallbacks.forEach(callback => {
+    try {
+      callback(false, true);
+    } catch (error) {
+      console.error('Error in connection status callback:', error);
+    }
+  });
+  
+  // Schedule reconnect
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    
+    // Close existing socket if it exists
+    closeWebSocketConnection();
+    
+    // Try to reconnect
     initWebSocketConnection();
-  }, delay);
+  }, backoffTime);
 }
 
 /**
  * Close the WebSocket connection
  */
 export function closeWebSocketConnection(): void {
-  if (ws) {
-    ws.close();
-    ws = null;
-  }
+  if (!socket) return;
   
-  if (reconnectTimeout) {
-    clearTimeout(reconnectTimeout);
-    reconnectTimeout = null;
+  try {
+    // Remove event listeners
+    socket.removeEventListener('open', handleOpen);
+    socket.removeEventListener('message', handleMessage);
+    socket.removeEventListener('close', handleClose);
+    socket.removeEventListener('error', handleError);
+    
+    // Close the connection
+    socket.close();
+  } catch (error) {
+    console.error('Error closing WebSocket connection:', error);
+  } finally {
+    socket = null;
   }
+}
+
+/**
+ * Register a callback for data updates
+ */
+export function onDataUpdate(callback: DataUpdateCallback): () => void {
+  dataUpdateCallbacks.push(callback);
   
-  systemMessageCallbacks = [];
-  isConnecting = false;
+  // Immediately return connection status to the new callback
+  setTimeout(() => {
+    try {
+      callback('all');
+    } catch (error) {
+      console.error('Error in initial data update callback:', error);
+    }
+  }, 0);
+  
+  // Return function to unregister callback
+  return () => {
+    const index = dataUpdateCallbacks.indexOf(callback);
+    if (index !== -1) {
+      dataUpdateCallbacks.splice(index, 1);
+    }
+  };
+}
+
+/**
+ * Register a callback for connection status changes
+ */
+export function onConnectionStatus(callback: ConnectionStatusCallback): () => void {
+  connectionStatusCallbacks.push(callback);
+  
+  // Return function to unregister callback
+  return () => {
+    const index = connectionStatusCallbacks.indexOf(callback);
+    if (index !== -1) {
+      connectionStatusCallbacks.splice(index, 1);
+    }
+  };
 }
 
 /**
@@ -163,9 +246,12 @@ export function closeWebSocketConnection(): void {
 export function onSystemMessage(callback: SystemMessageCallback): () => void {
   systemMessageCallbacks.push(callback);
   
-  // Return a function to unregister this callback
+  // Return function to unregister callback
   return () => {
-    systemMessageCallbacks = systemMessageCallbacks.filter(cb => cb !== callback);
+    const index = systemMessageCallbacks.indexOf(callback);
+    if (index !== -1) {
+      systemMessageCallbacks.splice(index, 1);
+    }
   };
 }
 
@@ -173,34 +259,54 @@ export function onSystemMessage(callback: SystemMessageCallback): () => void {
  * Handle incoming server messages
  */
 function handleServerMessage(message: UpdateMessage): void {
-  console.log('WebSocket message received:', message);
-  
   switch (message.type) {
     case 'data-update':
-      // Data update notification - invalidate the appropriate cache
-      if (message.entity && entityToQueryKey[message.entity]) {
-        const queryKeys = entityToQueryKey[message.entity];
-        invalidateQueries(queryKeys);
+      if (message.entity) {
+        console.log(`Invalidating query cache for ${getEndpointFromEntity(message.entity)}`);
+        
+        // Invalidate the corresponding query cache
+        const endpoint = getEndpointFromEntity(message.entity);
+        if (endpoint) {
+          queryClient.invalidateQueries({ queryKey: [endpoint] });
+        }
+        
+        // Notify all data update callbacks
+        dataUpdateCallbacks.forEach(callback => {
+          try {
+            callback(message.entity!);
+          } catch (error) {
+            console.error('Error in data update callback:', error);
+          }
+        });
       }
       break;
       
     case 'refresh-required':
-      // Server explicitly asks for a refresh - force refetch
-      if (message.entity && entityToQueryKey[message.entity]) {
-        const queryKeys = entityToQueryKey[message.entity];
-        if (message.entity === 'all') {
-          // Special case - invalidate everything
-          queryClient.invalidateQueries();
-        } else {
-          // Refetch specific data
-          invalidateQueries(queryKeys, true);
-        }
+      if (message.entity === 'all') {
+        console.log('Global data refresh required, invalidating all queries');
+        queryClient.invalidateQueries();
+      } else if (message.entity) {
+        console.log(`Data refresh required for ${message.entity}`);
+        
+        // Invalidate the corresponding query cache and force a refetch
+        invalidateQueries([getEndpointFromEntity(message.entity)], true);
+      }
+      
+      // Notify all data update callbacks
+      if (message.entity) {
+        dataUpdateCallbacks.forEach(callback => {
+          try {
+            callback(message.entity!);
+          } catch (error) {
+            console.error('Error in data update callback:', error);
+          }
+        });
       }
       break;
       
     case 'system-message':
-      // System message - notify UI components that registered for notifications
       if (message.message) {
+        // Notify all system message callbacks
         systemMessageCallbacks.forEach(callback => {
           try {
             callback(message.message!);
@@ -210,9 +316,36 @@ function handleServerMessage(message: UpdateMessage): void {
         });
       }
       break;
-      
+  }
+}
+
+/**
+ * Map entity types to their API endpoints
+ */
+function getEndpointFromEntity(entity: UpdateEntity): string {
+  switch (entity) {
+    case 'planners':
+      return '/api/planners';
+    case 'plannerSlots':
+      return '/api/planner-slots';
+    case 'plannerAssignments':
+      return '/api/planner-assignments';
+    case 'musicians':
+      return '/api/musicians';
+    case 'venues':
+      return '/api/venues';
+    case 'categories':
+      return '/api/event-categories';
+    case 'musicianPayRates':
+      return '/api/musician-pay-rates';
+    case 'eventCategories':
+      return '/api/event-categories';
+    case 'availability':
+      return '/api/availability';
+    case 'monthlyContracts':
+      return '/api/monthly-contracts';
     default:
-      console.warn('Unknown WebSocket message type:', message.type);
+      return '';
   }
 }
 
@@ -221,27 +354,11 @@ function handleServerMessage(message: UpdateMessage): void {
  */
 function invalidateQueries(queryKeys: string[], forceRefetch: boolean = false): void {
   queryKeys.forEach(key => {
-    console.log(`Invalidating query cache for ${key}`);
-    queryClient.invalidateQueries({ queryKey: [key] });
-    
-    if (forceRefetch) {
-      // Force an immediate refetch
-      queryClient.refetchQueries({ queryKey: [key] });
-    }
-  });
-}
-
-// Auto-initialize connection when this module is imported
-if (typeof window !== 'undefined') {
-  // Only run in browser environment, not during SSR
-  window.addEventListener('load', () => {
-    initWebSocketConnection();
-  });
-  
-  // Reconnect when the window regains focus
-  window.addEventListener('focus', () => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      initWebSocketConnection();
+    if (key) {
+      queryClient.invalidateQueries({ 
+        queryKey: [key],
+        refetchType: forceRefetch ? 'active' : 'all'
+      });
     }
   });
 }
