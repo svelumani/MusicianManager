@@ -37,17 +37,24 @@ const connectionStatusListeners: ConnectionStatusHandler[] = [];
  * Initialize WebSocket connection to the server
  */
 export function initWebSocketConnection() {
+  // Don't reconnect if we already have an active connection
   if (socket && socket.readyState === WebSocket.OPEN) {
     console.log('WebSocket connection already established');
     return;
   }
   
   try {
-    // Close existing socket if any
+    // Clean up any existing socket
     if (socket) {
-      socket.close();
+      try {
+        socket.close();
+      } catch (e) {
+        console.error('Error closing previous socket:', e);
+      }
+      socket = null;
     }
     
+    // Update connection status
     setConnectionStatus('connecting');
     
     // Create WebSocket with correct protocol based on window location
@@ -55,38 +62,76 @@ export function initWebSocketConnection() {
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     
     console.log(`Connecting to WebSocket server at ${wsUrl}`);
-    socket = new WebSocket(wsUrl);
+    
+    // Create new WebSocket connection
+    const newSocket = new WebSocket(wsUrl);
+    
+    // Store socket reference
+    socket = newSocket;
+    
+    // Set up ping interval (declared here so it can be referenced in callbacks)
+    let pingInterval: NodeJS.Timeout | null = null;
     
     // Handle connection opening
-    socket.onopen = () => {
+    newSocket.addEventListener('open', () => {
       console.log('WebSocket connection established');
       setConnectionStatus('connected');
       reconnectAttempts = 0;
-    };
+      
+      // Send initial ping to keep connection alive
+      try {
+        newSocket.send(JSON.stringify({ type: 'ping' }));
+      } catch (err) {
+        console.error('Error sending initial ping:', err);
+      }
+      
+      // Set up a ping interval to prevent timeouts
+      pingInterval = setInterval(() => {
+        if (newSocket.readyState === WebSocket.OPEN) {
+          try {
+            newSocket.send(JSON.stringify({ type: 'ping' }));
+          } catch (err) {
+            console.error('Error sending ping:', err);
+            if (pingInterval) clearInterval(pingInterval);
+          }
+        } else {
+          if (pingInterval) clearInterval(pingInterval);
+        }
+      }, 15000); // Send ping every 15 seconds (reduced from 30s)
+    });
     
     // Handle incoming messages
-    socket.onmessage = (event) => {
+    newSocket.addEventListener('message', (event) => {
       try {
         const message = JSON.parse(event.data) as UpdateMessage;
         handleMessage(message);
       } catch (err) {
         console.error('Error parsing WebSocket message:', err);
       }
-    };
+    });
     
     // Handle connection closing
-    socket.onclose = (event) => {
+    newSocket.addEventListener('close', (event) => {
       console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
       setConnectionStatus('disconnected');
+      
+      // Clean up ping interval
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
+      // Schedule a reconnect attempt
       scheduleReconnect();
-    };
+    });
     
     // Handle connection errors
-    socket.onerror = (error) => {
+    newSocket.addEventListener('error', (error) => {
       console.error('WebSocket error:', error);
       setConnectionStatus('error');
-      scheduleReconnect();
-    };
+      
+      // Don't schedule reconnect here - the close event will fire after error
+    });
     
   } catch (error) {
     console.error('Error initializing WebSocket connection:', error);
