@@ -2253,12 +2253,16 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getMonthlyPlannerByMonth(month: number, year: number): Promise<MonthlyPlanner | undefined> {
+    // Get the most recently created planner for this month/year
+    // This ensures we get the most up-to-date planner when multiple exist
     const [planner] = await db.select()
       .from(monthlyPlanners)
       .where(and(
         eq(monthlyPlanners.month, month),
         eq(monthlyPlanners.year, year)
-      ));
+      ))
+      .orderBy(desc(monthlyPlanners.id))  // Order by ID descending to get the most recent one
+      .limit(1);  // Only get one result
     
     return planner;
   }
