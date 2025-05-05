@@ -990,43 +990,163 @@ export class DatabaseStorage implements IStorage {
   
   // Musician Pay Rates management
   async getMusicianPayRates(): Promise<MusicianPayRate[]> {
-    return await db.select().from(musicianPayRates);
+    // Raw SQL query to make sure we get the right column names
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        musician_id as "musicianId", 
+        event_category_id as "eventCategoryId", 
+        hourly_rate as "hourlyRate", 
+        day_rate as "dayRate", 
+        event_rate as "eventRate", 
+        notes
+      FROM musician_pay_rates
+    `);
+    return result.rows;
   }
   
   async getMusicianPayRate(id: number): Promise<MusicianPayRate | undefined> {
-    const [rate] = await db.select()
-      .from(musicianPayRates)
-      .where(eq(musicianPayRates.id, id));
+    // Raw SQL query with proper column aliasing 
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        musician_id as "musicianId", 
+        event_category_id as "eventCategoryId", 
+        hourly_rate as "hourlyRate", 
+        day_rate as "dayRate", 
+        event_rate as "eventRate", 
+        notes
+      FROM musician_pay_rates
+      WHERE id = $1
+    `, [id]);
     
-    return rate;
+    return result.rows[0];
   }
   
   async getMusicianPayRatesByMusicianId(musicianId: number): Promise<MusicianPayRate[]> {
-    return await db.select()
-      .from(musicianPayRates)
-      .where(eq(musicianPayRates.musicianId, musicianId));
+    // Raw SQL query with proper column aliasing
+    const result = await pool.query(`
+      SELECT 
+        id, 
+        musician_id as "musicianId", 
+        event_category_id as "eventCategoryId", 
+        hourly_rate as "hourlyRate", 
+        day_rate as "dayRate", 
+        event_rate as "eventRate", 
+        notes
+      FROM musician_pay_rates
+      WHERE musician_id = $1
+    `, [musicianId]);
+    
+    return result.rows;
   }
   
   async createMusicianPayRate(payRate: InsertMusicianPayRate): Promise<MusicianPayRate> {
-    const [newRate] = await db.insert(musicianPayRates)
-      .values(payRate)
-      .returning();
+    // Convert camelCase to snake_case for database
+    const dbPayRate = {
+      musician_id: payRate.musicianId,
+      event_category_id: payRate.eventCategoryId,
+      hourly_rate: payRate.hourlyRate,
+      day_rate: payRate.dayRate,
+      event_rate: payRate.eventRate,
+      notes: payRate.notes
+    };
     
-    return newRate;
+    // Execute raw SQL to insert and return with correct column names
+    const result = await pool.query(`
+      INSERT INTO musician_pay_rates
+        (musician_id, event_category_id, hourly_rate, day_rate, event_rate, notes)
+      VALUES
+        ($1, $2, $3, $4, $5, $6)
+      RETURNING
+        id, 
+        musician_id as "musicianId", 
+        event_category_id as "eventCategoryId", 
+        hourly_rate as "hourlyRate", 
+        day_rate as "dayRate", 
+        event_rate as "eventRate", 
+        notes
+    `, [
+      dbPayRate.musician_id,
+      dbPayRate.event_category_id,
+      dbPayRate.hourly_rate,
+      dbPayRate.day_rate,
+      dbPayRate.event_rate,
+      dbPayRate.notes
+    ]);
+    
+    return result.rows[0];
   }
   
   async updateMusicianPayRate(id: number, data: Partial<InsertMusicianPayRate>): Promise<MusicianPayRate | undefined> {
-    const [updated] = await db.update(musicianPayRates)
-      .set(data)
-      .where(eq(musicianPayRates.id, id))
-      .returning();
+    // Handle empty update case
+    if (Object.keys(data).length === 0) {
+      const existingRate = await this.getMusicianPayRate(id);
+      return existingRate;
+    }
     
-    return updated;
+    // Build SQL update statement parts
+    const updateParts: string[] = [];
+    const values: any[] = [];
+    let paramCounter = 1;
+    
+    // Convert camelCase keys to snake_case for SQL
+    if (data.musicianId !== undefined) {
+      updateParts.push(`musician_id = $${paramCounter++}`);
+      values.push(data.musicianId);
+    }
+    
+    if (data.eventCategoryId !== undefined) {
+      updateParts.push(`event_category_id = $${paramCounter++}`);
+      values.push(data.eventCategoryId);
+    }
+    
+    if (data.hourlyRate !== undefined) {
+      updateParts.push(`hourly_rate = $${paramCounter++}`);
+      values.push(data.hourlyRate);
+    }
+    
+    if (data.dayRate !== undefined) {
+      updateParts.push(`day_rate = $${paramCounter++}`);
+      values.push(data.dayRate);
+    }
+    
+    if (data.eventRate !== undefined) {
+      updateParts.push(`event_rate = $${paramCounter++}`);
+      values.push(data.eventRate);
+    }
+    
+    if (data.notes !== undefined) {
+      updateParts.push(`notes = $${paramCounter++}`);
+      values.push(data.notes);
+    }
+    
+    // Add ID as the last parameter
+    values.push(id);
+    
+    // Execute the update
+    const result = await pool.query(`
+      UPDATE musician_pay_rates
+      SET ${updateParts.join(', ')}
+      WHERE id = $${paramCounter}
+      RETURNING
+        id, 
+        musician_id as "musicianId", 
+        event_category_id as "eventCategoryId", 
+        hourly_rate as "hourlyRate", 
+        day_rate as "dayRate", 
+        event_rate as "eventRate", 
+        notes
+    `, values);
+    
+    return result.rows[0];
   }
   
   async deleteMusicianPayRate(id: number): Promise<boolean> {
-    const result = await db.delete(musicianPayRates)
-      .where(eq(musicianPayRates.id, id));
+    const result = await pool.query(`
+      DELETE FROM musician_pay_rates
+      WHERE id = $1
+    `, [id]);
     
     return result.rowCount > 0;
   }

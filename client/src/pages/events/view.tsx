@@ -360,15 +360,19 @@ export default function ViewEventPage() {
       console.log("Musician pay rates data keys:", data[0] ? Object.keys(data[0]) : "No data items");
       console.log("Total musician pay rates returned:", data.length);
       
-      // Print all rates returned to examine data structure
-      console.log("All returned pay rates:", data);
-      
-      // Let's log the property names as they come from the server
-      if (data[0]) {
-        console.log("Property name check - Is musicianId present?", "musicianId" in data[0]);
-        console.log("Property name check - Is musician_id present?", "musician_id" in data[0]);
-        console.log("Value of first item's musician_id:", data[0].musician_id);
-        console.log("Value of first item's musicianId:", data[0].musicianId);
+      // Make sure musicianId exists in the data
+      if (data.length > 0 && !data[0].musicianId && data[0].musician_id) {
+        // If we have snake_case instead of camelCase, normalize the data
+        console.log("Converting snake_case to camelCase for pay rates");
+        return data.map((rate: any) => ({
+          id: rate.id,
+          musicianId: rate.musician_id,
+          eventCategoryId: rate.event_category_id,
+          hourlyRate: rate.hourly_rate,
+          dayRate: rate.day_rate,
+          eventRate: rate.event_rate,
+          notes: rate.notes
+        }));
       }
       
       return data;
