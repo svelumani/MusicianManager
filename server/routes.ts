@@ -7097,16 +7097,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Monthly contract not found" });
       }
       
+      console.log(`Sending contract ID ${contractId} for month ${contract.month}/${contract.year}`);
+      
       // 2. Update contract status
       const updatedContract = await storage.updateMonthlyContract(contractId, {
         status: 'sent',
         sentAt: new Date()
       });
       
-      // 3. Update all musician statuses
+      // 3. Update all musician statuses in this contract
       const contractMusicians = await storage.getMonthlyContractMusicians(contractId);
+      console.log(`Found ${contractMusicians.length} musicians in this contract`);
+      
       for (const cm of contractMusicians) {
-        // Use direct database update instead of updateMonthlyContractMusician
+        console.log(`Processing musician ${cm.musicianId} in contract ${contractId}`);
+        
+        // 3a. Update the musician's contract status
         await db
           .update(monthlyContractMusicians)
           .set({
@@ -7115,14 +7121,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .where(eq(monthlyContractMusicians.id, cm.id));
           
-        // Find and update all related planner assignments
+        // 3b. Get all the dates that are included in this musician's contract
+        const contractDates = await storage.getMonthlyContractDates(cm.id);
+        console.log(`Found ${contractDates.length} dates for musician ${cm.musicianId} in this contract`);
+        
+        if (contractDates.length === 0) {
+          console.log(`No dates found for musician ${cm.musicianId} in contract ${contractId}`);
+          continue;
+        }
+        
+        // 3c. Only update the assignments that are INCLUDED in this contract
+        // Find only the planner assignment IDs that match this contract's dates
+        const dateStrings = contractDates.map(date => {
+          const dateObj = new Date(date.date);
+          return dateObj.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+        });
+        
+        console.log(`Looking for assignments with dates: ${dateStrings.join(', ')}`);
+        
+        // Find all assignments for this musician that are connected to this contract
         const assignments = await db
           .select()
           .from(plannerAssignments)
           .where(eq(plannerAssignments.contractId, contractId))
           .where(eq(plannerAssignments.musicianId, cm.musicianId));
           
-        // Update each assignment status
+        console.log(`Found ${assignments.length} assignments for musician ${cm.musicianId} in contract ${contractId}`);
+        
+        // Update only those assignments
         for (const assignment of assignments) {
           await storage.updatePlannerAssignment(assignment.id, {
             contractStatus: 'sent'
