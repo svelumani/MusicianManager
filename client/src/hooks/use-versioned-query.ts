@@ -63,16 +63,22 @@ export function useVersionedQuery<T>(
         // Get raw server versions
         const serverVersions = await versionsResponse.json();
         
-        // Map server version keys to client entity names
-        const clientVersions = mapServerVersionsToClient(serverVersions);
+        // Normalize entity name for consistent lookup
+        const normalizedEntity = convertToClientEntity(entity);
         
-        // Get server key for this entity
-        const serverKey = getServerKeyForEntity(entity as string);
+        // Direct version value lookup from server response
+        // This works because we only care about displaying the version number
+        let versionValue: number | undefined;
         
-        // Get version value from mapped client versions
-        const versionValue = clientVersions[entity as string];
+        // Loop through all possible keys that could represent this entity
+        Object.entries(serverVersions).forEach(([key, value]) => {
+          const normalizedKey = convertToClientEntity(key as UpdateEntity);
+          if (normalizedKey === normalizedEntity) {
+            versionValue = value as number;
+          }
+        });
         
-        console.log(`[VersionedQuery] ${entity} data version: ${versionValue || 'unknown'} (server key: ${serverKey})`);
+        console.log(`[VersionedQuery] ${normalizedEntity} data version: ${versionValue || 'unknown'}`);
       }
       
       // Construct the URL with a cache-busting timestamp
