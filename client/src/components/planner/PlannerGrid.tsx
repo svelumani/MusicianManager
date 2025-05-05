@@ -10,8 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import InlineMusicianSelect from "./InlineMusicianSelect";
-import SimplifiedContractSender from "./SimplifiedContractSender";
-import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw } from "lucide-react";
+import { FileText, Calendar, Info, CheckCircle2, RefreshCw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -36,7 +35,6 @@ const AUTO_SAVE_INTERVAL = 60000; // 1 minute
 
 const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGridProps) => {
   const { toast } = useToast();
-  const [showFinalizeDialog, setShowFinalizeDialog] = useState(false);
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [selectedCell, setSelectedCell] = useState<{ date: Date; venueId: number } | null>(null);
   const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(true);
@@ -516,21 +514,11 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
           
           <Button
             onClick={handlePrepareContracts}
-            variant="outline"
+            variant="default"
             className="gap-1"
           >
             <FileText className="h-4 w-4" />
             Prepare Contracts
-          </Button>
-          
-          <Button 
-            onClick={() => setShowFinalizeDialog(true)}
-            disabled={planner?.status === "finalized"}
-            variant="default"
-            className="gap-1"
-          >
-            <Send className="h-4 w-4" />
-            Finalize & Send
           </Button>
         </div>
       </div>
@@ -750,16 +738,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
         </div>
       </div>
 
-      {/* Simplified Contract Sender Dialog */}
-      {showFinalizeDialog && (
-        <SimplifiedContractSender
-          plannerId={plannerId}
-          plannerName={planner.name || monthName}
-          plannerMonth={monthName}
-          open={showFinalizeDialog}
-          onClose={() => setShowFinalizeDialog(false)}
-        />
-      )}
+
     </div>
   );
 };
