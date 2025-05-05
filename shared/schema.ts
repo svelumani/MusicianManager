@@ -864,8 +864,6 @@ export const monthlyContractMusicians = pgTable("monthly_contract_musicians", {
   totalDates: integer("total_dates").default(0), // Total number of dates in this contract
   totalFee: doublePrecision("total_fee").default(0), // Total fee for all dates
   responseUrl: text("response_url"), // Unique URL for contract response
-  emailSent: boolean("email_sent").default(false), // Flag indicating if email was sent successfully
-  emailError: text("email_error"), // Any error message from email sending attempt
   rejectionReason: text("rejection_reason"), // If rejected, the reason provided by the musician
 });
 
