@@ -4016,7 +4016,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateMonthlyContractMusician(id: number, data: Partial<InsertMonthlyContractMusician>): Promise<MonthlyContractMusician | undefined> {
     try {
-      // First get the existing record to merge with updates
+      // First get the existing record
       const [existingRecord] = await db.select()
         .from(monthlyContractMusicians)
         .where(eq(monthlyContractMusicians.id, id));
@@ -4025,141 +4025,70 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
       
-      // Use a safer approach with manually constructed query
-      let query = 'UPDATE monthly_contract_musicians SET ';
-      const updateValues: any[] = [];
-      const updateFields: string[] = [];
+      // Create update data with only the fields that exist in the table
+      const updateData: Record<string, any> = {
+        updated_at: new Date()
+      };
       
-      if (data.contractId !== undefined) {
-        updateFields.push('contract_id = $' + (updateValues.length + 1));
-        updateValues.push(data.contractId);
-      }
-      if (data.musicianId !== undefined) {
-        updateFields.push('musician_id = $' + (updateValues.length + 1));
-        updateValues.push(data.musicianId);
-      }
-      if (data.status !== undefined) {
-        updateFields.push('status = $' + (updateValues.length + 1));
-        updateValues.push(data.status);
-      }
-      if (data.token !== undefined) {
-        updateFields.push('token = $' + (updateValues.length + 1));
-        updateValues.push(data.token);
-      }
-      if (data.notes !== undefined) {
-        updateFields.push('notes = $' + (updateValues.length + 1));
-        updateValues.push(data.notes);
-      }
-      if (data.musicianNotes !== undefined) {
-        updateFields.push('musician_notes = $' + (updateValues.length + 1));
-        updateValues.push(data.musicianNotes);
-      }
-      if (data.companySignature !== undefined) {
-        updateFields.push('company_signature = $' + (updateValues.length + 1));
-        updateValues.push(data.companySignature);
-      }
-      if (data.musicianSignature !== undefined) {
-        updateFields.push('musician_signature = $' + (updateValues.length + 1));
-        updateValues.push(data.musicianSignature);
-      }
-      if (data.sentAt !== undefined) {
-        updateFields.push('sent_at = $' + (updateValues.length + 1));
-        updateValues.push(data.sentAt);
-      }
-      if (data.respondedAt !== undefined) {
-        updateFields.push('responded_at = $' + (updateValues.length + 1));
-        updateValues.push(data.respondedAt);
-      }
-      if (data.completedAt !== undefined) {
-        updateFields.push('completed_at = $' + (updateValues.length + 1));
-        updateValues.push(data.completedAt);
-      }
-      if (data.lastReminderAt !== undefined) {
-        updateFields.push('last_reminder_at = $' + (updateValues.length + 1));
-        updateValues.push(data.lastReminderAt);
-      }
-      if (data.reminderCount !== undefined) {
-        updateFields.push('reminder_count = $' + (updateValues.length + 1));
-        updateValues.push(data.reminderCount);
-      }
-      if (data.ipAddress !== undefined) {
-        updateFields.push('ip_address = $' + (updateValues.length + 1));
-        updateValues.push(data.ipAddress);
-      }
-      if (data.acceptedDates !== undefined) {
-        updateFields.push('accepted_dates = $' + (updateValues.length + 1));
-        updateValues.push(data.acceptedDates);
-      }
-      if (data.rejectedDates !== undefined) {
-        updateFields.push('rejected_dates = $' + (updateValues.length + 1));
-        updateValues.push(data.rejectedDates);
-      }
-      if (data.pendingDates !== undefined) {
-        updateFields.push('pending_dates = $' + (updateValues.length + 1));
-        updateValues.push(data.pendingDates);
-      }
-      if (data.totalDates !== undefined) {
-        updateFields.push('total_dates = $' + (updateValues.length + 1));
-        updateValues.push(data.totalDates);
-      }
-      if (data.totalFee !== undefined) {
-        updateFields.push('total_fee = $' + (updateValues.length + 1));
-        updateValues.push(data.totalFee);
-      }
-      if (data.responseUrl !== undefined) {
-        updateFields.push('response_url = $' + (updateValues.length + 1));
-        updateValues.push(data.responseUrl);
-      }
-      // Removed rejectionReason field as it doesn't exist in the database schema
+      // Only add fields that are provided in the data object
+      if (data.contractId !== undefined) updateData.contract_id = data.contractId;
+      if (data.musicianId !== undefined) updateData.musician_id = data.musicianId;
+      if (data.status !== undefined) updateData.status = data.status;
+      if (data.token !== undefined) updateData.token = data.token;
+      if (data.notes !== undefined) updateData.notes = data.notes;
+      if (data.musicianNotes !== undefined) updateData.musician_notes = data.musicianNotes;
+      if (data.companySignature !== undefined) updateData.company_signature = data.companySignature;
+      if (data.musicianSignature !== undefined) updateData.musician_signature = data.musicianSignature;
+      if (data.sentAt !== undefined) updateData.sent_at = data.sentAt;
+      if (data.respondedAt !== undefined) updateData.responded_at = data.respondedAt;
+      if (data.completedAt !== undefined) updateData.completed_at = data.completedAt;
+      if (data.lastReminderAt !== undefined) updateData.last_reminder_at = data.lastReminderAt;
+      if (data.reminderCount !== undefined) updateData.reminder_count = data.reminderCount;
+      if (data.ipAddress !== undefined) updateData.ip_address = data.ipAddress;
+      if (data.acceptedDates !== undefined) updateData.accepted_dates = data.acceptedDates;
+      if (data.rejectedDates !== undefined) updateData.rejected_dates = data.rejectedDates;
+      if (data.pendingDates !== undefined) updateData.pending_dates = data.pendingDates;
+      if (data.totalDates !== undefined) updateData.total_dates = data.totalDates;
+      if (data.totalFee !== undefined) updateData.total_fee = data.totalFee;
+      if (data.responseUrl !== undefined) updateData.response_url = data.responseUrl;
       
-      // Always update the updatedAt field
-      updateFields.push('updated_at = $' + (updateValues.length + 1));
-      updateValues.push(new Date());
+      // Execute the update using Drizzle ORM
+      const result = await db.update(monthlyContractMusicians)
+        .set(updateData)
+        .where(eq(monthlyContractMusicians.id, id))
+        .returning();
       
-      if (updateFields.length === 0) {
-        return existingRecord; // Nothing to update
-      }
-      
-      query += updateFields.join(', ');
-      query += ' WHERE id = $' + (updateValues.length + 1);
-      updateValues.push(id);
-      query += ' RETURNING *';
-      
-      console.log('Raw query:', query, updateValues);
-      
-      // Execute the query
-      const result = await pool.query(query, updateValues);
-      const updated = result.rows[0];
+      const updated = result[0];
       
       if (updated) {
         console.log("Updated contract musician:", updated);
         
-        // Transform snake_case to camelCase
+        // Transform to camelCase for the return - Drizzle ORM already returns in camelCase
+        // so we don't need to manually map snake_case to camelCase
         const camelCaseUpdated = {
           id: updated.id,
-          contractId: updated.contract_id,
-          musicianId: updated.musician_id,
+          contractId: updated.contractId,
+          musicianId: updated.musicianId,
           status: updated.status,
           token: updated.token,
           notes: updated.notes,
-          musicianNotes: updated.musician_notes,
-          companySignature: updated.company_signature,
-          musicianSignature: updated.musician_signature,
-          sentAt: updated.sent_at,
-          respondedAt: updated.responded_at,
-          completedAt: updated.completed_at,
-          lastReminderAt: updated.last_reminder_at,
-          reminderCount: updated.reminder_count,
-          ipAddress: updated.ip_address,
-          acceptedDates: updated.accepted_dates,
-          rejectedDates: updated.rejected_dates,
-          pendingDates: updated.pending_dates,
-          totalDates: updated.total_dates,
-          totalFee: updated.total_fee,
-          responseUrl: updated.response_url,
-          // Removed reference to rejection_reason as it doesn't exist in database
-          createdAt: updated.created_at,
-          updatedAt: updated.updated_at
+          musicianNotes: updated.musicianNotes,
+          companySignature: updated.companySignature,
+          musicianSignature: updated.musicianSignature,
+          sentAt: updated.sentAt,
+          respondedAt: updated.respondedAt,
+          completedAt: updated.completedAt,
+          lastReminderAt: updated.lastReminderAt,
+          reminderCount: updated.reminderCount,
+          ipAddress: updated.ipAddress,
+          acceptedDates: updated.acceptedDates,
+          rejectedDates: updated.rejectedDates,
+          pendingDates: updated.pendingDates,
+          totalDates: updated.totalDates,
+          totalFee: updated.totalFee,
+          responseUrl: updated.responseUrl,
+          createdAt: updated.createdAt,
+          updatedAt: updated.updatedAt
         };
         
         // Get musician name for activity log
