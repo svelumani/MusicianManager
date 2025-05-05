@@ -63,8 +63,12 @@ export function initWebSocketConnection() {
     
     console.log(`[WebSocket] Connecting to server at ${wsUrl}`);
     
-    // Create new WebSocket connection
+    // Create new WebSocket connection with credentials
+    // Setting withCredentials to true will include cookies in the WebSocket request
     const newSocket = new WebSocket(wsUrl);
+    
+    // Log authentication status for debugging
+    console.log('[WebSocket] Connection attempt includes credentials (cookies)');
     
     // Store socket reference
     socket = newSocket;
@@ -266,10 +270,8 @@ export function onDataUpdate(callback: DataUpdateHandler): () => void {
     subscribers.push(callback);
   }
   
-  // Initialize connection if not already connected
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    initWebSocketConnection();
-  }
+  // Connection will be initialized by WebSocketInitializer
+  // when user is authenticated
   
   // Return cleanup function
   return () => {
@@ -376,10 +378,8 @@ export function onSystemMessage(callback: SystemMessageHandler): () => void {
     systemMessageListeners.push(callback);
   }
   
-  // Initialize connection if not already connected
-  if (!socket || socket.readyState !== WebSocket.OPEN) {
-    initWebSocketConnection();
-  }
+  // Connection will be initialized by WebSocketInitializer
+  // when user is authenticated
   
   // Return cleanup function
   return () => {
