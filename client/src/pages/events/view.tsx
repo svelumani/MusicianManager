@@ -834,30 +834,35 @@ export default function ViewEventPage() {
                                           // Use the payment model from the event to determine which rate to use
                                           const paymentModel = event.paymentModel || 'daily'; // Default to daily if not specified
                                           
+                                          // Get rate values handling both camelCase and snake_case property names
+                                          const hourlyRate = rate.hourlyRate || rate.hourly_rate;
+                                          const dayRate = rate.dayRate || rate.day_rate;
+                                          const eventRate = rate.eventRate || rate.event_rate;
+                                          
                                           // Debug logging for payment model and rates
                                           console.log("Rate calculation:", {
                                             musicianId,
                                             paymentModel,
-                                            hourlyRate: rate.hourlyRate,
-                                            dayRate: rate.dayRate,
-                                            eventRate: rate.eventRate,
+                                            hourlyRate,
+                                            dayRate,
+                                            eventRate,
                                             hoursCount: event.hoursCount, 
                                             daysCount: event.daysCount
                                           });
                                           
-                                          if (paymentModel === 'hourly' && rate.hourlyRate) {
+                                          if (paymentModel === 'hourly' && hourlyRate) {
                                             // For hourly payment: base hourly rate × hours count
                                             const hours = event.hoursCount || 0;
-                                            totalRate = rate.hourlyRate * hours;
-                                            rateLabel = `$${rate.hourlyRate.toFixed(2)}/hr × ${hours} hours = $${totalRate.toFixed(2)}`;
-                                            console.log(`Calculated hourly rate: ${rate.hourlyRate} × ${hours} = ${totalRate}`);
+                                            totalRate = hourlyRate * hours;
+                                            rateLabel = `$${hourlyRate.toFixed(2)}/hr × ${hours} hours = $${totalRate.toFixed(2)}`;
+                                            console.log(`Calculated hourly rate: ${hourlyRate} × ${hours} = ${totalRate}`);
                                           } 
-                                          else if (paymentModel === 'daily' && rate.dayRate) {
+                                          else if (paymentModel === 'daily' && dayRate) {
                                             // For daily payment: base daily rate × days count
                                             const days = event.daysCount || 0;
-                                            totalRate = rate.dayRate * days;
-                                            rateLabel = `$${rate.dayRate.toFixed(2)}/day × ${days} days = $${totalRate.toFixed(2)}`;
-                                            console.log(`Calculated daily rate: ${rate.dayRate} × ${days} = ${totalRate}`);
+                                            totalRate = dayRate * days;
+                                            rateLabel = `$${dayRate.toFixed(2)}/day × ${days} days = $${totalRate.toFixed(2)}`;
+                                            console.log(`Calculated daily rate: ${dayRate} × ${days} = ${totalRate}`);
                                           }
                                           else if (paymentModel === 'event' && rate.eventRate) {
                                             // For event payment: flat event rate
