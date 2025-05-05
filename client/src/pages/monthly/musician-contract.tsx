@@ -79,7 +79,12 @@ const MusicianContractPage = () => {
       try {
         const data = await apiRequest(`/api/monthly-contracts/${contractId}`);
         console.log('Contract data (complete):', data);
-        console.log('Days data available:', data?.days ? data.days.length : 'No days property');
+        console.log('Contract structure:', Object.keys(data));
+        console.log('Contract object structure:', data?.contract ? Object.keys(data.contract) : 'No contract object');
+        console.log('Days data available:', data?.contract?.days ? data.contract.days.length : 'No days property');
+        if (data?.contract?.days) {
+          console.log('Sample day data:', data.contract.days[0]);
+        }
         return data;
       } catch (error) {
         console.error("Error fetching contract data:", error);
@@ -404,29 +409,29 @@ const MusicianContractPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {contractData?.days && contractData.days.length > 0 ? (
-                  contractData.days.map((day: any, index: number) => (
+                {contractData?.assignments && contractData.assignments.length > 0 ? (
+                  contractData.assignments.map((assignment: any, index: number) => (
                     <tr key={index}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {day.date ? format(new Date(day.date), 'MMMM d, yyyy') : 'N/A'}
+                        {assignment.date ? format(new Date(assignment.date), 'MMMM d, yyyy') : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {day.venueName || 'N/A'}
+                        {assignment.venueName || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {day.startTime && day.endTime ? `${day.startTime} - ${day.endTime}` : 'N/A'}
+                        {assignment.startTime && assignment.endTime ? `${assignment.startTime} - ${assignment.endTime}` : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge
                           variant="outline"
-                          className={`${(day.status && STATUS_COLORS[day.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.confirmed} flex items-center`}
+                          className={`${(assignment.status && STATUS_COLORS[assignment.status as keyof typeof STATUS_COLORS]) || STATUS_COLORS.confirmed} flex items-center`}
                         >
-                          {(day.status && STATUS_ICONS[day.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.confirmed}
-                          {day.status ? day.status.charAt(0).toUpperCase() + day.status.slice(1) : 'Confirmed'}
+                          {(assignment.status && STATUS_ICONS[assignment.status as keyof typeof STATUS_ICONS]) || STATUS_ICONS.confirmed}
+                          {assignment.status ? assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1) : 'Confirmed'}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {day.fee ? `$${day.fee.toFixed(2)}` : (day.actualFee ? `$${day.actualFee.toFixed(2)}` : 'N/A')}
+                        {assignment.actualFee !== null ? `$${assignment.actualFee.toFixed(2)}` : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {musicianContract.status === 'signed' ? (
