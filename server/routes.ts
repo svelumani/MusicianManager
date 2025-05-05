@@ -6557,20 +6557,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Monthly Contract Musicians routes
   
-  // Get musician contract by musician ID
-  apiRouter.get("/monthly-contracts/musician/:musicianId", isAuthenticated, async (req, res) => {
+  // Get monthly contract musician by ID
+  apiRouter.get("/monthly-contracts/musician/:id", isAuthenticated, async (req, res) => {
     try {
-      const musicianId = parseInt(req.params.musicianId);
-      if (isNaN(musicianId)) {
-        return res.status(400).json({ message: "Invalid musician ID" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
       }
       
-      const musicianContract = await storage.getMonthlyContractMusicianByMusicianId(musicianId);
+      // Get the monthly contract musician by ID (not by musician ID)
+      const musicianContract = await storage.getMonthlyContractMusician(id);
       if (!musicianContract) {
         return res.status(404).json({ message: "Musician contract not found" });
       }
       
-      return res.json(musicianContract);
+      // Enrich with musician details
+      const musician = await storage.getMusician(musicianContract.musicianId);
+      const data = {
+        ...musicianContract,
+        musicianName: musician ? musician.name : "Unknown Musician"
+      };
+      
+      return res.json(data);
     } catch (error) {
       console.error("Error getting musician contract:", error);
       return res.status(500).json({ message: "Server error" });
@@ -6578,20 +6586,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Resend contract to musician
-  apiRouter.post("/monthly-contracts/musician/:musicianId/resend", isAuthenticated, async (req, res) => {
+  apiRouter.post("/monthly-contracts/musician/:id/resend", isAuthenticated, async (req, res) => {
     try {
-      const musicianId = parseInt(req.params.musicianId);
-      if (isNaN(musicianId)) {
-        return res.status(400).json({ message: "Invalid musician ID" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
       }
       
-      const musicianContract = await storage.getMonthlyContractMusicianByMusicianId(musicianId);
+      const musicianContract = await storage.getMonthlyContractMusician(id);
       if (!musicianContract) {
         return res.status(404).json({ message: "Musician contract not found" });
       }
       
       // Update the contract status and sent date
-      const updatedContract = await storage.updateMonthlyContractMusician(musicianContract.id, {
+      const updatedContract = await storage.updateMonthlyContractMusician(id, {
         status: "sent",
         sentAt: new Date()
       });
@@ -6606,20 +6614,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Reject contract
-  apiRouter.post("/monthly-contracts/musician/:musicianId/reject", isAuthenticated, async (req, res) => {
+  apiRouter.post("/monthly-contracts/musician/:id/reject", isAuthenticated, async (req, res) => {
     try {
-      const musicianId = parseInt(req.params.musicianId);
-      if (isNaN(musicianId)) {
-        return res.status(400).json({ message: "Invalid musician ID" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
       }
       
-      const musicianContract = await storage.getMonthlyContractMusicianByMusicianId(musicianId);
+      const musicianContract = await storage.getMonthlyContractMusician(id);
       if (!musicianContract) {
         return res.status(404).json({ message: "Musician contract not found" });
       }
       
       // Update the contract status
-      const updatedContract = await storage.updateMonthlyContractMusician(musicianContract.id, {
+      const updatedContract = await storage.updateMonthlyContractMusician(id, {
         status: "rejected",
         rejectionReason: "Rejected by admin"
       });
