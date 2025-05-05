@@ -593,18 +593,25 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                     // TEMPORARY FIX: Hardcode to Club Performance (ID 7) per client request
                                     const eventCategoryId = 7; // Hardcoded to Club Performance
                                     const hours = slot?.duration || 2;
-                                    let hourlyRate = 0;
-                                    let rateSource = "unknown";
+                                    
+                                    // Calculate the per-hour rate based on the actual fee
+                                    let hourlyRate = assignment.actualFee ? (assignment.actualFee / hours) : 0;
+                                    let rateSource = "calculated from total";
                                     
                                     // Hardcoded name
                                     const categoryName = "Club Performance";
                                     
+                                    // Debug log to inspect values
+                                    console.log(`Assignment ${assignment.id} for musician ${assignment.musicianId}: actualFee=${assignment.actualFee}, hours=${hours}, hourlyRate=${hourlyRate}`);
+                                    
                                     if (musician && payRates && Array.isArray(payRates)) {
                                       // Find all rates for this musician to debug
                                       const allRatesForMusician = payRates.filter((rate: PayRate) => rate.musicianId === musician.id);
+                                      console.log(`Found ${allRatesForMusician.length} pay rates for musician ${musician.id}`);
                                       
                                       // Debug club performance rates
                                       const clubRates = payRates.filter((rate: PayRate) => rate.eventCategoryId === 7);
+                                      console.log(`Found ${clubRates.length} pay rates for Club Performance (ID 7)`);
                                       
                                       // Look for exact match for Club Performance category
                                       const matchingPayRate = payRates.find((rate: PayRate) => 
@@ -613,13 +620,17 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                       );
                                       
                                       if (matchingPayRate) {
+                                        console.log(`Found matching pay rate: ${matchingPayRate.hourlyRate}/hr`);
                                         hourlyRate = matchingPayRate.hourlyRate;
                                         rateSource = `Club rate`;
                                       } else if (musician.payRate) {
+                                        console.log(`Using musician default pay rate: ${musician.payRate}/hr`);
                                         hourlyRate = musician.payRate;
                                         rateSource = "default rate";
                                       } else if (musician.categoryId) {
-                                        hourlyRate = getCategoryDefaultRate(musician.categoryId);
+                                        const categoryRate = getCategoryDefaultRate(musician.categoryId);
+                                        console.log(`Using category default rate: ${categoryRate}/hr`);
+                                        hourlyRate = categoryRate;
                                         rateSource = getMusicianCategory(musician.id) + " default";
                                       }
                                     }
