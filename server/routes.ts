@@ -2149,12 +2149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Increment version counters for planner-related data to trigger client refresh
-      await incrementVersion(VERSION_KEYS.PLANNERSS);
+      await incrementVersion(VERSION_KEYS.PLANNERS);
       await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
       await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
       
       // Also increment monthly version since planners affect monthly data
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS_CONTRACTS);
+      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
       
       // Set cache control headers to prevent caching on this response
       res.set({
