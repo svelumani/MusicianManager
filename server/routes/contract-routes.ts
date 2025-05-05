@@ -7,6 +7,7 @@ import {
   monthlyContractDates,
   monthlyContractStatusHistory,
   musicians,
+  contractTemplates,
 } from '../../shared/schema';
 import { randomUUID } from 'crypto';
 import { format } from 'date-fns';
@@ -72,10 +73,7 @@ contractRouter.get('/view-by-token', async (req, res) => {
       .select()
       .from(monthlyContractDates)
       .where(
-        and(
-          eq(monthlyContractDates.contractId, contract.id),
-          eq(monthlyContractDates.musicianId, musician.id)
-        )
+        eq(monthlyContractDates.musicianContractId, musicianContract.id)
       );
 
     // Format dates for display
@@ -88,6 +86,24 @@ contractRouter.get('/view-by-token', async (req, res) => {
       status: date.status || 'pending'
     }));
 
+    // Get template information for terms and conditions if available
+    let termsAndConditions = "Standard terms and conditions apply.";
+    try {
+      if (contract.templateId) {
+        const [template] = await db
+          .select()
+          .from(contractTemplates)
+          .where(eq(contractTemplates.id, contract.templateId));
+        
+        if (template && template.content) {
+          termsAndConditions = template.content;
+        }
+      }
+    } catch (templateError) {
+      console.error("Error fetching contract template:", templateError);
+      // Continue with default terms
+    }
+
     // Return formatted contract data
     return res.json({
       id: contract.id,
@@ -98,7 +114,7 @@ contractRouter.get('/view-by-token', async (req, res) => {
       totalAmount: musicianContract.totalFee,
       status: musicianContract.status,
       dates: formattedDates,
-      termsAndConditions: contract.termsAndConditions,
+      termsAndConditions: termsAndConditions,
       sentAt: musicianContract.sentAt,
       respondedAt: musicianContract.respondedAt,
       completedAt: musicianContract.completedAt,
@@ -195,10 +211,10 @@ contractRouter.post('/respond', async (req, res) => {
       .values({
         contractId: Number(contractId),
         musicianId: musicianContract.musicianId,
-        status: newStatus,
-        timestamp: now,
+        previousStatus: musicianContract.status,
+        newStatus: newStatus,
+        changedAt: now,
         notes: comments || null,
-        userId: null, // System generated
       });
 
     // Send notification email to admin if configured

@@ -125,7 +125,7 @@ export async function sendContractEmail(params: ContractEmailParams, template?: 
   `;
 
   // Use the provided template or default
-  const html = template?.html || defaultHtml;
+  const html = template?.htmlContent || defaultHtml;
   
   // Email data
   const emailData: EmailData = {
