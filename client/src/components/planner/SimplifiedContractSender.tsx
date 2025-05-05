@@ -315,9 +315,9 @@ const SimplifiedContractSender = ({
     setSelectAll(newSelectAll);
     
     // Update all musicians to match the selectAll state
-    const newSelection: {[key: string]: boolean} = {};
+    const newSelection = {};
     musicians.forEach(musician => {
-      newSelection[musician.musicianId.toString()] = newSelectAll;
+      newSelection[musician.musicianId] = newSelectAll;
     });
     setSelectedMusicians(newSelection);
   };
@@ -356,7 +356,7 @@ const SimplifiedContractSender = ({
         
         // Return the data regardless of what it contains
         return responseData;
-      } catch (err: any) {
+      } catch (err) {
         console.error("Direct contract creation error:", err);
         
         // Try fallback to original apiRequest
@@ -463,25 +463,8 @@ const SimplifiedContractSender = ({
         // Update UI state
         setStep("complete");
         
-        // Force a complete page reload with cache busting after a short delay
-        setTimeout(() => {
-          // Close dialog first
-          onClose();
-          
-          // Then do the page reload with cache-busting parameter
-          setTimeout(() => {
-            // Get month and year from the URL
-            const params = new URLSearchParams(window.location.search);
-            const month = params.get('month') || '';
-            const year = params.get('year') || '';
-            
-            // Create cache-busting parameter
-            const cacheBuster = Date.now();
-            
-            // Navigate to a URL that preserves context with fresh data
-            window.location.href = `/events/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
-          }, 200);
-        }, 1000);
+        // Close dialog after delay
+        setTimeout(() => onClose(), 2000);
       } else {
         // Handle server error response
         console.error("Server returned error:", response);
@@ -510,25 +493,8 @@ const SimplifiedContractSender = ({
       // Move to complete state since we don't know the status
       setStep("complete");
       
-      // Force a complete page reload with cache busting after a short delay
-      setTimeout(() => {
-        // Close dialog first
-        onClose();
-        
-        // Then do the page reload with cache-busting parameter
-        setTimeout(() => {
-          // Get month and year from the URL
-          const params = new URLSearchParams(window.location.search);
-          const month = params.get('month') || '';
-          const year = params.get('year') || '';
-          
-          // Create cache-busting parameter
-          const cacheBuster = Date.now();
-          
-          // Navigate to a URL that preserves context with fresh data
-          window.location.href = `/events/planner?month=${month}&year=${year}&refresh=${cacheBuster}`;
-        }, 200);
-      }, 2000);
+      // Close dialog after delay
+      setTimeout(() => onClose(), 3000);
     }
   });
   

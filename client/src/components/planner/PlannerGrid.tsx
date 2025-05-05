@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { forcePlannerReload } from "@/lib/utils/forceRefresh";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,11 +11,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Badge } from "@/components/ui/badge";
 import InlineMusicianSelect from "./InlineMusicianSelect";
 import SimplifiedContractSender from "./SimplifiedContractSender";
-import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw, Clock } from "lucide-react";
+import { Send, Save, FileText, Calendar, Info, CheckCircle2, RefreshCw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useVersionedQuery } from "@/hooks/use-versioned-query";
-import { DataUpdateNotification } from "@/components/DataUpdateNotification";
 
 interface PlannerGridProps {
   planner: any; // MonthlyPlanner
@@ -52,95 +49,101 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const monthEnd = endOfMonth(monthStart);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Query to get planner slots using versioned query
+  // Query to get planner slots
   const {
     data: plannerSlots,
     isLoading: isSlotsLoading,
-    forceRefresh: forceRefreshSlots
-  } = useVersionedQuery<Slot[]>({
-    entity: 'plannerSlots',
-    endpoint: `/api/planner-slots`,
-    params: { plannerId: planner?.id },
+    refetch: refetchSlots
+  } = useQuery({
+    queryKey: ['/api/planner-slots', planner?.id],
+    queryFn: () => apiRequest(`/api/planner-slots?plannerId=${planner.id}`),
     enabled: !!planner?.id,
-    transform: (data) => Array.isArray(data) ? data : []
   });
 
-  // Query to get all planner assignments for this planner
+  // Query to get planner assignments - simplified with a single queryKey
   const {
     data: plannerAssignments,
     isLoading: isAssignmentsLoading,
-    forceRefresh: forceRefreshAssignments
-  } = useVersionedQuery<Assignment[]>({
-    entity: 'plannerAssignments',
-    endpoint: '/api/planner-assignments',
-    params: { plannerId: planner?.id },
+    refetch: refetchAssignments
+  } = useQuery({
+    // Use a simpler queryKey that's easier to invalidate
+    queryKey: ['plannerAssignments', planner?.id],
+    queryFn: () => {
+      if (!plannerSlots || plannerSlots.length === 0) {
+        console.log("No planner slots available, skipping assignment fetch");
+        return [];
+      }
+      
+      // Use a cleaner approach to build the query with all slot IDs
+      const slotIds = plannerSlots.map((slot: any) => slot.id);
+      console.log("Fetching assignments for slots:", slotIds);
+      
+      // Build individual queries for each slot to avoid URL length issues
+      const promises = slotIds.map((id: number) => 
+        apiRequest(`/api/planner-assignments?slotId=${id}`)
+      );
+      
+      // Combine all results from the individual requests
+      return Promise.all(promises).then(results => {
+        // Flatten the array of arrays
+        const combined = results.flat();
+        console.log("Combined assignments:", combined.length);
+        return combined;
+      });
+    },
     enabled: !!plannerSlots && plannerSlots.length > 0,
-    transform: (data) => {
-      // This is a synchronous transform just to satisfy TypeScript
-      // The actual data fetching is done in the API
-      return Array.isArray(data) ? data : [];
-    }
+    // Stale time set to 0 to ensure fresh data on every render
+    staleTime: 0
   });
 
-  // Query to get musicians with version tracking
+  // Query to get musicians with proper typing
   const {
     data: musicians,
     isLoading: isMusiciansLoading,
-    forceRefresh: forceRefreshMusicians
-  } = useVersionedQuery<Musician[]>({
-    entity: 'musicians',
-    endpoint: '/api/musicians',
-    transform: (data) => Array.isArray(data) ? data : [],
+  } = useQuery<any[]>({
+    queryKey: ['/api/musicians'],
+    select: (data) => Array.isArray(data) ? data : [],
   });
 
-  // Query to get musician availability data with version tracking
+  // Query to get musician availability data
   const {
     data: availabilityData,
     isLoading: isAvailabilityLoading,
-    forceRefresh: forceRefreshAvailability
-  } = useVersionedQuery<any>({
-    entity: 'availability',
-    endpoint: `/api/availability?year=${year}&month=${month}`,
-    transform: (data) => data || {},
+  } = useQuery({
+    queryKey: ['/api/availability', year, month],
+    queryFn: () => apiRequest(`/api/availability?year=${year}&month=${month}`),
     enabled: availabilityView && !!musicians && musicians.length > 0,
   });
   
-  // Query to get musician pay rates for proper pricing calculations with version tracking
+  // Query to get musician pay rates for proper pricing calculations
   const {
     data: payRates,
     isLoading: isPayRatesLoading,
-    forceRefresh: forceRefreshPayRates
-  } = useVersionedQuery<PayRate[]>({
-    entity: 'musicianPayRates',
-    endpoint: '/api/musician-pay-rates',
-    transform: (rates) => {
-      if (!Array.isArray(rates)) return [];
-      
+  } = useQuery({
+    queryKey: ['/api/musician-pay-rates'],
+    queryFn: async () => {
+      const rates = await apiRequest('/api/musician-pay-rates');
       // Debug: Log James Wilson's rates for Club Performance
-      const jamesRates = rates.filter((r: PayRate) => r.musicianId === 7);
-      const clubRates = rates.filter((r: PayRate) => r.eventCategoryId === 7);
-      const jamesClubRates = rates.filter((r: PayRate) => 
-        r.musicianId === 7 && r.eventCategoryId === 7
-      );
+      const jamesRates = rates.filter((r: any) => r.musicianId === 7);
+      const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
+      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
       
       console.log("DEBUG - All pay rates count:", rates.length);
       console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
-      console.log("DEBUG - Club Performance (ID 7) rates:", clubRates);
-      console.log("DEBUG - James Wilson Club Performance (ID 7) rates:", jamesClubRates);
+      console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
+      console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
       
       return rates;
     }
   });
   
-  // Query to get event categories for proper pricing calculations with version tracking
+  // Query to get event categories for proper pricing calculations
   const {
     data: eventCategories,
     isLoading: isEventCategoriesLoading,
-    forceRefresh: forceRefreshCategories
-  } = useVersionedQuery<any[]>({
-    entity: 'categories',
-    endpoint: '/api/event-categories',
-    transform: (data) => Array.isArray(data) ? data : []
+  } = useQuery({
+    queryKey: ['/api/event-categories'],
+    queryFn: () => apiRequest('/api/event-categories'),
   });
 
   // Update planner status mutation
@@ -172,82 +175,6 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
       updatedAt: new Date(),
     });
   };
-  
-  // Handle unfinalizing the planner to allow editing
-  const handleUnfinalize = () => {
-    if (!planner) return;
-    
-    // Show a loading toast
-    toast({
-      title: "Updating Planner",
-      description: "Changing planner status to draft...",
-    });
-    
-    // Generate a unique timestamp for cache busting
-    const timestamp = new Date().getTime();
-    
-    // Make a copy of the current planner
-    const updatedPlanner = {
-      ...planner,
-      status: 'draft',
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Direct API call to ensure immediate status update
-    apiRequest(`/api/planners/${planner.id}`, "PUT", updatedPlanner)
-    .then(response => {
-      console.log("Planner status updated to draft:", response);
-      
-      // Most aggressive cache clearing strategy possible:
-      
-      // 1. Clear entire cache for all queries
-      queryClient.clear();
-      
-      // 2. Reset all queries to their initial state
-      queryClient.resetQueries();
-      
-      // Show success message
-      toast({
-        title: "Planner Reopened",
-        description: "You can now make changes to the planner. The status is now 'draft'.",
-      });
-      
-      // Use our utility function to force a clean reload 
-      // with guaranteed fresh data and correct context
-      forceReloadWithCorrectContext();
-    })
-    .catch(error => {
-      console.error("Failed to unfinalize planner:", error);
-      toast({
-        title: "Error",
-        description: "Failed to reopen planner for editing",
-        variant: "destructive",
-      });
-    });
-  };
-
-  // Define an interface for the version data
-  interface VersionInfo {
-    monthly_planners?: number;
-    planner_data?: number;  // Alternative key used by server
-    planner_slots?: number;
-    planners_slots?: number; // Alternative key
-    planner_assignments?: number;
-    planners_assignments?: number; // Alternative key
-    monthly_contracts?: number;
-    monthly_data?: number;  // Alternative key
-    [key: string]: number | undefined;
-  }
-
-  // Query to get current version info - using standard React Query
-  const {
-    data: versionInfo,
-    isLoading: isVersionsLoading
-  } = useQuery<VersionInfo>({
-    queryKey: ['/api/versions'],
-    refetchInterval: 30000, // Check every 30 seconds
-    select: (data) => data || {} as VersionInfo
-  });
 
   // Auto-save feature
   useEffect(() => {
@@ -258,7 +185,6 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         updatePlannerMutation.mutate({
           ...planner,
           updatedAt: new Date(),
-          version: versionInfo?.monthly_planners || planner.version || 1
         });
       }, AUTO_SAVE_INTERVAL);
     }
@@ -266,48 +192,33 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAutoSaveEnabled, planner, updatePlannerMutation, versionInfo]);
-
-  // Wrapper function for our centralized utilities that adds user feedback
-  const forceReloadWithCorrectContext = () => {
-    // Show a warning toast to inform the user before reload
-    toast({
-      title: "Refreshing Data",
-      description: "Reloading page to ensure you have the most up-to-date information...",
-      variant: "warning"
-    });
-    
-    // Small delay to let the toast display
-    setTimeout(() => {
-      // Make sure we have the planner context before reloading
-      if (planner?.month && planner?.year) {
-        // Clear all caches first
-        queryClient.clear();
-        
-        // Then force a reload with the imported utility 
-        forcePlannerReload(planner.month, planner.year);
-      }
-    }, 500);
-  };
+  }, [isAutoSaveEnabled, planner, updatePlannerMutation]);
 
   // Handle slot creation/update via the inline musician select
   const handleSlotCreated = (slot: any) => {
     queryClient.invalidateQueries({ queryKey: ['/api/planner-slots', planner?.id] });
   };
 
-  // Handle musician assignment - with versioned query refresh
+  // Handle musician assignment - simplified with direct invalidation
   const handleMusicianAssigned = () => {
-    // Force refresh the slots data
-    forceRefreshSlots();
-    console.log("Slots refreshed after musician assignment");
-    
-    // Force refresh the assignments data
-    forceRefreshAssignments();
-    
-    // Success notification
-    toast({
-      title: "Success",
-      description: "Musician assignments updated",
+    // First, make sure the slots are refreshed
+    refetchSlots().then(() => {
+      console.log("Slots refreshed after musician assignment");
+      
+      // Now invalidate the assignments data to trigger a refetch
+      // Use the simplified key for reliable invalidation
+      queryClient.invalidateQueries({ 
+        queryKey: ['plannerAssignments', planner?.id] 
+      });
+      
+      // Directly trigger a refetch for immediate feedback
+      refetchAssignments().then(() => {
+        // Success notification
+        toast({
+          title: "Success",
+          description: "Musician assignments updated",
+        });
+      });
     });
   };
 
@@ -381,7 +292,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   // Get assignments for a slot
   const getAssignmentsForSlot = (slotId: number): Assignment[] => {
-    if (!plannerAssignments || !Array.isArray(plannerAssignments) || plannerAssignments.length === 0) return [];
+    if (!plannerAssignments || plannerAssignments.length === 0) return [];
     return plannerAssignments.filter((assignment: Assignment) => assignment.slotId === slotId);
   };
 
@@ -567,9 +478,6 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
 
   return (
     <div className="space-y-4">
-      {/* Real-time data updates notification */}
-      <DataUpdateNotification />
-      
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">
           {planner?.name || `${monthName} Planner`}
@@ -588,110 +496,22 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
               </span>
             )}
           </div>
+
+          {/* Removed "Refresh data" button for UI streamlining */}
           
-          {/* Version information */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center space-x-2 text-xs text-gray-500 border-l pl-2 cursor-help">
-                  <div className="flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    <span>Server version: v{versionInfo?.monthly_planners || versionInfo?.planner_data || '-'}</span>
-                  </div>
-                  {planner?.updatedAt && (
-                    <div className="flex items-center ml-2">
-                      <Clock className="h-3 w-3 mr-1" />
-                      <span>Updated: {format(new Date(planner.updatedAt), "MMM d, HH:mm:ss")}</span>
-                    </div>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <div className="text-xs space-y-1">
-                  <div className="font-bold">Data Versions Info:</div>
-                  <div className="grid grid-cols-2 gap-x-2">
-                    <div>Monthly Planners:</div>
-                    <div className="font-medium">v{versionInfo?.monthly_planners || versionInfo?.planner_data || '-'}</div>
-                    
-                    <div>Planner Slots:</div>
-                    <div className="font-medium">v{versionInfo?.planner_slots || versionInfo?.planners_slots || '-'}</div>
-                    
-                    <div>Assignments:</div>
-                    <div className="font-medium">v{versionInfo?.planner_assignments || versionInfo?.planners_assignments || '-'}</div>
-                    
-                    <div>Monthly Data:</div>
-                    <div className="font-medium">v{versionInfo?.monthly_data || '-'}</div>
-                    
-                    <div>Client Version:</div>
-                    <div className="font-medium">v{planner?.version || '-'}</div>
-                  </div>
-                  <div>Last Auto-save: {lastSaved ? format(lastSaved, "HH:mm:ss") : 'None'}</div>
-                  <hr className="my-1" />
-                  <div>To manually refresh data, click the "Refresh Data" button.</div>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {/* Removed "Show availability" button for UI streamlining */}
           
-          {/* Real-time update indicator */}
-          <div className="flex items-center mr-2">
-            <Button 
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // Force a complete data refresh
-                queryClient.invalidateQueries();
-                
-                // Re-fetch the versions and data explicitly
-                queryClient.refetchQueries({
-                  queryKey: ['/api/versions'],
-                  type: 'active'
-                });
-                
-                queryClient.refetchQueries({
-                  queryKey: ['/api/planner-assignments'],
-                  type: 'active'
-                });
-                
-                queryClient.refetchQueries({
-                  queryKey: ['/api/planner-slots'],
-                  type: 'active'
-                });
-                
-                // Show feedback to the user
-                toast({
-                  title: "Data Refreshed",
-                  description: `Refreshed to latest server version`
-                });
-              }}
-              className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 border-blue-200"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh to Latest Data</span>
-            </Button>
-          </div>
+          {/* Removed "Save" button for UI streamlining */}
           
-          {/* Additional UI controls removed for streamlining */}
-          
-          {planner?.status === "finalized" ? (
-            <Button 
-              onClick={handleUnfinalize}
-              variant="outline"
-              className="gap-1"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Edit Planner
-            </Button>
-          ) : (
-            <Button 
-              onClick={() => setShowFinalizeDialog(true)}
-              variant="default"
-              className="gap-1"
-            >
-              <Send className="h-4 w-4" />
-              Finalize & Send
-            </Button>
-          )}
+          <Button 
+            onClick={() => setShowFinalizeDialog(true)}
+            disabled={planner?.status === "finalized"}
+            variant="default"
+            className="gap-1"
+          >
+            <Send className="h-4 w-4" />
+            Finalize & Send
+          </Button>
         </div>
       </div>
 

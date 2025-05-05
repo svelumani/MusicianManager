@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useParams } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,217 +27,36 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import { forcePlannerReload } from "@/lib/utils/forceRefresh"; 
-import {
   CheckCircle,
   Clock,
   FileText,
   Send,
   AlertTriangle,
-  XCircle,
-  Link2,
-  Copy,
-  ExternalLink,
-  Mail,
-  Ban,
-  Calendar,
-  Edit,
+  XCircle
 } from "lucide-react";
 
 const MonthlyContractDetailPage = () => {
   const params = useParams();
   const contractId = params.id ? parseInt(params.id) : null;
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [, navigate] = useLocation();
-  const [showResponseLinkDialog, setShowResponseLinkDialog] = useState(false);
-  const [selectedMusician, setSelectedMusician] = useState<any>(null);
-  
-  // Create a timestamp reference for cache busting
-  const timestampRef = useRef(new Date().getTime());
-  
-  // Get URL parameters
-  const getQueryParams = () => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        timestamp: params.get('t'),
-        refresh: params.get('refresh') === 'true'
-      };
-    }
-    return { timestamp: null, refresh: false };
-  };
-  
-  const urlParams = getQueryParams();
-  const [showDatesDialog, setShowDatesDialog] = useState(false);
-  
-  // Function to navigate to planner with fresh data
-  const goToPlannerWithFreshData = () => {
-    if (contract) {
-      toast({
-        title: "Loading Planner",
-        description: "Loading the most up-to-date planner data...",
-      });
-      // Use our nuclear force refresh to guarantee fresh data
-      forcePlannerReload(contract.month, contract.year);
-    }
-  };
 
-  // Add cache invalidation if refresh parameters are present
-  useEffect(() => {
-    if (urlParams.timestamp || urlParams.refresh) {
-      console.log("URL contains refresh parameters, invalidating contract cache");
-      // Clear all contract related caches
-      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
-      if (contractId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}`] });
-        queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}/assignments`] });
-      }
-    }
-  }, [urlParams.timestamp, urlParams.refresh, contractId, queryClient]);
-  
-  // Query to fetch the monthly contract with enhanced cache busting
+  // Query to fetch the monthly contract
   const {
     data: contract,
     isLoading: isContractLoading,
     error: contractError,
   } = useQuery({
-    queryKey: [`/api/monthly-contracts/${contractId}`, urlParams.timestamp || `${timestampRef.current}_${Math.floor(Math.random() * 10000)}`],
-    queryFn: async () => {
-      // Generate a unique cache-busting parameter
-      const cacheBuster = `_cb=${Date.now()}${Math.floor(Math.random() * 10000)}`;
-      const url = `/api/monthly-contracts/${contractId}?${cacheBuster}`;
-      
-      console.log(`Loading contract ${contractId} with aggressive cache prevention`, url);
-      return await apiRequest(url);
-    },
+    queryKey: [`/api/monthly-contracts/${contractId}`],
     enabled: !!contractId,
-    // Make sure data is never considered stale to prevent issues with other components
-    staleTime: 0, 
-    // But always refetch when the component is mounted to ensure fresh data
-    refetchOnMount: true
   });
 
-  // Query to fetch the contract assignments (musicians) with enhanced cache busting
+  // Query to fetch the contract assignments (musicians)
   const {
     data: assignments = [],
     isLoading: isAssignmentsLoading,
   } = useQuery({
-    queryKey: [`/api/monthly-contracts/${contractId}/assignments`, urlParams.timestamp || `${timestampRef.current}_${Math.floor(Math.random() * 10000)}`],
-    queryFn: async () => {
-      // Generate a unique cache-busting parameter
-      const cacheBuster = `_cb=${Date.now()}${Math.floor(Math.random() * 10000)}`;
-      const url = `/api/monthly-contracts/${contractId}/assignments?${cacheBuster}`;
-      
-      console.log(`Loading assignments for contract ${contractId} with aggressive cache prevention`, url);
-      return await apiRequest(url);
-    },
+    queryKey: [`/api/monthly-contracts/${contractId}/assignments`],
     enabled: !!contractId,
-    staleTime: 0,
-    refetchOnMount: true
   });
-
-  // Mutation for resending contract
-  const resendContractMutation = useMutation({
-    mutationFn: async () => {
-      if (!contractId) return null;
-      return apiRequest(`/api/monthly-contracts/${contractId}/send`, 'POST');
-    },
-    onSuccess: () => {
-      toast({
-        title: "Contract Resent",
-        description: "The contract has been resent to all musicians.",
-      });
-      // Add timestamp for cache busting
-      const timestamp = new Date().getTime();
-      
-      // Invalidate all related contract data 
-      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}/assignments`] });
-      
-      // Redirect to same page with a timestamp to force fresh data
-      window.location.href = `/monthly/contracts/${contractId}?t=${timestamp}&refresh=true`;
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error Resending Contract",
-        description: error.message || "Failed to resend contract. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Mutation for cancelling contract
-  const cancelContractMutation = useMutation({
-    mutationFn: async () => {
-      if (!contractId) return null;
-      return apiRequest(`/api/monthly-contracts/${contractId}/status`, 'PUT', {
-        status: 'cancelled',
-        notes: 'Contract cancelled by administrator'
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Contract Cancelled",
-        description: "The contract has been cancelled successfully.",
-      });
-      // Add timestamp for cache busting
-      const timestamp = new Date().getTime();
-      
-      // Invalidate all related contract data
-      queryClient.invalidateQueries({ queryKey: ['/api/monthly-contracts'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/monthly-contracts/${contractId}/assignments`] });
-      
-      // Redirect to same page with a timestamp to force fresh data
-      window.location.href = `/monthly/contracts/${contractId}?t=${timestamp}&refresh=true`;
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error Cancelling Contract",
-        description: error.message || "Failed to cancel contract. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Construct the response link for a musician
-  const getResponseLink = (musician: any) => {
-    if (!musician || !contractId) return '';
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/respond/${contractId}/${musician.id}`;
-  };
-
-  // Copy response link to clipboard
-  const copyResponseLink = (musician: any) => {
-    const link = getResponseLink(musician);
-    navigator.clipboard.writeText(link);
-    toast({
-      title: "Link Copied",
-      description: `Response link copied for ${musician.musician?.name}`,
-    });
-  };
 
   // Format month names
   const getMonthName = (month: number) => {
@@ -404,82 +223,15 @@ const MonthlyContractDetailPage = () => {
               </CardContent>
 
               <CardFooter className="flex flex-wrap gap-2">
-                {/* View/Edit Planner Button - Always visible */}
-                <Button 
-                  variant="secondary"
-                  onClick={goToPlannerWithFreshData}
-                  className="mr-auto"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  View/Edit Planner
-                </Button>
-                
                 {contract.status === 'draft' && (
                   <Button>
                     <Send className="mr-2 h-4 w-4" />
                     Send Contract
                   </Button>
                 )}
-                
-                {/* Resend Contract Button */}
-                {contract.status === 'sent' && (
-                  <Button 
-                    onClick={() => resendContractMutation.mutate()}
-                    disabled={resendContractMutation.isPending}
-                  >
-                    {resendContractMutation.isPending ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    ) : (
-                      <Mail className="mr-2 h-4 w-4" />
-                    )}
-                    Resend Contract
-                  </Button>
-                )}
-                
-                {/* Cancel Contract Button */}
-                {contract.status !== 'cancelled' && contract.status !== 'draft' && (
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive">
-                        <Ban className="mr-2 h-4 w-4" />
-                        Cancel Contract
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This action cannot be undone. This will cancel the contract for all musicians
-                          and notify them of the cancellation.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => cancelContractMutation.mutate()}
-                          disabled={cancelContractMutation.isPending}
-                          className="bg-red-500 hover:bg-red-600"
-                        >
-                          {cancelContractMutation.isPending ? 'Cancelling...' : 'Cancel Contract'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                )}
-                
-                {/* Preview Contract Button */}
-                <Button 
-                  variant="outline" 
-                  asChild
-                >
-                  <a 
-                    href={`/api/monthly-contracts/${contract.id}/preview`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Preview Contract
-                  </a>
+                <Button variant="outline">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Preview Contract
                 </Button>
               </CardFooter>
             </Card>
@@ -516,19 +268,7 @@ const MonthlyContractDetailPage = () => {
                         <TableRow key={assignment.id}>
                           <TableCell className="font-medium">{assignment.musician?.name || 'Unknown'}</TableCell>
                           <TableCell>{assignment.musician?.type || 'N/A'}</TableCell>
-                          <TableCell>
-                            {assignment.dateCount || 0} dates
-                            <Button 
-                              variant="link" 
-                              className="p-0 h-auto text-xs text-blue-500 ml-1"
-                              onClick={() => {
-                                setSelectedMusician(assignment);
-                                setShowDatesDialog(true);
-                              }}
-                            >
-                              View details
-                            </Button>
-                          </TableCell>
+                          <TableCell>{assignment.dateCount || 0} dates</TableCell>
                           <TableCell>
                             <Badge className={`${
                               assignment.status === 'accepted' ? 'bg-green-500' :
@@ -538,40 +278,9 @@ const MonthlyContractDetailPage = () => {
                             } text-white`}>
                               {assignment.status || 'Pending'}
                             </Badge>
-                            {assignment.responseDate && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {format(new Date(assignment.responseDate), 'MMM d, yyyy')}
-                              </div>
-                            )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedMusician(assignment);
-                                  setShowResponseLinkDialog(true);
-                                }}
-                              >
-                                <Link2 className="h-4 w-4 mr-1" />
-                                Link
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                asChild
-                              >
-                                <a 
-                                  href={`/api/monthly-contracts/${contractId}/musicians/${assignment.id}/preview`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <FileText className="h-4 w-4 mr-1" />
-                                  View
-                                </a>
-                              </Button>
-                            </div>
+                            <Button variant="ghost" size="sm">View Responses</Button>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -630,118 +339,6 @@ const MonthlyContractDetailPage = () => {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Response Link Dialog */}
-      <Dialog open={showResponseLinkDialog} onOpenChange={setShowResponseLinkDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Response Link</DialogTitle>
-            <DialogDescription>
-              Share this link with {selectedMusician?.musician?.name} to respond to the contract
-            </DialogDescription>
-          </DialogHeader>
-          {selectedMusician && (
-            <div className="flex items-center space-x-2 mt-2">
-              <div className="grid flex-1 gap-2">
-                <label className="sr-only">Link</label>
-                <input
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={getResponseLink(selectedMusician)}
-                  readOnly
-                />
-              </div>
-              <Button 
-                type="button" 
-                size="icon" 
-                onClick={() => copyResponseLink(selectedMusician)}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          <DialogFooter className="sm:justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              asChild
-            >
-              <a
-                href={getResponseLink(selectedMusician)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open Response Page
-              </a>
-            </Button>
-            <Button 
-              type="button" 
-              variant="secondary"
-              onClick={() => setShowResponseLinkDialog(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Dates Dialog */}
-      <Dialog open={showDatesDialog} onOpenChange={setShowDatesDialog}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Date Details</DialogTitle>
-            <DialogDescription>
-              Dates and responses for {selectedMusician?.musician?.name}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedMusician?.dates && selectedMusician.dates.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Fee</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {selectedMusician.dates.map((date: any) => (
-                    <TableRow key={date.id}>
-                      <TableCell>{format(new Date(date.date), 'MMM d, yyyy')}</TableCell>
-                      <TableCell>${parseFloat(date.fee).toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge className={`${
-                          date.status === 'accepted' ? 'bg-green-500' :
-                          date.status === 'rejected' ? 'bg-red-500' :
-                          date.status === 'pending' ? 'bg-amber-500' :
-                          'bg-gray-500'
-                        } text-white`}>
-                          {date.status.charAt(0).toUpperCase() + date.status.slice(1)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{date.notes || 'No notes'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="text-center py-4 text-gray-500">
-                No dates found for this musician
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button 
-              type="button" 
-              onClick={() => setShowDatesDialog(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

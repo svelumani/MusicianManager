@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
@@ -67,18 +67,14 @@ const MonthlyContractsPage = () => {
     return format(new Date(2000, month - 1, 1), 'MMMM');
   };
   
-  // Query to get monthly contracts with timestamp to prevent caching issues
-  const timestamp = useRef(new Date().getTime()).current;
-  
+  // Query to get monthly contracts
   const {
     data: contracts = [],
     isLoading,
     error,
-    refetch: refetchContracts
   } = useQuery({
-    queryKey: ['/api/monthly-contracts', timestamp],
+    queryKey: ['/api/monthly-contracts'],
     queryFn: async () => {
-      console.log("Fetching monthly contracts with timestamp:", timestamp);
       const contractsData = await apiRequest('/api/monthly-contracts');
       
       // For each contract, fetch additional details like dates
@@ -86,8 +82,8 @@ const MonthlyContractsPage = () => {
         const contractsWithDetails = await Promise.all(
           contractsData.map(async (contract) => {
             try {
-              // Get the dates for this contract with cache-busting parameter
-              const assignments = await apiRequest(`/api/monthly-contracts/${contract.id}/assignments?t=${timestamp}`);
+              // Get the dates for this contract
+              const assignments = await apiRequest(`/api/monthly-contracts/${contract.id}/assignments`);
               
               // Calculate total number of dates across all musicians
               let allDates: any[] = [];
@@ -324,6 +320,7 @@ const MonthlyContractsPage = () => {
                         <TableHead>Name</TableHead>
                         <TableHead>Month</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Number of Days</TableHead>
                         <TableHead>Created</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -341,6 +338,19 @@ const MonthlyContractsPage = () => {
                               {getStatusIcon(contract.status)}
                               {contract.status.charAt(0).toUpperCase() + contract.status.slice(1)}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {contract.dateCount || 0} days
+                            {contract.dateList && contract.dateList.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {contract.dateList.map((date: any, index: number) => (
+                                  <span key={index}>
+                                    {format(new Date(date.date), 'MMM d')}: ${date.fee || 0}
+                                    {index < contract.dateList.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell>
                             {contract.createdAt ? format(new Date(contract.createdAt), 'MMM d, yyyy') : 'N/A'}

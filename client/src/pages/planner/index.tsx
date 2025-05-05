@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from "date-fns";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,96 +19,30 @@ import MonthSelector from "@/components/planner/MonthSelector";
 
 const PlannerPage = () => {
   const { toast } = useToast();
-  const [location, setLocation] = useLocation();
-  
-  // Ref to store timestamp for cache busting
-  const timestampRef = useRef(new Date().getTime());
-  
-  // Parse URL query parameters for better navigation
-  const getQueryParams = () => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        month: params.get('month'),
-        id: params.get('id'),
-        timestamp: params.get('t'),
-        status: params.get('status'),
-        refresh: params.get('refresh')
-      };
-    }
-    return { month: null, id: null, timestamp: null, status: null, refresh: null };
-  };
-  
-  const urlParams = getQueryParams();
   
   // Default to current date, but we'll allow creating future planners
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Initialize with current month or month from URL parameters
+  // Initialize with current month
   const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    // Check if we have a month parameter in the URL
-    if (urlParams.month) {
-      const [month, year] = urlParams.month.split('-');
-      if (month && year) {
-        return `${year}-${month.padStart(2, '0')}`;
-      }
-    }
-    return format(currentDate, "yyyy-MM");
-  });
+  const [selectedMonth, setSelectedMonth] = useState(format(currentDate, "yyyy-MM"));
   
   // Get current month and year from selected month string
   const currentMonth = parseInt(selectedMonth.split("-")[1]);
   const currentYear = parseInt(selectedMonth.split("-")[0]);
-  
-  // Force planner refresh when timestamp or refresh params are present
-  useEffect(() => {
-    if (urlParams.timestamp || urlParams.refresh) {
-      console.log("URL contains refresh parameters, performing complete cache reset");
-      
-      // Step 1: Clear the entire cache first
-      queryClient.clear();
-      
-      // Step 2: Explicitly invalidate all planner-related caches
-      queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/planner-slots'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/planner-assignments'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/musicians'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/venues'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/categories'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/event-categories'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/musician-pay-rates'] });
-      
-      // Step 3: Force refetch all critical data
-      setTimeout(() => {
-        console.log("Forcing data refetches after cache reset");
-        queryClient.refetchQueries({ queryKey: ['/api/planners/month', currentMonth, 'year', currentYear] });
-        queryClient.refetchQueries({ queryKey: ['/api/planner-slots'] });
-        queryClient.refetchQueries({ queryKey: ['/api/planner-assignments'] });
-      }, 100);
-    }
-  }, [urlParams.timestamp, urlParams.refresh, currentMonth, currentYear]);
 
-  // Query to get monthly planner with cache-busting for status changes
+  // Query to get monthly planner
   const {
     data: planner,
     isLoading: isPlannerLoading,
     error: plannerError,
   } = useQuery({
-    queryKey: ['/api/planners/month', currentMonth, 'year', currentYear, urlParams.timestamp || timestampRef.current],
+    queryKey: ['/api/planners/month', currentMonth, 'year', currentYear],
     queryFn: async ({ queryKey }) => {
       try {
-        // Use the planner ID from URL if available for a more direct fetch
-        if (urlParams.id) {
-          console.log(`Loading planner with specific ID: ${urlParams.id}`);
-          const result = await apiRequest(`/api/planners/${urlParams.id}`);
-          return result;
-        } else {
-          // Otherwise fetch by month/year
-          console.log(`Loading planner by month: ${currentMonth}/${currentYear}`);
-          const result = await apiRequest(`/api/planners/month/${currentMonth}/year/${currentYear}`);
-          return result;
-        }
+        const result = await apiRequest(`/api/planners/month/${currentMonth}/year/${currentYear}`);
+        console.log("Planner result:", result);
+        return result;
       } catch (error) {
         console.log("Planner error:", error);
         // If planner doesn't exist for this month, the error is expected
@@ -143,17 +77,8 @@ const PlannerPage = () => {
         title: "Success",
         description: "Monthly planner created successfully",
       });
-      // Clear entire cache and invalidate specific queries
-      queryClient.clear();
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
       queryClient.invalidateQueries({ queryKey: ['/api/planners/month', currentMonth, 'year', currentYear] });
-      
-      // Force a complete reload with a special reload indicator to ensure 
-      // we bypass ALL caching mechanisms
-      setTimeout(() => {
-        const timestamp = Date.now();
-        window.location.href = `${window.location.pathname}?month=${currentMonth}&year=${currentYear}&refresh=${timestamp}&force=true`;
-      }, 500);
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to create monthly planner";

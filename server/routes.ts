@@ -23,26 +23,6 @@ import { and, eq, sql } from "drizzle-orm";
 import { availability } from "@shared/schema";
 import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
-import monthlyContractPreviewRouter from './routes/monthlyContractPreview';
-import versionRouter from './routes/versions';
-import { incrementVersion } from './services/dataVersion';
-import { getVersionKeyToEntity, getEntityToTableName, VERSION_KEYS } from './services/entityMapping';
-import { 
-  initWebSocketServer, 
-  notifyDataUpdate, 
-  requestDataRefresh 
-} from './services/webSocketServer';
-
-// Helper function to prevent browser caching for critical endpoints
-function preventCache(res: express.Response): void {
-  res.set({
-    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
-    'Pragma': 'no-cache',
-    'Expires': '0',
-    'Surrogate-Control': 'no-store'
-  });
-}
-
 import { 
   insertUserSchema, 
   insertVenueSchema, 
@@ -76,12 +56,6 @@ import {
 const PgSession = pgSession(session);
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Create HTTP server for Express and WebSockets
-  const httpServer = createServer(app);
-  
-  // Initialize WebSocket server for real-time updates
-  initWebSocketServer(httpServer);
-  
   // Configure session middleware
   app.use(
     session({
@@ -2060,9 +2034,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Planner routes
   apiRouter.get("/planners", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const planners = await storage.getMonthlyPlanners();
       res.json(planners);
     } catch (error) {
@@ -2073,9 +2044,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planners/:id", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const planner = await storage.getMonthlyPlanner(parseInt(req.params.id));
       if (!planner) {
         return res.status(404).json({ message: "Planner not found" });
@@ -2089,9 +2057,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planners/month/:month/year/:year", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const { month, year } = req.params;
       const planner = await storage.getMonthlyPlannerByMonth(parseInt(month), parseInt(year));
       if (!planner) {
@@ -2147,22 +2112,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!planner) {
         return res.status(404).json({ message: "Planner not found" });
       }
-      
-      // Increment version counters for planner-related data to trigger client refresh
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      
-      // Also increment monthly version since planners affect monthly data
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
-      // Set cache control headers to prevent caching on this response
-      res.set({
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-      
       res.json(planner);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2179,20 +2128,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Planner not found" });
       }
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
-      // Set cache control headers to prevent caching
-      res.set({
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -2673,52 +2608,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`[planner-contracts] Email could not be sent to ${musician.name} (ID: ${musicianId}) - SendGrid not configured`);
             }
             
-            // Create monthly contract musician record
-            // Generate a unique token for the musician contract
-            const token = `mcm-${Math.random().toString(36).substring(2, 15)}-${Date.now().toString(36)}`;
-            
-            const contractMusician = await storage.createMonthlyContractMusician({
-              token: token,
-              contractId: contract.id,
-              musicianId: parseInt(musicianId),
-              status: "pending",
-              notes: null,
-              totalDates: assignments.length,
-              totalFee: totalFee,
-              acceptedDates: 0,
-              rejectedDates: 0,
-              pendingDates: assignments.length
-            });
-            
-            console.log(`[DEBUG] Created musician contract record with ID: ${contractMusician.id}`);
-            
-            // Create monthly contract dates for each assignment
-            let dateCreationSuccessful = true;
-            for (const assignment of assignments) {
-              try {
-                // Parse the date from the formatted string back to a Date object
-                // Format is 'MMM d, yyyy' like 'May 1, 2025'
-                const dateObj = new Date(assignment.date);
-                
-                // Create date record linking to the musician contract
-                const contractDate = await storage.createMonthlyContractDate({
-                  musicianContractId: contractMusician.id,
-                  date: dateObj,
-                  fee: assignment.fee,
-                  status: "pending",
-                  notes: `${assignment.venueName || 'Unknown venue'} - ${assignment.startTime || '?'} to ${assignment.endTime || '?'}`,
-                  venueName: assignment.venueName || null,
-                  startTime: assignment.startTime || null,
-                  endTime: assignment.endTime || null
-                });
-                
-                console.log(`[DEBUG] Created contract date record with ID: ${contractDate.id} for date ${assignment.date}`);
-              } catch (dateError) {
-                console.error(`[ERROR] Failed to create contract date for ${assignment.date}:`, dateError);
-                dateCreationSuccessful = false;
-              }
-            }
-            
             // Update contract and invitation status - still mark as sent even if email wasn't sent
             await storage.updateMonthlyContract(contract.id, { status: "sent" });
             
@@ -2726,13 +2615,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             results.details.push({
               musicianId,
               musicianName: musician.name,
-              status: dateCreationSuccessful ? "sent" : "partial",
+              status: "sent",
               contractId: contract.id,
-              musicianContractId: contractMusician.id,
               invitationId: invitation.id,
               assignmentCount: assignments.length,
-              totalFee: totalFee,
-              datesCreated: dateCreationSuccessful
+              totalFee: totalFee
             });
           } catch (processingError) {
             console.error(`[planner-contracts] Error processing musician ${musicianId}:`, processingError);
@@ -2796,9 +2683,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Planner Slots routes
   apiRouter.get("/planner-slots", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
       const slots = await storage.getPlannerSlots(plannerId);
       res.json(slots);
@@ -2810,9 +2694,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planner-slots/:id", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const slot = await storage.getPlannerSlot(parseInt(req.params.id));
       if (!slot) {
         return res.status(404).json({ message: "Planner slot not found" });
@@ -2859,10 +2740,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const slot = await storage.createPlannerSlot(validatedData);
       console.log("Created slot:", slot);
       
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      
       res.status(201).json(slot);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2902,10 +2779,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Planner slot not found" });
       }
       
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      
       console.log("Updated slot:", slot);
       res.json(slot);
     } catch (error) {
@@ -2924,11 +2797,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Planner slot not found" });
       }
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -2939,9 +2807,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Planner Assignments routes
   apiRouter.get("/planner-assignments", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const slotId = req.query.slotId ? parseInt(req.query.slotId as string) : undefined;
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       const assignments = await storage.getPlannerAssignments(slotId, musicianId);
@@ -2954,9 +2819,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   apiRouter.get("/planner-assignments/:id", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const id = parseInt(req.params.id);
       
       // Validate the ID is a valid number
@@ -3005,11 +2867,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Musician is available, proceed with assignment creation
       const assignment = await storage.createPlannerAssignment(assignmentData);
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      
       res.status(201).json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3034,11 +2891,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      
       res.json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3062,11 +2914,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Assignment not found" });
       }
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -3094,10 +2941,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.PLANNERS);
       
       res.json(assignment);
     } catch (error) {
@@ -3136,11 +2979,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const invoiceData = insertMonthlyInvoiceSchema.parse(req.body);
       const invoice = await storage.createMonthlyInvoice(invoiceData);
-      
-      // Increment version counters for monthly-related data
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
       res.status(201).json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3158,11 +2996,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
-      
-      // Increment version counters for monthly-related data
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
       res.json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3179,11 +3012,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Invoice not found" });
       }
-      
-      // Increment version counters for monthly-related data
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -3194,12 +3022,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/planners/:id/generate-invoices", isAuthenticated, async (req, res) => {
     try {
       const invoices = await storage.generateMonthlyInvoices(parseInt(req.params.id));
-      
-      // Increment version counters for both planner and monthly-related data
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
       res.status(201).json(invoices);
     } catch (error) {
       console.error(error);
@@ -3210,9 +3032,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get assignments grouped by musician for a planner
   apiRouter.get("/planner-assignments/by-musician", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       console.log("\n\n======== STARTING BY-MUSICIAN ENDPOINT ========");
       console.log("[by-musician] Received request with query params:", req.query);
       console.log("[by-musician] Request headers:", req.headers);
@@ -3963,21 +3782,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: { description: `Finalized monthly planner: ${planner.name}` },
         timestamp: new Date()
       });
-      
-      // Increment version counters for planner-related data
-      await incrementVersion(VERSION_KEYS.PLANNERS);
-      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
-      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
-      await incrementVersion(VERSION_KEYS.MONTHLY_CONTRACTS);
-      
-      // Set cache control headers to prevent caching
-      res.set({
-        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
-      
-      console.log(`✅ Successfully finalized planner ${plannerId} and incremented version counters`);
       
       res.json({ success: true, planner });
     } catch (error) {
@@ -6222,9 +6026,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Contract routes
   apiRouter.get("/monthly-contracts", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const plannerId = req.query.plannerId ? parseInt(req.query.plannerId as string) : undefined;
       
       let contracts;
@@ -6243,9 +6044,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   apiRouter.get("/monthly-contracts/:id", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const contract = await storage.getMonthlyContract(parseInt(req.params.id));
       if (!contract) {
         return res.status(404).json({ message: "Monthly contract not found" });
@@ -6332,9 +6130,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Contract Musicians routes
   apiRouter.get("/monthly-contracts/:contractId/musicians", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const contractMusicians = await storage.getMonthlyContractMusicians(parseInt(req.params.contractId));
       
       // Enrich with musician details
@@ -6377,9 +6172,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API endpoint for monthly contract assignments (for the detail page)
   apiRouter.get("/monthly-contracts/:contractId/assignments", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const contractId = parseInt(req.params.contractId);
       
       // Get all musicians assigned to this contract
@@ -6508,9 +6300,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Monthly Contract Dates routes
   apiRouter.get("/monthly-contract-musicians/:musicianContractId/dates", isAuthenticated, async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const dates = await storage.getMonthlyContractDates(parseInt(req.params.musicianContractId));
       res.json(dates);
     } catch (error) {
@@ -6625,9 +6414,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get musician contract by token (for public response page)
   apiRouter.get("/monthly-contract-musicians/token/:token", async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const token = req.params.token;
       
       // Find the musician contract with this token
@@ -6679,9 +6465,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update date status in a monthly contract (for musician responses)
   apiRouter.put("/monthly-contract-dates/:dateId/status", async (req, res) => {
     try {
-      // Prevent browser caching to ensure fresh data
-      preventCache(res);
-      
       const dateId = parseInt(req.params.dateId);
       const { status, notes, ipAddress, musicianSignature } = req.body;
       
@@ -6906,14 +6689,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount the monthly contract response router
   apiRouter.use("/monthly-contract-responses", monthlyContractResponseRouter);
   
-  // Mount the monthly contract preview router
-  apiRouter.use("/monthly-contracts", monthlyContractPreviewRouter);
-  
-  // Mount the data versions router
-  apiRouter.use("/versions", versionRouter);
-  
   // Mount the API router
   app.use("/api", apiRouter);
+
+  const httpServer = createServer(app);
 
   return httpServer;
 }

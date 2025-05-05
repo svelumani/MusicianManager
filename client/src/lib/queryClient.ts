@@ -26,25 +26,14 @@ export async function apiRequest(
     // Skip auth check for login and specific operations
     const isAuthPath = url === '/api/auth/login' || url === '/api/auth/register' || url === '/api/auth/setup-admin';
     
-    // Add cache-busting query parameter for GET requests
-    const urlWithCacheBuster = method === 'GET' && url.includes('monthly') || url.includes('planner') 
-      ? `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}` 
-      : url;
-      
-    const res = await fetch(urlWithCacheBuster, {
+    const res = await fetch(url, {
       method,
       headers: {
         "Content-Type": "application/json",
-        "Accept": "application/json",
-        // Add cache prevention headers on the client side
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
+        "Accept": "application/json"
       },
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
-      // Force cache validation with the server
-      cache: "no-store"
     });
 
     // Handle response status
@@ -86,23 +75,11 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Add timestamp parameter to bust cache for planner and monthly contract requests
-    let url = queryKey[0] as string;
-    if (url.includes('planner') || url.includes('monthly')) {
-      url = `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`;
-    }
-    
-    const res = await fetch(url, {
+    const res = await fetch(queryKey[0] as string, {
       credentials: "include",
       headers: {
-        "Accept": "application/json",
-        // Add cache prevention headers
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      },
-      // Force cache validation with the server
-      cache: "no-store"
+        "Accept": "application/json"
+      }
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

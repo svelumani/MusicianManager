@@ -9,7 +9,6 @@ import {
   CalendarRange, Settings, CalendarDays, CalendarClock,
   FileText, CheckCircle
 } from "lucide-react";
-import { DataUpdateNotification } from "@/components/DataUpdateNotification";
 import vampLogoPath from "@assets/VAMP_Logo_Blue-PNG.webp";
 
 type SidebarItem = {
@@ -171,7 +170,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <h1 className="ml-3 md:ml-0 text-xl font-semibold text-gray-900">
                 {sidebarItems.find(item => item.path === location)?.label || "Dashboard"}
               </h1>
-              <DataUpdateNotification />
             </div>
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="icon" className="text-gray-500">

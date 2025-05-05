@@ -7,8 +7,6 @@ import NotFound from "@/pages/not-found";
 import AppLayout from "@/layouts/AppLayout";
 import AuthLayout from "@/layouts/AuthLayout";
 import { AuthProvider } from "@/lib/auth";
-import AutoRefreshManager from "@/components/AutoRefreshManager";
-import { WebSocketInitializer } from "@/components/WebSocketInitializer";
 
 // Pages
 import Dashboard from "@/pages/dashboard";
@@ -313,8 +311,6 @@ function App() {
       <AuthProvider>
         <TooltipProvider>
           <Toaster />
-          <WebSocketInitializer />
-          <AutoRefreshManager />
           <Router />
         </TooltipProvider>
       </AuthProvider>
