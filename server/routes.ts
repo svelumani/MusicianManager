@@ -7139,21 +7139,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`Looking for assignments with dates: ${dateStrings.join(', ')}`);
         
-        // Find all assignments for this musician that are connected to this contract
-        const assignments = await db
+        // First, get planner slots to match assignments by date
+        const slots = await db.select().from(plannerSlots);
+        const slotDateMap = {};
+        
+        // Create a map of slot IDs to their dates
+        for (const slot of slots) {
+          slotDateMap[slot.id] = new Date(slot.date).toISOString().split('T')[0];
+        }
+        
+        // Get the specific dates included in this contract (for this musician)
+        const contractDateStrings = new Set(dateStrings);
+        
+        console.log(`Dates in this contract: ${[...contractDateStrings].join(', ')}`);
+        
+        // Get all assignments for this musician
+        const allAssignments = await db
           .select()
           .from(plannerAssignments)
-          .where(eq(plannerAssignments.contractId, contractId))
           .where(eq(plannerAssignments.musicianId, cm.musicianId));
+        
+        // Filter to only assignments that match the dates in this contract
+        const assignments = allAssignments.filter(assignment => {
+          const slot = slots.find(s => s.id === assignment.slotId);
+          if (!slot) return false;
           
-        console.log(`Found ${assignments.length} assignments for musician ${cm.musicianId} in contract ${contractId}`);
+          const assignmentDateStr = new Date(slot.date).toISOString().split('T')[0];
+          return contractDateStrings.has(assignmentDateStr);
+        });
+        
+        console.log(`Found ${assignments.length} assignments for musician ${cm.musicianId} that match contract dates`);
         
         // Update only those assignments
         for (const assignment of assignments) {
           await storage.updatePlannerAssignment(assignment.id, {
+            contractId: contractId,
             contractStatus: 'sent'
           });
-          console.log(`Updated assignment ${assignment.id} with status 'sent'`);
+          console.log(`Updated assignment ${assignment.id} with status 'sent' and contractId ${contractId}`);
         }
       }
       
