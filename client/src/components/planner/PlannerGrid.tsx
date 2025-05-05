@@ -248,7 +248,7 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     };
   }, [isAutoSaveEnabled, planner, updatePlannerMutation]);
 
-  // Utility function to force a fresh reload with correct context
+  // Wrapper function for our centralized utilities that adds user feedback
   const forceReloadWithCorrectContext = () => {
     // Show a warning toast to inform the user before reload
     toast({
@@ -259,8 +259,12 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
     
     // Small delay to let the toast display
     setTimeout(() => {
-      // Use our centralized utility to ensure consistency across the app
+      // Make sure we have the planner context before reloading
       if (planner?.month && planner?.year) {
+        // Clear all caches first
+        queryClient.clear();
+        
+        // Then force a reload with the imported utility 
         forcePlannerReload(planner.month, planner.year);
       }
     }, 500);
@@ -574,12 +578,19 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
               </span>
             )}
           </div>
-
-          {/* Removed "Refresh data" button for UI streamlining */}
           
-          {/* Removed "Show availability" button for UI streamlining */}
+          <Button 
+            onClick={forceReloadWithCorrectContext}
+            variant="outline"
+            size="sm"
+            className="mr-2"
+            title="Force refresh data to ensure you see the latest information"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Force Refresh
+          </Button>
           
-          {/* Removed "Save" button for UI streamlining */}
+          {/* Additional UI controls removed for streamlining */}
           
           {planner?.status === "finalized" ? (
             <Button 
