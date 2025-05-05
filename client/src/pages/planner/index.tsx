@@ -126,8 +126,16 @@ const PlannerPage = () => {
         title: "Success",
         description: "Monthly planner created successfully",
       });
+      // Clear entire cache and invalidate specific queries
+      queryClient.clear();
       queryClient.invalidateQueries({ queryKey: ['/api/planners'] });
       queryClient.invalidateQueries({ queryKey: ['/api/planners/month', currentMonth, 'year', currentYear] });
+      
+      // Force a fresh page load with a cache-busting parameter
+      setTimeout(() => {
+        const cacheBuster = Date.now();
+        window.location.href = `${window.location.pathname}?month=${currentMonth}&year=${currentYear}&refresh=${cacheBuster}`;
+      }, 500);
     },
     onError: (error: any) => {
       const errorMessage = error?.message || "Failed to create monthly planner";

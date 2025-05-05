@@ -215,9 +215,10 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
         description: "You can now make changes to the planner. The status is now 'draft'.",
       });
       
-      // Force a complete page reload to ensure everything is fresh
+      // Force a complete page reload with cache busting
       // This is the most reliable way to ensure we get fresh data
-      window.location.reload();
+      const cacheBuster = new Date().getTime();
+      window.location.href = window.location.pathname + '?refresh=' + cacheBuster;
     })
     .catch(error => {
       console.error("Failed to unfinalize planner:", error);

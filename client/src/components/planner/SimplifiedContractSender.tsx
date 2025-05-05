@@ -315,9 +315,9 @@ const SimplifiedContractSender = ({
     setSelectAll(newSelectAll);
     
     // Update all musicians to match the selectAll state
-    const newSelection = {};
+    const newSelection: {[key: string]: boolean} = {};
     musicians.forEach(musician => {
-      newSelection[musician.musicianId] = newSelectAll;
+      newSelection[musician.musicianId.toString()] = newSelectAll;
     });
     setSelectedMusicians(newSelection);
   };
@@ -356,7 +356,7 @@ const SimplifiedContractSender = ({
         
         // Return the data regardless of what it contains
         return responseData;
-      } catch (err) {
+      } catch (err: any) {
         console.error("Direct contract creation error:", err);
         
         // Try fallback to original apiRequest
@@ -463,8 +463,17 @@ const SimplifiedContractSender = ({
         // Update UI state
         setStep("complete");
         
-        // Close dialog after delay
-        setTimeout(() => onClose(), 2000);
+        // Force a complete page reload with cache busting after a short delay
+        setTimeout(() => {
+          // Close dialog first
+          onClose();
+          
+          // Then do the page reload with cache-busting parameter
+          setTimeout(() => {
+            const cacheBuster = Date.now();
+            window.location.href = window.location.pathname + '?refresh=' + cacheBuster;
+          }, 200);
+        }, 1000);
       } else {
         // Handle server error response
         console.error("Server returned error:", response);
@@ -493,8 +502,17 @@ const SimplifiedContractSender = ({
       // Move to complete state since we don't know the status
       setStep("complete");
       
-      // Close dialog after delay
-      setTimeout(() => onClose(), 3000);
+      // Force a complete page reload with cache busting after a short delay
+      setTimeout(() => {
+        // Close dialog first
+        onClose();
+        
+        // Then do the page reload with cache-busting parameter
+        setTimeout(() => {
+          const cacheBuster = Date.now();
+          window.location.href = window.location.pathname + '?refresh=' + cacheBuster;
+        }, 200);
+      }, 2000);
     }
   });
   
