@@ -81,9 +81,9 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     isLoading: isSlotsLoading,
     refetch: refetchSlots
   } = useQuery({
-    queryKey: ['/api/planner-slots', planner?.id],
-    queryFn: () => apiRequest(`/api/planner-slots?plannerId=${planner.id}`),
-    enabled: !!planner?.id,
+    queryKey: ['/api/planner-slots', plannerId],
+    queryFn: () => apiRequest(`/api/planner-slots?plannerId=${plannerId}`),
+    enabled: !!plannerId,
   });
 
   // Query to get all planner assignments for the current planner in a single request
@@ -92,17 +92,17 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     isLoading: isAssignmentsLoading,
     refetch: refetchAssignments
   } = useQuery({
-    queryKey: ['plannerAssignments', planner?.id],
+    queryKey: ['plannerAssignments', plannerId],
     queryFn: async () => {
-      if (!planner?.id) {
+      if (!plannerId) {
         console.log("No planner ID available, skipping assignment fetch");
         return [];
       }
       
       try {
         // Fetch all assignments for this planner in a single request
-        console.log(`Fetching all assignments for planner ID: ${planner.id}`);
-        const assignments = await apiRequest(`/api/planner-assignments/by-planner/${planner.id}`);
+        console.log(`Fetching all assignments for planner ID: ${plannerId}`);
+        const assignments = await apiRequest(`/api/planner-assignments/by-planner/${plannerId}`);
         console.log(`Retrieved ${assignments?.length || 0} assignments for planner`);
         return assignments || [];
       } catch (error) {
@@ -110,7 +110,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
         return [];
       }
     },
-    enabled: !!planner?.id,
+    enabled: !!plannerId,
     // Cache for 30 seconds to reduce unnecessary refetches
     staleTime: 30000
   });
@@ -140,20 +140,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     isLoading: isPayRatesLoading,
   } = useQuery({
     queryKey: ['/api/musician-pay-rates'],
-    queryFn: async () => {
-      const rates = await apiRequest('/api/musician-pay-rates');
-      // Debug: Log James Wilson's rates for Club Performance
-      const jamesRates = rates.filter((r: any) => r.musicianId === 7);
-      const clubRates = rates.filter((r: any) => r.eventCategoryId === 3);
-      const jamesClubRates = rates.filter((r: any) => r.musicianId === 7 && r.eventCategoryId === 3);
-      
-      console.log("DEBUG - All pay rates count:", rates.length);
-      console.log("DEBUG - James Wilson (ID 7) rates:", jamesRates);
-      console.log("DEBUG - Club Performance (ID 3) rates:", clubRates);
-      console.log("DEBUG - James Wilson Club Performance rates:", jamesClubRates);
-      
-      return rates;
-    }
+    queryFn: () => apiRequest('/api/musician-pay-rates'),
   });
   
   // Query to get event categories for proper pricing calculations
@@ -168,7 +155,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
   // Update planner status mutation
   const updatePlannerMutation = useMutation({
     mutationFn: (data: any) => 
-      apiRequest(`/api/planners/${planner.id}`, "PUT", data),
+      apiRequest(`/api/planners/${plannerId}`, "PUT", data),
     onSuccess: () => {
       setLastSaved(new Date());
       toast({
@@ -199,7 +186,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
     
-    if (isAutoSaveEnabled && planner && planner.id) {
+    if (isAutoSaveEnabled && planner && plannerId) {
       intervalId = setInterval(() => {
         updatePlannerMutation.mutate({
           ...planner,
@@ -211,11 +198,11 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAutoSaveEnabled, planner, updatePlannerMutation]);
+  }, [isAutoSaveEnabled, planner, updatePlannerMutation, plannerId]);
 
   // Handle slot creation/update via the inline musician select
   const handleSlotCreated = (slot: any) => {
-    queryClient.invalidateQueries({ queryKey: ['/api/planner-slots', planner?.id] });
+    queryClient.invalidateQueries({ queryKey: ['/api/planner-slots', plannerId] });
   };
 
   // Handle musician assignment - simplified with direct invalidation
@@ -227,7 +214,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
       // Now invalidate the assignments data to trigger a refetch
       // Use the simplified key for reliable invalidation
       queryClient.invalidateQueries({ 
-        queryKey: ['plannerAssignments', planner?.id] 
+        queryKey: ['plannerAssignments', plannerId] 
       });
       
       // Directly trigger a refetch for immediate feedback
@@ -240,9 +227,6 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
       });
     });
   };
-
-  // Data refreshing handled internally by React Query
-  // refreshData function removed as part of UI streamlining
 
   // Define some types to help with TypeScript
   interface Slot {
@@ -392,107 +376,121 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     // TEMPORARY FIX: Hardcode to Club Performance (ID 7) per client request
     const eventCategoryId = 7; // Hardcoded to Club Performance
     
-    // Get category name for logging/debugging
-    const eventCategory = eventCategories?.find((cat: any) => cat.id === eventCategoryId);
-    const categoryName = "Club Performance"; // Hardcoded name
-    
-    console.log(`⚠️ Calculating fee for Assignment ${assignment.id} - Musician ${musician.name} for event category ${categoryName} (${eventCategoryId})`);
-    
-    // Find the musician's pay rate for this specific event category from the pay rates table
+    // Different strategies to find the hourly rate
     if (payRates && Array.isArray(payRates)) {
-      // Debug all pay rates for this musician
-      const muscianRates = payRates.filter((rate: PayRate) => rate.musicianId === musician.id);
-      console.log(`Found ${muscianRates.length} rates for ${musician.name}`);
-      
-      // Debug all pay rates for this category
-      const catRates = payRates.filter((rate: PayRate) => rate.eventCategoryId === eventCategoryId);
-      console.log(`Found ${catRates.length} rates for category ${categoryName}`);
-      
-      // Look for an exact match on musician ID and category ID
+      // Look for exact match for the event category
       const matchingPayRate = payRates.find((rate: PayRate) => 
         rate.musicianId === musician.id && 
         rate.eventCategoryId === eventCategoryId
       );
       
       if (matchingPayRate) {
-        console.log(`✅ Found specific hourly rate for ${musician.name} for ${categoryName}: $${matchingPayRate.hourlyRate}/hr × ${hours}hrs = $${matchingPayRate.hourlyRate * hours}`);
+        // Use hourly rate from the matching pay rate
         return matchingPayRate.hourlyRate * hours;
-      } else {
-        console.log(`❌ No specific pay rate found for ${musician.name} with category ${categoryName} (${eventCategoryId})`);
+      } else if (musician.payRate) {
+        // Use musician's default pay rate if available
+        return musician.payRate * hours;
+      } else if (musician.categoryId) {
+        // Use category default rate if musician has a category
+        return getCategoryDefaultRate(musician.categoryId) * hours;
       }
     }
     
-    // If no specific category rate found, try the musician's default hourly rate
-    if (musician.payRate && musician.payRate > 0) {
-      console.log(`ℹ️ Using ${musician.name}'s default rate: $${musician.payRate}/hr × ${hours}hrs = $${musician.payRate * hours}`);
-      return musician.payRate * hours;
-    }
-    
-    // Fall back to instrument category default rate
-    if (musician.categoryId) {
-      const hourlyRate = getCategoryDefaultRate(musician.categoryId);
-      console.log(`⚠️ Using ${getMusicianCategory(musician.id)} default rate: $${hourlyRate}/hr × ${hours}hrs = $${hourlyRate * hours}`);
-      return hourlyRate * hours;
-    }
-    
-    // Ultimate fallback - use standard industry minimum
-    console.log(`❗ No rates found for ${musician.name}, using minimum rate: $150`);
-    return 150;
+    // Return a default rate if all else fails
+    return 150 * hours;
+  };
+  
+  // Format currency for display 
+  const formatCurrency = (amount: number): string => {
+    return `$${amount.toFixed(2)}`;
   };
 
-  // Format amount as currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-
-  // Get slot status className
-  const getSlotStatusClass = (slot: any) => {
-    if (!slot) return "";
-    return STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS] || "bg-white";
-  };
-
-  // Check if musician is available on a given date
+  // Check if musician is available on a specific date
   const isMusicianAvailable = useCallback((musicianId: number, date: Date) => {
-    if (!availabilityData) return true;
+    if (!availabilityData || !availabilityData.musicians) return true; // Default to available if no data
     
-    const musicianAvailability = availabilityData.find(
-      (a: any) => a.musicianId === musicianId
-    );
+    const musicianAvailability = availabilityData.musicians[musicianId];
+    if (!musicianAvailability) return true; // Default to available if no data for this musician
     
-    if (!musicianAvailability) return true;
-    
-    // Check if the date is in the available dates
-    const availableDates = musicianAvailability.dates || [];
-    return availableDates.some((d: string) => {
-      const availableDate = new Date(d);
-      return (
-        availableDate.getDate() === date.getDate() &&
-        availableDate.getMonth() === date.getMonth() &&
-        availableDate.getFullYear() === date.getFullYear()
-      );
-    });
+    const dateStr = format(date, "yyyy-MM-dd");
+    return !musicianAvailability.unavailableDates.includes(dateStr);
   }, [availabilityData]);
 
-  // Determine cell background based on availability
-  const getCellAvailabilityClass = (date: Date, assignments: any[]) => {
-    if (!availabilityView || assignments.length === 0) return "";
+  // Get CSS class for cell based on slot status
+  const getSlotStatusClass = (slot: Slot | null): string => {
+    if (!slot) return STATUS_COLORS.open;
     
-    // Check if any assigned musician is unavailable
-    const hasUnavailableMusician = assignments.some(
-      (assignment) => !isMusicianAvailable(assignment.musicianId, date)
-    );
+    // Use contract status if available (for colored indicators)
+    if (slot.contractStatus) {
+      switch (slot.contractStatus) {
+        case "sent":
+          return STATUS_COLORS["contract-sent"];
+        case "signed":
+          return STATUS_COLORS["contract-signed"];
+        case "needs-clarification":
+          return STATUS_COLORS["needs-clarification"];
+        default:
+          break;
+      }
+    }
     
-    return hasUnavailableMusician ? "bg-red-50" : "bg-green-50";
+    // Otherwise use the slot status
+    return slot.status && STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS]
+      ? STATUS_COLORS[slot.status as keyof typeof STATUS_COLORS]
+      : STATUS_COLORS.open;
   };
 
-  if (isSlotsLoading || isAssignmentsLoading || isMusiciansLoading || isPayRatesLoading || isEventCategoriesLoading) {
-    return <Skeleton className="h-96 w-full" />;
+  // Get class for cell based on musician availability
+  const getCellAvailabilityClass = (date: Date, assignments: any[]) => {
+    if (!availabilityView) return "";
+    if (assignments.length === 0) return "";
+    
+    // Check if any musician is unavailable
+    const hasUnavailableMusician = assignments.some(assignment => 
+      !isMusicianAvailable(assignment.musicianId, date)
+    );
+    
+    if (hasUnavailableMusician) {
+      return "bg-red-50"; // Some musicians are unavailable
+    } else {
+      return "bg-green-50"; // All musicians are available
+    }
+  };
+
+  // Get venue name by ID
+  const getVenueName = (venueId: number): string => {
+    if (!venues || !Array.isArray(venues)) return "Unknown Venue";
+    const venue = venues.find((v: any) => v.id === venueId);
+    return venue ? venue.name : "Unknown Venue";
+  };
+
+  // Handle the Prepare Contracts button click
+  const handlePrepareContracts = () => {
+    if (onPrepareContracts) {
+      onPrepareContracts();
+    }
+  };
+
+  // Check if slots and musicians are still loading
+  if (isPlannerLoading || isVenuesLoading || isCategoriesLoading || isSlotsLoading || isMusiciansLoading || isAssignmentsLoading || isPayRatesLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
   }
 
-  // Format month name for the planner title
+  // Error state
+  if (!planner) {
+    return (
+      <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+        <h2 className="text-red-800 font-bold text-lg mb-2">Error Loading Planner</h2>
+        <p className="text-red-700">Unable to load planner data. Please try again later.</p>
+      </div>
+    );
+  }
+
   const monthName = format(new Date(year, month - 1), "MMMM yyyy");
 
   return (
@@ -515,12 +513,15 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
               </span>
             )}
           </div>
-
-          {/* Removed "Refresh data" button for UI streamlining */}
           
-          {/* Removed "Show availability" button for UI streamlining */}
-          
-          {/* Removed "Save" button for UI streamlining */}
+          <Button
+            onClick={handlePrepareContracts}
+            variant="outline"
+            className="gap-1"
+          >
+            <FileText className="h-4 w-4" />
+            Prepare Contracts
+          </Button>
           
           <Button 
             onClick={() => setShowFinalizeDialog(true)}
@@ -543,14 +544,14 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                 Date
               </div>
               <div className="flex">
-                {venues.map((venue) => (
+                {venues && venues.length > 0 ? venues.map((venue: any) => (
                   <div 
                     key={venue.id} 
                     className="p-3 font-bold text-sm border-r text-center w-[220px] shrink-0 whitespace-nowrap"
                   >
                     {venue.name}
                   </div>
-                ))}
+                )) : null}
               </div>
             </div>
 
@@ -570,7 +571,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                   </div>
                   
                   <div className="flex">
-                    {venues.map((venue) => {
+                    {venues && venues.length > 0 ? venues.map((venue: any) => {
                       const cellId = `${day.toISOString()}-${venue.id}`;
                       const slot = getSlotByDateAndVenue(day, venue.id);
                       const assignments = slot ? getAssignmentsForSlot(slot.id) : [];
@@ -613,11 +614,9 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                     if (musician && payRates && Array.isArray(payRates)) {
                                       // Find all rates for this musician to debug
                                       const allRatesForMusician = payRates.filter((rate: PayRate) => rate.musicianId === musician.id);
-                                      console.log(`Found ${allRatesForMusician.length} pay rates for ${musician.name}:`);
                                       
                                       // Debug club performance rates
                                       const clubRates = payRates.filter((rate: PayRate) => rate.eventCategoryId === 7);
-                                      console.log(`Found ${clubRates.length} Club Performance rates`);
                                       
                                       // Look for exact match for Club Performance category
                                       const matchingPayRate = payRates.find((rate: PayRate) => 
@@ -628,15 +627,12 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                                       if (matchingPayRate) {
                                         hourlyRate = matchingPayRate.hourlyRate;
                                         rateSource = `Club rate`;
-                                        console.log(`✓ Found Club rate: $${hourlyRate}/hr for ${musician.name}`);
                                       } else if (musician.payRate) {
                                         hourlyRate = musician.payRate;
                                         rateSource = "default rate";
-                                        console.log(`⚠ No club rate found. Using default: $${hourlyRate}/hr`);
                                       } else if (musician.categoryId) {
                                         hourlyRate = getCategoryDefaultRate(musician.categoryId);
                                         rateSource = getMusicianCategory(musician.id) + " default";
-                                        console.log(`⚠ No rates found. Using ${getMusicianCategory(musician.id)} default: $${hourlyRate}/hr`);
                                       }
                                     }
                                     
@@ -692,7 +688,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                           <PopoverContent className="w-72 p-0 shadow-lg">
                             {selectedCell && activePopover === cellId && (
                               <InlineMusicianSelect
-                                plannerId={planner.id}
+                                plannerId={plannerId}
                                 date={day}
                                 venueId={venue.id}
                                 venueName={venue.name}
@@ -707,7 +703,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
                           </PopoverContent>
                         </Popover>
                       );
-                    })}
+                    }) : null}
                   </div>
                 </div>
               ))}
@@ -757,7 +753,7 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
       {/* Simplified Contract Sender Dialog */}
       {showFinalizeDialog && (
         <SimplifiedContractSender
-          plannerId={planner.id}
+          plannerId={plannerId}
           plannerName={planner.name || monthName}
           plannerMonth={monthName}
           open={showFinalizeDialog}

@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PlannerGrid from './PlannerGrid';
 import MusicianAssignmentsView from './MusicianAssignmentsView';
-import { ChartBarIcon } from '@heroicons/react/24/outline';
-import { Calendar, Users, FileText, DollarSign } from 'lucide-react';
+import { Calendar, Users, FileText, DollarSign, BarChart } from 'lucide-react';
 
 interface PlannerTabsProps {
   plannerId: number;
