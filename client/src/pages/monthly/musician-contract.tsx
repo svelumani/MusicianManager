@@ -255,6 +255,10 @@ const MusicianContractPage = () => {
       </div>
 
       {/* Contract Details */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-semibold">Contract #{contractId} for {musicianContract.musicianName || ''}</h2>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="md:col-span-2">
           <CardHeader>
@@ -264,18 +268,18 @@ const MusicianContractPage = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               <div>
                 <p className="text-sm font-semibold text-gray-500">Contract Name</p>
-                <p>{contract.name || `Contract #${contractId}`}</p>
+                <p className="text-base">{contract.name || `Contract #${contractId}`}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Created Date</p>
-                <p>{contract.createdAt ? format(new Date(contract.createdAt), 'MMMM d, yyyy') : 'N/A'}</p>
+                <p className="text-base">{contract.createdAt ? format(new Date(contract.createdAt), 'MMMM d, yyyy') : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Month/Year</p>
-                <p>{contract.year && contract.month ? format(new Date(contract.year, contract.month - 1), 'MMMM yyyy') : 'N/A'}</p>
+                <p className="text-base">{contract.year && contract.month ? format(new Date(contract.year, contract.month - 1), 'MMMM yyyy') : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-500">Status</p>
@@ -298,10 +302,10 @@ const MusicianContractPage = () => {
               Contract status for this musician
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div>
               <p className="text-sm font-semibold text-gray-500">Name</p>
-              <p>{musicianContract.musicianName}</p>
+              <p className="text-base">{musicianContract.musicianName || 'Unknown Musician'}</p>
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-500">Status</p>
@@ -315,11 +319,11 @@ const MusicianContractPage = () => {
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-500">Sent Date</p>
-              <p>{musicianContract.sentAt ? format(new Date(musicianContract.sentAt), 'MMMM d, yyyy') : 'Not sent yet'}</p>
+              <p className="text-base">{musicianContract.sentAt ? format(new Date(musicianContract.sentAt), 'MMMM d, yyyy') : 'Not sent yet'}</p>
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-500">Response Date</p>
-              <p>{musicianContract.respondedAt ? format(new Date(musicianContract.respondedAt), 'MMMM d, yyyy') : 'No response yet'}</p>
+              <p className="text-base">{musicianContract.respondedAt ? format(new Date(musicianContract.respondedAt), 'MMMM d, yyyy') : 'No response yet'}</p>
             </div>
           </CardContent>
           <CardFooter className="flex-col space-y-3">
