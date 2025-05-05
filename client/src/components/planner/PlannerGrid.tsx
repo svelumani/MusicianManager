@@ -180,15 +180,34 @@ const PlannerGrid = ({ planner, venues, categories, selectedMonth }: PlannerGrid
   const handleUnfinalize = () => {
     if (!planner) return;
     
-    updatePlannerMutation.mutate({
+    // Direct API call to ensure immediate status update
+    apiRequest(`/api/planners/${planner.id}`, "PUT", {
       ...planner,
       status: 'draft',
-      updatedAt: new Date(),
-    });
-    
-    toast({
-      title: "Planner Reopened",
-      description: "You can now make changes to the planner",
+      updatedAt: new Date()
+    })
+    .then(response => {
+      console.log("Planner status updated to draft:", response);
+      
+      // Explicitly invalidate all relevant queries to force refresh
+      queryClient.invalidateQueries({ queryKey: ['/api/planners/month', month, 'year', year] });
+      queryClient.invalidateQueries({ queryKey: ['/api/planners', planner.id] });
+      
+      // Force the page to refresh the planner data
+      window.location.reload();
+      
+      toast({
+        title: "Planner Reopened",
+        description: "You can now make changes to the planner",
+      });
+    })
+    .catch(error => {
+      console.error("Failed to unfinalize planner:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reopen planner for editing",
+        variant: "destructive",
+      });
     });
   };
 
