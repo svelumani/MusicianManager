@@ -30,12 +30,20 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       const contractId = parseInt(req.params.contractId);
       
       // Get the contract
-      const contract = await storage.getMonthlyContract(contractId);
-      if (!contract) {
+      const result = await storage.getMonthlyContract(contractId);
+      if (!result) {
         return res.status(404).json({ message: "Contract not found" });
       }
       
-      console.log("Contract data for preview:", JSON.stringify(contract, null, 2));
+      console.log("Contract data for preview:", JSON.stringify(result, null, 2));
+      
+      // Extract the actual contract data from the returned structure
+      // The API endpoint wraps the contract in a 'contract' property
+      const contract = result.contract || result;
+      
+      if (!contract) {
+        return res.status(404).json({ message: "Contract data structure is invalid" });
+      }
       
       // Get the contract template
       const templateId = contract.templateId;
@@ -299,6 +307,8 @@ export default function setupMonthlyContractRoutes(apiRouter: Router, storage: I
       if (!contractMusician || contractMusician.contractId !== contractId) {
         return res.status(404).json({ message: "Musician contract not found" });
       }
+      
+      console.log("Contract musician response data:", JSON.stringify(contractMusician, null, 2));
       
       // Get the musician
       const musician = await storage.getMusician(contractMusician.musicianId);
