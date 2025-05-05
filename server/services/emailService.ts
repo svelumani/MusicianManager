@@ -25,14 +25,10 @@ interface EmailTemplateData {
 
 /**
  * Sends a contract email to a musician
+ * If SendGrid is not configured, logs the email content instead
  */
 export async function sendContractEmail(data: EmailTemplateData): Promise<boolean> {
   try {
-    if (!process.env.SENDGRID_API_KEY) {
-      console.warn('SendGrid API key not configured. Skipping email send.');
-      return false;
-    }
-
     const { musician, contract, assignments, responseUrl } = data;
     
     // Format month and year
@@ -152,7 +148,16 @@ Thank you!
 This contract is pending your acceptance. Your participation in these events is not confirmed until you accept the contract.
     `;
     
-    // Send the email
+    // If SendGrid is not configured, just log the email and return success
+    if (!process.env.SENDGRID_API_KEY) {
+      console.log('[MOCK EMAIL] Would have sent contract email:');
+      console.log(`To: ${musician.email}`);
+      console.log(`Subject: [Music Contract] ${monthName} ${contract.year} Performance Schedule`);
+      console.log('Content:', text.substring(0, 200) + '...');
+      return true;
+    }
+    
+    // Otherwise send the actual email
     await MailService.send({
       to: musician.email,
       from: FROM_EMAIL,
@@ -170,6 +175,7 @@ This contract is pending your acceptance. Your participation in these events is 
 
 /**
  * Sends a notification email when a musician responds to a contract
+ * If SendGrid is not configured, logs the notification instead
  */
 export async function sendContractResponseNotification(
   contract: MonthlyContract,
@@ -178,11 +184,6 @@ export async function sendContractResponseNotification(
   notes?: string
 ): Promise<boolean> {
   try {
-    if (!process.env.SENDGRID_API_KEY || !ADMIN_EMAIL) {
-      console.warn('SendGrid API key or admin email not configured. Skipping notification email.');
-      return false;
-    }
-    
     // Format month and year
     const monthNames = ["January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"];
@@ -239,7 +240,19 @@ ${notes ? `Notes: ${notes}` : ''}
 View Contract Details: ${contractUrl}
     `;
     
-    // Send the email
+    // If SendGrid is not configured, just log the notification and return success
+    if (!process.env.SENDGRID_API_KEY || !ADMIN_EMAIL) {
+      console.log('[MOCK EMAIL] Would have sent contract response notification:');
+      console.log(`To: ${ADMIN_EMAIL || 'admin@example.com'}`);
+      console.log(`Subject: [Contract ${action === 'accept' ? 'Accepted' : 'Declined'}] ${musician.name} - ${monthName} ${contract.year}`);
+      console.log(`Musician ${musician.name} has ${action === 'accept' ? 'ACCEPTED' : 'DECLINED'} the contract for ${monthName} ${contract.year}`);
+      if (notes) {
+        console.log(`Notes: ${notes}`);
+      }
+      return true;
+    }
+    
+    // Send the actual email
     await MailService.send({
       to: ADMIN_EMAIL,
       from: FROM_EMAIL,

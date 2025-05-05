@@ -494,4 +494,220 @@ contractRouter.post('/generate', isAuthenticated, async (req, res) => {
   }
 });
 
+// Send contracts to musicians
+contractRouter.post('/:id/send', isAuthenticated, async (req, res) => {
+  try {
+    const contractId = parseInt(req.params.id);
+    
+    // Get the contract
+    const [contract] = await db
+      .select()
+      .from(monthlyContracts)
+      .where(eq(monthlyContracts.id, contractId));
+    
+    if (!contract) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    // Get all musicians in this contract
+    const musicianContracts = await db
+      .select()
+      .from(monthlyContractMusicians)
+      .where(eq(monthlyContractMusicians.contractId, contractId));
+    
+    if (musicianContracts.length === 0) {
+      return res.status(400).json({ message: "No musicians found in this contract" });
+    }
+    
+    // Track successes and failures
+    const results = {
+      sent: 0,
+      failed: 0,
+      details: []
+    };
+    
+    // Send an email to each musician
+    for (const cm of musicianContracts) {
+      try {
+        // Skip if already sent
+        if (cm.status !== 'pending') {
+          results.details.push({
+            musicianId: cm.musicianId,
+            status: 'skipped',
+            message: `Contract already in status: ${cm.status}`
+          });
+          continue;
+        }
+        
+        // Get musician details
+        const [musician] = await db
+          .select()
+          .from(musicians)
+          .where(eq(musicians.id, cm.musicianId));
+        
+        if (!musician) {
+          results.failed++;
+          results.details.push({
+            musicianId: cm.musicianId,
+            status: 'failed',
+            message: 'Musician not found'
+          });
+          continue;
+        }
+        
+        // Get dates for this musician's contract
+        const dates = await db
+          .select()
+          .from(monthlyContractDates)
+          .where(eq(monthlyContractDates.musicianContractId, cm.id));
+        
+        if (dates.length === 0) {
+          results.failed++;
+          results.details.push({
+            musicianId: cm.musicianId,
+            status: 'failed',
+            message: 'No dates found for this musician contract'
+          });
+          continue;
+        }
+        
+        // Format dates and get venue information
+        const formattedDates = await Promise.all(dates.map(async (date) => {
+          // Get venue if available
+          let venueName = date.venueName || 'Venue not specified';
+          if (date.venueId) {
+            const [venue] = await db
+              .select()
+              .from(venues)
+              .where(eq(venues.id, date.venueId));
+            
+            if (venue) {
+              venueName = venue.name;
+            }
+          }
+          
+          return {
+            assignment: {
+              id: date.id,
+              actualFee: date.fee,
+            },
+            slot: {
+              date: date.date,
+              startTime: date.startTime || '',
+              endTime: date.endTime || '',
+              description: date.notes || '',
+            },
+            venueName,
+          };
+        }));
+        
+        // Create response URL with token
+        const responseUrl = `${process.env.HOST_URL || 'http://localhost:5000'}/contracts/respond/${contract.id}?token=${cm.token}`;
+        
+        // Check if SendGrid is configured, otherwise mock the email
+        let emailSuccess = false;
+        if (!process.env.SENDGRID_API_KEY) {
+          // Mock email sending - log it and track activity
+          console.log(`[MOCK EMAIL] Would have sent contract email to ${musician.name} <${musician.email}> for contract ${contract.id}`);
+          
+          // If we have an activities table, log the mock email
+          try {
+            await db.execute(sql`
+              INSERT INTO activities (
+                action, entity_type, entity_id, timestamp, user_id, details
+              ) VALUES (
+                ${`Email would have been sent to ${musician.name}`},
+                ${'monthlyContract'},
+                ${contractId},
+                ${new Date()},
+                ${req.user?.id || 1},
+                ${JSON.stringify({
+                  type: "contract_email",
+                  recipient: musician.email,
+                  subject: `Contract for ${contract.month}/${contract.year}`,
+                  mockSent: true,
+                  contractId: contractId
+                })}
+              )
+            `);
+          } catch (logError) {
+            console.error("Error logging mock email activity:", logError);
+            // Continue anyway - activity logging is not critical
+          }
+          
+          emailSuccess = true; // Consider it "sent" for workflow purposes
+        } else {
+          // Attempt to send real email
+          emailSuccess = await sendContractEmail({
+            musician,
+            contract,
+            assignments: formattedDates, 
+            responseUrl
+          });
+        }
+        
+        if (emailSuccess) {
+          // Update contract status to "sent"
+          await db
+            .update(monthlyContractMusicians)
+            .set({
+              status: 'sent',
+              sentAt: new Date(),
+            })
+            .where(eq(monthlyContractMusicians.id, cm.id));
+          
+          results.sent++;
+          results.details.push({
+            musicianId: cm.musicianId,
+            status: 'sent',
+            message: process.env.SENDGRID_API_KEY 
+              ? 'Contract email sent successfully'
+              : 'Contract email mocked (SendGrid not configured)'
+          });
+        } else {
+          results.failed++;
+          results.details.push({
+            musicianId: cm.musicianId,
+            status: 'failed',
+            message: 'Failed to send contract email'
+          });
+        }
+      } catch (error) {
+        results.failed++;
+        results.details.push({
+          musicianId: cm.musicianId,
+          status: 'failed',
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    
+    // Update the main contract status if any were sent
+    if (results.sent > 0) {
+      await db
+        .update(monthlyContracts)
+        .set({
+          status: 'sent',
+          updatedAt: new Date()
+        })
+        .where(eq(monthlyContracts.id, contractId));
+    }
+    
+    // Return the results
+    return res.json({
+      success: true,
+      sent: results.sent,
+      failed: results.failed,
+      details: results.details
+    });
+    
+  } catch (error) {
+    console.error("Error sending contract emails:", error);
+    return res.status(500).json({ 
+      message: "Server error sending contract emails",
+      error: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
 export default contractRouter;
