@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, Users, FileText, DollarSign } from "lucide-react";
 import PlannerGrid from "./PlannerGrid";
-import MusicianAssignments from "./MusicianAssignments";
+import MusicianAssignmentsView from "./MusicianAssignmentsView";
 import ContractsTab from "./ContractsTab";
 import FinancialsTab from "./FinancialsTab";
 import { format } from "date-fns";
@@ -69,7 +69,7 @@ const PlannerTabs = ({
       </TabsContent>
 
       <TabsContent value="musicians" className="space-y-4">
-        <MusicianAssignments
+        <MusicianAssignmentsView
           plannerId={plannerId}
           plannerName={plannerName}
           month={month}
@@ -87,9 +87,12 @@ const PlannerTabs = ({
       </TabsContent>
 
       <TabsContent value="financials" className="space-y-4">
-        <div className="text-center py-10 text-gray-500">
-          Financial reports tab is coming soon.
-        </div>
+        <FinancialsTab
+          plannerId={plannerId}
+          plannerName={plannerName}
+          month={month}
+          year={year}
+        />
       </TabsContent>
     </Tabs>
   );

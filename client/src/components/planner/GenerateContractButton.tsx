@@ -14,11 +14,13 @@ import {
 import { format } from "date-fns";
 
 interface GenerateContractButtonProps {
-  plannerId: number;
-  plannerName: string;
-  plannerMonth: string;
-  plannerYear: number;
+  plannerId?: number;
+  plannerName?: string;
+  plannerMonth?: string;
+  plannerYear?: number;
   musicianId?: number;
+  assignmentIds?: number[];
+  disabled?: boolean;
 }
 
 const GenerateContractButton = ({
@@ -27,6 +29,8 @@ const GenerateContractButton = ({
   plannerMonth,
   plannerYear,
   musicianId,
+  assignmentIds,
+  disabled = false,
 }: GenerateContractButtonProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -40,9 +44,10 @@ const GenerateContractButton = ({
       try {
         const data = {
           plannerId,
-          month: parseInt(format(new Date(`${plannerMonth} 1, ${plannerYear}`), 'M')),
+          month: plannerMonth ? parseInt(format(new Date(`${plannerMonth} 1, ${plannerYear}`), 'M')) : undefined,
           year: plannerYear,
-          musicianId: musicianId // This is optional and will generate just for this musician if provided
+          musicianId, // This is optional and will generate just for this musician if provided
+          assignmentIds // This is optional and will generate just for these assignments if provided
         };
         console.log("Generating contract with data:", data);
         
@@ -88,10 +93,12 @@ const GenerateContractButton = ({
     <>
       <Button 
         onClick={() => setDialogOpen(true)}
-        size="sm"
-        variant="outline"
+        size="icon"
+        variant="ghost"
+        disabled={disabled}
+        title="Generate Contract"
       >
-        Generate Contract
+        <FileText className="h-4 w-4" />
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

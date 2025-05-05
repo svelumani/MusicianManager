@@ -1,33 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { TableHeader, TableRow, TableHead, TableBody, TableCell, Table } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { apiRequest } from "@/lib/queryClient";
+import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { 
+  Calendar, 
+  User, 
+  CheckCircle2, 
+  XCircle, 
+  FileText, 
+  Send,
+  AlertCircle,
+  Music
+} from "lucide-react";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CalendarIcon, UserCircle, Send, Eye, MoreHorizontal } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import GenerateContractButton from "./GenerateContractButton";
 
 interface MusicianAssignmentsViewProps {
   plannerId: number;
@@ -36,8 +31,21 @@ interface MusicianAssignmentsViewProps {
   year: number;
 }
 
-// Status badge with color coding
-const StatusBadge = ({ status }: { status: string }) => {
+// Status badge with color coding (can be extracted to a shared component)
+const AttendanceBadge = ({ status }: { status: string }) => {
+  switch (status) {
+    case "attended":
+      return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Attended</Badge>;
+    case "absent":
+      return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Absent</Badge>;
+    case "confirmed":
+      return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Confirmed</Badge>;
+    default:
+      return <Badge variant="outline">Pending</Badge>;
+  }
+};
+
+const ContractStatusBadge = ({ status }: { status: string }) => {
   switch (status) {
     case "sent":
       return <Badge className="bg-pink-100 text-pink-800 hover:bg-pink-200">Contract Sent</Badge>;
@@ -46,232 +54,184 @@ const StatusBadge = ({ status }: { status: string }) => {
     case "rejected":
       return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Contract Rejected</Badge>;
     default:
-      return <Badge variant="outline">Pending</Badge>;
+      return <Badge variant="outline">No Contract</Badge>;
   }
 };
 
 const MusicianAssignmentsView = ({ plannerId, plannerName, month, year }: MusicianAssignmentsViewProps) => {
-  // State for open date sections
-  const [openDates, setOpenDates] = useState<string[]>([]);
-  // State for send contract dialog
-  const [sendContractDialogOpen, setSendContractDialogOpen] = useState(false);
-  const [selectedMusician, setSelectedMusician] = useState<any>(null);
-
-  // Format month name
+  // Format month name for display
   const monthName = format(new Date(year, month - 1), "MMMM");
 
-  // Query to get assignments grouped by musician and date
-  const {
-    data: musicianAssignments,
-    isLoading,
-    error,
-  } = useQuery({
+  // Fetch musician assignments grouped by musician
+  const { data: musicianAssignments, isLoading, error } = useQuery({
     queryKey: ['/api/planner-assignments/by-musician', plannerId],
-    queryFn: async () => {
-      return await apiRequest(`/api/planner-assignments/by-musician?plannerId=${plannerId}`);
-    },
-    enabled: !!plannerId && plannerId > 0,
+    enabled: !!plannerId
   });
 
-  // Group assignments by date for each musician
-  const groupedByDate = (assignments: any[] = []) => {
-    const result: Record<string, any[]> = {};
-    
-    assignments.forEach(assignment => {
-      const dateKey = format(new Date(assignment.date), "yyyy-MM-dd");
-      if (!result[dateKey]) {
-        result[dateKey] = [];
-      }
-      result[dateKey].push(assignment);
-    });
-    
-    return result;
-  };
-
-  // Handle opening/closing date sections
-  const toggleDateSection = (dateKey: string) => {
-    setOpenDates(prev => 
-      prev.includes(dateKey) 
-        ? prev.filter(date => date !== dateKey)
-        : [...prev, dateKey]
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            <Skeleton className="h-8 w-60" />
+            <Skeleton className="h-8 w-40" />
+          </CardTitle>
+          <CardDescription>
+            <Skeleton className="h-4 w-96" />
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[400px] w-full" />
+        </CardContent>
+      </Card>
     );
-  };
+  }
 
-  // Open send contract dialog
-  const handleSendContract = (musician: any) => {
-    setSelectedMusician(musician);
-    setSendContractDialogOpen(true);
-  };
-
-  // Handle view profile
-  const handleViewProfile = (musicianId: number) => {
-    // Will be implemented in a future iteration, just placeholder for now
-    console.log("View profile for musician:", musicianId);
-  };
-
-  // Check if we have real data
-  const hasRealData = musicianAssignments && 
-                    Object.entries(musicianAssignments)
-                      .filter(([key]) => !key.startsWith('_') && key !== '999')
-                      .length > 0;
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-red-500">Error Loading Assignments</CardTitle>
+          <CardDescription>
+            There was a problem loading the musician assignments
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center p-8 text-red-500">
+            <AlertCircle className="h-5 w-5 mr-2" />
+            <span>Failed to load musician assignments. Please try again.</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
-          <span>Assigned Musicians</span>
+          <span>Musicians - {monthName} {year}</span>
+          <Button size="sm" variant="outline" className="gap-1">
+            <FileText className="h-4 w-4" /> 
+            <span>View All Contracts</span>
+          </Button>
         </CardTitle>
         <CardDescription>
-          The following musicians are assigned to this month
+          View and manage all musician assignments and contracts for {monthName}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-            <Skeleton className="h-8 w-full" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-4 text-red-500">
-            Error loading musician assignments
-          </div>
-        ) : !hasRealData ? (
-          <div className="text-center py-4 text-gray-500">
-            No musician assignments for this month
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {Object.entries(musicianAssignments)
-              .filter(([key]) => !key.startsWith('_') && key !== '999')
-              .map(([musicianId, data]: [string, any]) => {
-                const dateGroups = groupedByDate(data.assignments);
-                
-                return (
-                  <Card key={musicianId} className="border-l-4 border-l-blue-500">
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <UserCircle className="h-5 w-5 text-blue-500" />
-                          <CardTitle className="text-lg">{data.musicianName}</CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="rounded-full">
-                            {data.assignments?.length || 0} dates
-                          </Badge>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleViewProfile(parseInt(musicianId))}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Profile
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleSendContract(data)}>
-                                <Send className="h-4 w-4 mr-2" />
-                                Accept & Send Contract
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
+        <Accordion 
+          type="multiple" 
+          className="w-full"
+          defaultValue={musicianAssignments && Object.keys(musicianAssignments).length > 0 ? [Object.keys(musicianAssignments)[0]] : []}
+        >
+          {musicianAssignments && Object.entries(musicianAssignments)
+            .filter(([id, data]) => id !== '999') // Filter out error entries
+            .map(([musicianId, data]) => {
+              // @ts-ignore
+              const { musicianName, assignments, totalFee } = data;
+              
+              if (!assignments || assignments.length === 0) return null;
+
+              return (
+                <AccordionItem key={musicianId} value={musicianId} className="border rounded-lg mb-4 p-2">
+                  <AccordionTrigger className="px-4 py-2 hover:bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        <User className="h-5 w-5 text-blue-500" />
+                        <span className="font-semibold">{musicianName}</span>
                       </div>
-                      <CardDescription>{data.musicianEmail || 'No email available'}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {Object.entries(dateGroups).map(([dateKey, assignments]) => {
-                          const isOpen = openDates.includes(dateKey);
-                          const dateObj = new Date(dateKey);
-                          const formattedDate = format(dateObj, "EEEE, MMMM d, yyyy");
-                          // Mock status - in real implementation this would come from the contract status
-                          const status = assignments[0]?.contractStatus || "pending";
-                          
-                          return (
-                            <Collapsible 
-                              key={dateKey}
-                              open={isOpen}
-                              onOpenChange={() => toggleDateSection(dateKey)}
-                              className="border rounded-md"
-                            >
-                              <CollapsibleTrigger className="flex justify-between items-center w-full p-3 hover:bg-gray-50">
-                                <div className="flex items-center">
-                                  <CalendarIcon className="mr-2 h-4 w-4 text-blue-500" />
-                                  <span className="font-medium">{formattedDate}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <StatusBadge status={status} />
-                                </div>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent className="border-t px-3 py-2">
-                                <div className="space-y-2">
-                                  {assignments.map((assignment: any) => (
-                                    <div 
-                                      key={assignment.id}
-                                      className="flex justify-between items-center"
-                                    >
-                                      <div>
-                                        <div className="text-sm">
-                                          {assignment.venueName || 'Venue not specified'}
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                          {assignment.time || "Time not specified"}
-                                        </div>
-                                      </div>
-                                      <div className="font-medium text-primary">
-                                        ${(assignment.actualFee || assignment.fee || 0).toLocaleString()}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          );
-                        })}
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">{assignments.length} performances</span>
+                        <span className="font-semibold">${totalFee?.toFixed(2) || '0.00'}</span>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-          </div>
-        )}
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 py-2">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Venue</TableHead>
+                          <TableHead>Attendance</TableHead>
+                          <TableHead>Contract</TableHead>
+                          <TableHead>Fee</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {assignments.map((assignment: any) => (
+                          <TableRow key={assignment.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-gray-500" />
+                                <span>{format(new Date(assignment.date), "MMM d, yyyy")}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Music className="h-4 w-4 text-gray-500" />
+                                <span>{assignment.venueName || 'Not specified'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <AttendanceBadge status={assignment.attendance || 'pending'} />
+                            </TableCell>
+                            <TableCell>
+                              <ContractStatusBadge status={assignment.contractStatus || 'pending'} />
+                            </TableCell>
+                            <TableCell>${assignment.fee?.toFixed(2) || '0.00'}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <GenerateContractButton 
+                                  assignmentIds={[assignment.id]}
+                                  disabled={assignment.contractStatus === 'sent' || assignment.contractStatus === 'signed'}
+                                />
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost" 
+                                  disabled={assignment.contractStatus !== 'sent'}
+                                  title="Resend contract email"
+                                >
+                                  <Send className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  title="Mark as attended"
+                                  disabled={assignment.attendance === 'attended'}
+                                  className={assignment.attendance === 'attended' ? 'text-green-500' : ''}
+                                >
+                                  <CheckCircle2 className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="ghost"
+                                  title="Mark as absent"
+                                  disabled={assignment.attendance === 'absent'}
+                                  className={assignment.attendance === 'absent' ? 'text-red-500' : ''}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+
+          {(!musicianAssignments || Object.keys(musicianAssignments).filter(id => id !== '999').length === 0) && (
+            <div className="text-center py-10 text-gray-500">
+              No musicians assigned for {monthName} {year}
+            </div>
+          )}
+        </Accordion>
       </CardContent>
-
-      {/* Send Contract Dialog */}
-      <Dialog open={sendContractDialogOpen} onOpenChange={setSendContractDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send Contract to {selectedMusician?.musicianName}</DialogTitle>
-            <DialogDescription>
-              This will generate and send a contract to the musician for the selected dates in {monthName} {year}.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2 space-y-2">
-            <p><strong>Musician:</strong> {selectedMusician?.musicianName}</p>
-            <p><strong>Email:</strong> {selectedMusician?.musicianEmail || 'No email available'}</p>
-            <p><strong>Dates:</strong> {selectedMusician?.assignments?.length || 0} performance dates</p>
-            <p><strong>Total Fee:</strong> ${(selectedMusician?.totalFee || 0).toLocaleString()}</p>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSendContractDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => {
-              // This will be implemented in a later phase
-              console.log("Sending contract to:", selectedMusician?.musicianId);
-              setSendContractDialogOpen(false);
-            }}>
-              Send Contract
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 };
