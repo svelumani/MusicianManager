@@ -2817,6 +2817,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error fetching planner assignments" });
     }
   });
+  
+  // Get all assignments for a specific planner (more efficient than querying by slot ID)
+  apiRouter.get("/planner-assignments/by-planner/:plannerId", isAuthenticated, async (req, res) => {
+    try {
+      const plannerId = parseInt(req.params.plannerId);
+      
+      // Validate the ID is a valid number
+      if (isNaN(plannerId)) {
+        return res.status(400).json({ message: "Invalid planner ID" });
+      }
+      
+      console.log(`Fetching assignments for planner ID: ${plannerId}`);
+      const assignments = await storage.getPlannerAssignmentsByPlannerId(plannerId);
+      console.log(`Found ${assignments.length} assignments`);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching planner assignments by plannerId:", error);
+      res.status(500).json({ message: "Error fetching planner assignments" });
+    }
+  });
 
   apiRouter.get("/planner-assignments/:id", isAuthenticated, async (req, res) => {
     try {

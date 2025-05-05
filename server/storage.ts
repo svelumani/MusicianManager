@@ -2550,6 +2550,31 @@ Musician: ________________________ Date: ______________`,
     
     return assignments;
   }
+  
+  async getPlannerAssignmentsByPlannerId(plannerId: number): Promise<PlannerAssignment[]> {
+    if (!plannerId) {
+      throw new Error("plannerId is required");
+    }
+    
+    // First, get all slots for this planner
+    const allSlots = Array.from(this.plannerSlots.values());
+    const plannerSlots = allSlots.filter(slot => slot.plannerId === plannerId);
+    
+    if (!plannerSlots.length) {
+      return [];
+    }
+    
+    // Get the slot IDs for this planner
+    const plannerSlotIds = plannerSlots.map(slot => slot.id);
+    
+    // Get all assignments for these slots
+    const allAssignments = Array.from(this.plannerAssignments.values());
+    const plannerAssignments = allAssignments.filter(
+      assignment => plannerSlotIds.includes(assignment.slotId)
+    );
+    
+    return plannerAssignments;
+  }
 
   async getPlannerAssignment(id: number): Promise<PlannerAssignment | undefined> {
     return this.plannerAssignments.get(id);
