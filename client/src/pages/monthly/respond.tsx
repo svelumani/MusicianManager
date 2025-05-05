@@ -483,6 +483,7 @@ const MonthlyContractResponsePage = () => {
                       <TableRow>
                         <TableHead className="w-[180px]">Date</TableHead>
                         <TableHead>Details</TableHead>
+                        <TableHead className="w-[150px]">Venue</TableHead>
                         <TableHead className="w-[100px]">Fee</TableHead>
                         <TableHead className="w-[120px]">Status</TableHead>
                         <TableHead className="text-right w-[200px]">Actions</TableHead>
@@ -491,7 +492,7 @@ const MonthlyContractResponsePage = () => {
                     <TableBody>
                       {contractData.dates?.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-10 text-gray-500">
+                          <TableCell colSpan={6} className="text-center py-10 text-gray-500">
                             No dates found in this contract
                           </TableCell>
                         </TableRow>
@@ -510,6 +511,9 @@ const MonthlyContractResponsePage = () => {
                                   </span>
                                 )}
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              {date.venueName || 'Not specified'}
                             </TableCell>
                             <TableCell>${parseFloat(date.fee).toFixed(2)}</TableCell>
                             <TableCell>{getStatusBadge(date.status)}</TableCell>

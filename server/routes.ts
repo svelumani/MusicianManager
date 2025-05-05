@@ -6880,6 +6880,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status: date.status,
           fee: date.fee,
           notes: date.notes,
+          venueId: date.venueId,
+          venueName: date.venueName,
           createdAt: date.createdAt,
           updatedAt: date.updatedAt
         }))
