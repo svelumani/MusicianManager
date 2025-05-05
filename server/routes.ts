@@ -7031,6 +7031,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               pendingDates: dates.length,
               totalFee: dates.reduce((sum, date) => sum + (date.fee || 0), 0)
             });
+            
+            // Update each assignment's contract status
+            for (const assignment of assignments) {
+              try {
+                await storage.updatePlannerAssignment(assignment.id, {
+                  contractId: contract.id,
+                  contractStatus: 'pending'
+                });
+                console.log(`Updated assignment ${assignment.id} with contractId ${contract.id} and status 'pending'`);
+              } catch (updateError) {
+                console.error(`Error updating assignment ${assignment.id}:`, updateError);
+              }
+            }
           }
         } catch (error) {
           console.error(`Error creating contract for musician ${musicianId}:`, error);
@@ -7074,6 +7087,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sentAt: new Date(),
           })
           .where(eq(monthlyContractMusicians.id, cm.id));
+          
+        // Find and update all related planner assignments
+        const assignments = await db
+          .select()
+          .from(plannerAssignments)
+          .where(eq(plannerAssignments.contractId, contractId))
+          .where(eq(plannerAssignments.musicianId, cm.musicianId));
+          
+        // Update each assignment status
+        for (const assignment of assignments) {
+          await storage.updatePlannerAssignment(assignment.id, {
+            contractStatus: 'sent'
+          });
+          console.log(`Updated assignment ${assignment.id} with status 'sent'`);
+        }
       }
       
       // 4. In a real app, we would send emails to musicians here

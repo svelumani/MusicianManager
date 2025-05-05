@@ -50,7 +50,8 @@ export default function MusicianAssignmentsView({ plannerId, month, year }: Musi
     error: assignmentsError,
     refetch: refetchAssignments
   } = useQuery({
-    queryKey: [`/api/planner-assignments/by-musician/${plannerId}`],
+    // Use a consistent key format that matches what's used in GenerateContractButton
+    queryKey: [`/api/planner-assignments/by-musician`],
     queryFn: async () => {
       try {
         return await apiRequest(`/api/planner-assignments/by-musician/${plannerId}`);

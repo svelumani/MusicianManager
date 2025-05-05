@@ -38,7 +38,11 @@ export default function GenerateContractButton({
         title: 'Contract generated',
         description: 'The contract has been generated successfully.',
       });
+      
+      // Invalidate both query patterns to ensure UI updates
       queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician/${plannerId}`] });
+      // This is the actual query key used in MusicianAssignmentsView
+      queryClient.invalidateQueries({ queryKey: [`/api/planner-assignments/by-musician`] });
       
       // Notify parent component if needed
       if (onContractGenerated) {
