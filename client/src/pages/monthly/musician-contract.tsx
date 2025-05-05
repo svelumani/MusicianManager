@@ -390,6 +390,8 @@ const MusicianContractPage = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Musician Response</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signature Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP / Timestamp</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                 </tr>
               </thead>
@@ -441,71 +443,50 @@ const MusicianContractPage = () => {
                           </Badge>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {day.signatureStatus ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center">
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            Signed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-600 flex items-center">
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            Not Signed
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {day.ipAddress ? (
+                          <div className="space-y-1">
+                            <div className="text-xs text-gray-500">IP Address:</div>
+                            <div>{day.ipAddress}</div>
+                            
+                            {day.signedAt && (
+                              <>
+                                <div className="text-xs text-gray-500 mt-2">Signed at:</div>
+                                <div>{format(new Date(day.signedAt), 'MMM d, yyyy HH:mm:ss')}</div>
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          'No signature details'
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
                         {day.notes || (day.musicianNotes ? `Musician: ${day.musicianNotes}` : 'No notes')}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                       No performances found for this contract
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Signature Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Digital Signature Details</CardTitle>
-          <CardDescription>
-            Signature verification information
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Musician Signature</h3>
-              <p className="mt-1 text-sm">
-                {musicianContract.musicianSignature ? (
-                  <Badge variant="outline" className="bg-green-50 text-green-700">
-                    <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                    Signed
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-gray-50 text-gray-700">
-                    <XCircle className="h-3.5 w-3.5 mr-1" />
-                    Not Signed
-                  </Badge>
-                )}
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">IP Address</h3>
-              <p className="mt-1 text-sm">{musicianContract.ipAddress || 'Not available'}</p>
-            </div>
-            
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Signature Timestamp</h3>
-              <p className="mt-1 text-sm">
-                {musicianContract.respondedAt ? 
-                  format(new Date(musicianContract.respondedAt), 'MMMM d, yyyy HH:mm:ss') : 
-                  'Not signed yet'}
-              </p>
-            </div>
-            
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Musician Notes</h3>
-              <div className="mt-1 p-3 bg-gray-50 rounded-md text-sm">
-                {musicianContract.musicianNotes || 'No notes provided by musician'}
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>
