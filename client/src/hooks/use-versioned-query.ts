@@ -57,7 +57,28 @@ export function useVersionedQuery<T>(
       } else {
         // Log versions for debugging
         const versions = await versionsResponse.json();
-        console.log(`[VersionedQuery] ${entity} data version: ${versions[entity] || 'unknown'}`);
+        
+        // Handle inconsistent version keys with a mapping
+        const versionKeyMap: Record<string, string[]> = {
+          'planners': ['monthly_planners', 'planner_data'],
+          'plannerSlots': ['planner_slots', 'planners_slots'],
+          'plannerAssignments': ['planner_assignments', 'planners_assignments'],
+          'monthlyContracts': ['monthly_contracts', 'monthly_data']
+        };
+        
+        // Get all possible version keys for this entity
+        const possibleKeys = versionKeyMap[entity] || [entity];
+        
+        // Find the first key that has a value
+        let versionValue: number | undefined;
+        for (const key of possibleKeys) {
+          if (versions[key] !== undefined) {
+            versionValue = versions[key];
+            break;
+          }
+        }
+        
+        console.log(`[VersionedQuery] ${entity} data version: ${versionValue || 'unknown'} (looking for keys: ${possibleKeys.join(', ')})`);
       }
       
       // Construct the URL with a cache-busting timestamp
@@ -115,11 +136,26 @@ export function useVersionedQuery<T>(
     if (!enabled) return;
     
     const handleDataUpdate = (updatedEntity: UpdateEntity) => {
-      if (updatedEntity === 'all' || updatedEntity === entity) {
+      // Map the updatedEntity to the entity we're watching for in this hook
+      const entityMap: Record<string, string[]> = {
+        'planner_data': ['planners', 'monthly_planners'],
+        'monthly_data': ['monthlyContracts'],
+        'planners_slots': ['plannerSlots'],
+        'planners_assignments': ['plannerAssignments']
+      };
+      
+      // Check if the updated entity matches what we're watching for
+      const shouldRefresh = 
+        updatedEntity === 'all' || 
+        updatedEntity === entity || 
+        (entityMap[updatedEntity as string]?.includes(entity)) ||
+        (entityMap[entity as string]?.includes(updatedEntity as string));
+      
+      if (shouldRefresh) {
         // Only refresh if it's not the first query (to prevent double fetching on mount)
         if (!isFirstQuery.current) {
           result.forceRefresh();
-          console.log(`Refreshing ${entity} data due to version change`);
+          console.log(`Refreshing ${entity} data due to version change in ${updatedEntity}`);
         }
       }
     };
@@ -152,11 +188,33 @@ export function useRecentDataUpdates(
     initWebSocketConnection();
     
     const handleDataUpdate = (updatedEntity: UpdateEntity) => {
-      if (
+      // Map for handling inconsistent entity naming
+      const entityMap: Record<string, string[]> = {
+        'planner_data': ['planners', 'monthly_planners'],
+        'monthly_data': ['monthlyContracts'],
+        'planners_slots': ['plannerSlots'],
+        'planners_assignments': ['plannerAssignments'],
+        // And reverse mappings
+        'planners': ['planner_data'],
+        'monthly_planners': ['planner_data'],
+        'monthlyContracts': ['monthly_data'],
+        'plannerSlots': ['planners_slots', 'planner_slots'],
+        'plannerAssignments': ['planners_assignments', 'planner_assignments']
+      };
+      
+      // Check for a match considering all the possible naming variations
+      const isMatch = 
         updatedEntity === 'all' || 
         entityTypes === 'all' || 
-        (Array.isArray(entityTypes) && entityTypes.includes(updatedEntity))
-      ) {
+        (Array.isArray(entityTypes) && (
+          entityTypes.includes(updatedEntity) || 
+          entityTypes.some(type => 
+            entityMap[updatedEntity as string]?.includes(type) ||
+            entityMap[type]?.includes(updatedEntity as string)
+          )
+        ));
+        
+      if (isMatch) {
         hasUpdates.current = true;
         
         if (onUpdate) {

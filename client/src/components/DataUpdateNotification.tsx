@@ -107,16 +107,26 @@ export function DataUpdateNotification() {
         <div className="font-bold">Current Data Versions:</div>
         <div className="grid grid-cols-2 gap-x-2">
           <div>Monthly Planners:</div>
-          <div className="font-medium">v{versions.monthly_planners || '?'}</div>
+          <div className="font-medium">v{versions.monthly_planners || versions.planner_data || '?'}</div>
           
           <div>Planner Slots:</div>
-          <div className="font-medium">v{versions.planner_slots || '?'}</div>
+          <div className="font-medium">v{versions.planner_slots || versions.planners_slots || '?'}</div>
           
           <div>Planner Assignments:</div>
-          <div className="font-medium">v{versions.planner_assignments || '?'}</div>
+          <div className="font-medium">v{versions.planner_assignments || versions.planners_assignments || '?'}</div>
           
           <div>Monthly Contracts:</div>
-          <div className="font-medium">v{versions.monthly_contracts || '?'}</div>
+          <div className="font-medium">v{versions.monthly_contracts || versions.monthly_data || '?'}</div>
+        </div>
+        <hr className="my-1" />
+        <div className="text-xs">
+          <div className="font-bold text-blue-600">Server Version Keys:</div>
+          {Object.entries(versions).map(([key, value]) => (
+            <div key={key} className="flex justify-between">
+              <span>{key}:</span>
+              <span className="font-medium">v{value}</span>
+            </div>
+          ))}
         </div>
         {lastVersionCheck && (
           <div className="pt-1 text-gray-500">

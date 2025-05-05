@@ -195,18 +195,60 @@ function handleMessage(message: UpdateMessage) {
   switch (message.type) {
     case 'data-update':
       if (message.entity) {
+        // Also notify about possible alternative entity names
         notifySubscribers(message.entity);
+        
+        // Handle equivalent entity names
+        const entityMap: Record<string, string[]> = {
+          'planner_data': ['planners', 'monthly_planners'],
+          'monthly_data': ['monthlyContracts'],
+          'planners_slots': ['plannerSlots'],
+          'planners_assignments': ['plannerAssignments'],
+          'monthly_planners': ['planners', 'planner_data'],
+          'planner_slots': ['plannerSlots', 'planners_slots'],
+          'planner_assignments': ['plannerAssignments', 'planners_assignments'],
+          'monthly_contracts': ['monthlyContracts', 'monthly_data']
+        };
+        
+        // Also notify about equivalent entities
+        if (entityMap[message.entity]) {
+          entityMap[message.entity].forEach(entity => {
+            console.log(`Also notifying about equivalent entity: ${entity}`);
+            notifySubscribers(entity as UpdateEntity);
+          });
+        }
       }
       break;
       
     case 'refresh-required':
       if (message.entity) {
+        // Also notify about possible alternative entity names
         notifySubscribers(message.entity);
+        
+        // Handle equivalent entity names
+        const entityMap: Record<string, string[]> = {
+          'planner_data': ['planners', 'monthly_planners'],
+          'monthly_data': ['monthlyContracts'],
+          'planners_slots': ['plannerSlots'],
+          'planners_assignments': ['plannerAssignments'],
+          'monthly_planners': ['planners', 'planner_data'],
+          'planner_slots': ['plannerSlots', 'planners_slots'],
+          'planner_assignments': ['plannerAssignments', 'planners_assignments'],
+          'monthly_contracts': ['monthlyContracts', 'monthly_data']
+        };
+        
+        // Also notify about equivalent entities
+        if (entityMap[message.entity]) {
+          entityMap[message.entity].forEach(entity => {
+            console.log(`Also notifying about equivalent entity: ${entity}`);
+            notifySubscribers(entity as UpdateEntity);
+          });
+        }
         
         // Show a toast notification for refresh request
         toast({
           title: 'Data Update',
-          description: `New ${message.entity} data is available. Refreshing...`,
+          description: `New data is available. Refreshing...`,
           variant: 'default',
         });
       }
