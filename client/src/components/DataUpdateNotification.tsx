@@ -177,7 +177,7 @@ export function DataUpdateNotification() {
         <TooltipTrigger asChild>
           <Badge variant="outline" className="ml-2 flex items-center gap-1 hover:bg-green-50">
             <Calendar className="h-3 w-3" />
-            Connected v{versions.monthly_planners || versions.planner_data || '?'}
+            Connected
           </Badge>
         </TooltipTrigger>
         <TooltipContent>

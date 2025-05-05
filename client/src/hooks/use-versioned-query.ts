@@ -15,6 +15,7 @@ import {
   UseQueryResult 
 } from '@tanstack/react-query';
 import { initWebSocketConnection, onDataUpdate, UpdateEntity } from '@/lib/ws/dataSync';
+import { mapServerVersionsToClient, getServerKeyForEntity } from '@/lib/utils/versionMapper';
 
 /**
  * Custom hook that extends useQuery with version checking to ensure data freshness
@@ -55,30 +56,19 @@ export function useVersionedQuery<T>(
       if (!versionsResponse.ok) {
         console.warn('Failed to fetch versions, proceeding with data fetch anyway');
       } else {
-        // Log versions for debugging
-        const versions = await versionsResponse.json();
+        // Get raw server versions
+        const serverVersions = await versionsResponse.json();
         
-        // Handle inconsistent version keys with a mapping
-        const versionKeyMap: Record<string, string[]> = {
-          'planners': ['monthly_planners', 'planner_data'],
-          'plannerSlots': ['planner_slots', 'planners_slots'],
-          'plannerAssignments': ['planner_assignments', 'planners_assignments'],
-          'monthlyContracts': ['monthly_contracts', 'monthly_data']
-        };
+        // Map server version keys to client entity names
+        const clientVersions = mapServerVersionsToClient(serverVersions);
         
-        // Get all possible version keys for this entity
-        const possibleKeys = versionKeyMap[entity] || [entity];
+        // Get server key for this entity
+        const serverKey = getServerKeyForEntity(entity as string);
         
-        // Find the first key that has a value
-        let versionValue: number | undefined;
-        for (const key of possibleKeys) {
-          if (versions[key] !== undefined) {
-            versionValue = versions[key];
-            break;
-          }
-        }
+        // Get version value from mapped client versions
+        const versionValue = clientVersions[entity as string];
         
-        console.log(`[VersionedQuery] ${entity} data version: ${versionValue || 'unknown'} (looking for keys: ${possibleKeys.join(', ')})`);
+        console.log(`[VersionedQuery] ${entity} data version: ${versionValue || 'unknown'} (server key: ${serverKey})`);
       }
       
       // Construct the URL with a cache-busting timestamp
@@ -136,26 +126,22 @@ export function useVersionedQuery<T>(
     if (!enabled) return;
     
     const handleDataUpdate = (updatedEntity: UpdateEntity) => {
-      // Map the updatedEntity to the entity we're watching for in this hook
-      const entityMap: Record<string, string[]> = {
-        'planner_data': ['planners', 'monthly_planners'],
-        'monthly_data': ['monthlyContracts'],
-        'planners_slots': ['plannerSlots'],
-        'planners_assignments': ['plannerAssignments']
-      };
+      // Map both entities to normalized client entity format
+      // We need to do this because the server may be sending server-formatted keys
+      const clientUpdatedEntity = mapServerVersionsToClient({ [updatedEntity as string]: 1 });
+      const normalizedUpdatedEntity = Object.keys(clientUpdatedEntity)[0];
       
-      // Check if the updated entity matches what we're watching for
+      // Determine if we should refresh based on the updated entity
       const shouldRefresh = 
         updatedEntity === 'all' || 
-        updatedEntity === entity || 
-        (entityMap[updatedEntity as string]?.includes(entity)) ||
-        (entityMap[entity as string]?.includes(updatedEntity as string));
+        updatedEntity === entity ||
+        normalizedUpdatedEntity === entity;
       
       if (shouldRefresh) {
         // Only refresh if it's not the first query (to prevent double fetching on mount)
         if (!isFirstQuery.current) {
           result.forceRefresh();
-          console.log(`Refreshing ${entity} data due to version change in ${updatedEntity}`);
+          console.log(`Refreshing ${entity} data due to version change in ${updatedEntity} (normalized to ${normalizedUpdatedEntity})`);
         }
       }
     };
@@ -188,37 +174,25 @@ export function useRecentDataUpdates(
     initWebSocketConnection();
     
     const handleDataUpdate = (updatedEntity: UpdateEntity) => {
-      // Map for handling inconsistent entity naming
-      const entityMap: Record<string, string[]> = {
-        'planner_data': ['planners', 'monthly_planners'],
-        'monthly_data': ['monthlyContracts'],
-        'planners_slots': ['plannerSlots'],
-        'planners_assignments': ['plannerAssignments'],
-        // And reverse mappings
-        'planners': ['planner_data'],
-        'monthly_planners': ['planner_data'],
-        'monthlyContracts': ['monthly_data'],
-        'plannerSlots': ['planners_slots', 'planner_slots'],
-        'plannerAssignments': ['planners_assignments', 'planner_assignments']
-      };
+      // Map the updated entity to client format if it's a server key
+      const clientUpdatedEntity = mapServerVersionsToClient({ [updatedEntity as string]: 1 });
+      const normalizedUpdatedEntity = Object.keys(clientUpdatedEntity)[0] || updatedEntity;
       
-      // Check for a match considering all the possible naming variations
+      // Check for a match with normalized entity names
       const isMatch = 
         updatedEntity === 'all' || 
         entityTypes === 'all' || 
         (Array.isArray(entityTypes) && (
           entityTypes.includes(updatedEntity) || 
-          entityTypes.some(type => 
-            entityMap[updatedEntity as string]?.includes(type) ||
-            entityMap[type]?.includes(updatedEntity as string)
-          )
+          entityTypes.includes(normalizedUpdatedEntity as UpdateEntity)
         ));
         
       if (isMatch) {
         hasUpdates.current = true;
         
         if (onUpdate) {
-          onUpdate(updatedEntity);
+          // Send the normalized entity name to ensure consistency
+          onUpdate(normalizedUpdatedEntity as UpdateEntity);
         }
       }
     };
