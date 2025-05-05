@@ -487,7 +487,7 @@ const MusicianContractPage = () => {
                           {assignment.actualFee !== null ? `$${assignment.actualFee.toFixed(2)}` : 'N/A'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {musicianContract.status === 'signed' ? (
+                          {assignment.responseStatus === 'accepted' ? (
                             <Badge
                               variant="outline"
                               className="bg-green-50 text-green-700 flex items-center"
@@ -495,7 +495,7 @@ const MusicianContractPage = () => {
                               <CheckCircle className="h-3.5 w-3.5 mr-1" />
                               Accepted
                             </Badge>
-                          ) : musicianContract.status === 'rejected' ? (
+                          ) : assignment.responseStatus === 'rejected' ? (
                             <Badge
                               variant="outline"
                               className="bg-red-50 text-red-700 flex items-center"
@@ -511,7 +511,7 @@ const MusicianContractPage = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {musicianContract.musicianSignature ? (
+                          {assignment.signatureStatus === 'signed' ? (
                             <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center">
                               <CheckCircle className="h-3.5 w-3.5 mr-1" />
                               Signed
@@ -524,15 +524,15 @@ const MusicianContractPage = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {musicianContract.ipAddress ? (
+                          {assignment.ipAddress ? (
                             <div className="space-y-1">
                               <div className="text-xs text-gray-500">IP Address:</div>
-                              <div>{musicianContract.ipAddress}</div>
+                              <div>{assignment.ipAddress}</div>
                               
-                              {musicianContract.respondedAt && (
+                              {assignment.signedAt && (
                                 <>
                                   <div className="text-xs text-gray-500 mt-2">Signed at:</div>
-                                  <div>{format(new Date(musicianContract.respondedAt), 'MMM d, yyyy HH:mm:ss')}</div>
+                                  <div>{format(new Date(assignment.signedAt), 'MMM d, yyyy HH:mm:ss')}</div>
                                 </>
                               )}
                             </div>
@@ -541,7 +541,7 @@ const MusicianContractPage = () => {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
-                          {assignment.notes || (musicianContract.musicianNotes ? `Musician: ${musicianContract.musicianNotes}` : 'No notes')}
+                          {assignment.notes || 'No notes'}
                         </td>
                       </tr>
                     );
