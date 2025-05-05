@@ -21,7 +21,7 @@ import pgSession from 'connect-pg-simple';
 import { pool, db } from './db';
 import { isAuthenticated } from './auth';
 import { and, eq, sql } from "drizzle-orm";
-import { availability } from "@shared/schema";
+import { availability, plannerSlots, plannerAssignments, monthlyContractMusicians } from "@shared/schema";
 import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import contractRouter from './routes/contract-routes';
