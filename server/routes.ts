@@ -25,6 +25,7 @@ import { availability, plannerSlots, plannerAssignments, monthlyContractMusician
 import statusRouter from './routes/status';
 import monthlyContractResponseRouter from './routes/monthlyContractResponse';
 import contractRouter from './routes/contract-routes';
+import plannerContractsMusicianRouter from './routes/planner-contracts-musicians';
 import setupMonthlyContractRoutes from './routes/monthly-contract-routes';
 import { 
   insertUserSchema, 
