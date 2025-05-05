@@ -6556,6 +6556,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Monthly Contract Musicians routes
+  
+  // Get musician contract by musician ID
+  apiRouter.get("/monthly-contracts/musician/:musicianId", isAuthenticated, async (req, res) => {
+    try {
+      const musicianId = parseInt(req.params.musicianId);
+      if (isNaN(musicianId)) {
+        return res.status(400).json({ message: "Invalid musician ID" });
+      }
+      
+      const musicianContract = await storage.getMonthlyContractMusicianByMusicianId(musicianId);
+      if (!musicianContract) {
+        return res.status(404).json({ message: "Musician contract not found" });
+      }
+      
+      return res.json(musicianContract);
+    } catch (error) {
+      console.error("Error getting musician contract:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Resend contract to musician
+  apiRouter.post("/monthly-contracts/musician/:musicianId/resend", isAuthenticated, async (req, res) => {
+    try {
+      const musicianId = parseInt(req.params.musicianId);
+      if (isNaN(musicianId)) {
+        return res.status(400).json({ message: "Invalid musician ID" });
+      }
+      
+      const musicianContract = await storage.getMonthlyContractMusicianByMusicianId(musicianId);
+      if (!musicianContract) {
+        return res.status(404).json({ message: "Musician contract not found" });
+      }
+      
+      // Update the contract status and sent date
+      const updatedContract = await storage.updateMonthlyContractMusician(musicianContract.id, {
+        status: "sent",
+        sentAt: new Date()
+      });
+      
+      // In a real system, we would send an email here
+      
+      return res.json({ success: true, message: "Contract resent successfully" });
+    } catch (error) {
+      console.error("Error resending musician contract:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Reject contract
+  apiRouter.post("/monthly-contracts/musician/:musicianId/reject", isAuthenticated, async (req, res) => {
+    try {
+      const musicianId = parseInt(req.params.musicianId);
+      if (isNaN(musicianId)) {
+        return res.status(400).json({ message: "Invalid musician ID" });
+      }
+      
+      const musicianContract = await storage.getMonthlyContractMusicianByMusicianId(musicianId);
+      if (!musicianContract) {
+        return res.status(404).json({ message: "Musician contract not found" });
+      }
+      
+      // Update the contract status
+      const updatedContract = await storage.updateMonthlyContractMusician(musicianContract.id, {
+        status: "rejected",
+        rejectionReason: "Rejected by admin"
+      });
+      
+      return res.json({ success: true, message: "Contract rejected successfully" });
+    } catch (error) {
+      console.error("Error rejecting musician contract:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
   apiRouter.get("/monthly-contracts/:contractId/musicians", isAuthenticated, async (req, res) => {
     try {
       const contractMusicians = await storage.getMonthlyContractMusicians(parseInt(req.params.contractId));
