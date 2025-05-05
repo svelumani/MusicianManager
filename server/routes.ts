@@ -4596,13 +4596,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Musician Pay Rates
   apiRouter.get("/musician-pay-rates", isAuthenticated, async (req, res) => {
     try {
+      console.log("GET /musician-pay-rates - Query:", req.query);
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      console.log("Fetching musician pay rates, musicianId:", musicianId);
+      
       const payRates = musicianId 
         ? await storage.getMusicianPayRatesByMusicianId(musicianId)
         : await storage.getMusicianPayRates();
+      
+      console.log(`Retrieved ${payRates.length} pay rates.`);
+      
+      // Make sure we're returning properly formatted JSON
+      res.setHeader('Content-Type', 'application/json');
       res.json(payRates);
     } catch (error) {
-      console.error(error);
+      console.error("Error in musician-pay-rates endpoint:", error);
       res.status(500).json({ message: "Error fetching musician pay rates" });
     }
   });
