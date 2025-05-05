@@ -2791,6 +2791,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const slot = await storage.createPlannerSlot(validatedData);
       console.log("Created slot:", slot);
       
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      
       res.status(201).json(slot);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2830,6 +2834,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Planner slot not found" });
       }
       
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      
       console.log("Updated slot:", slot);
       res.json(slot);
     } catch (error) {
@@ -2848,6 +2856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Planner slot not found" });
       }
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_SLOTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -2918,6 +2931,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Musician is available, proceed with assignment creation
       const assignment = await storage.createPlannerAssignment(assignmentData);
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      
       res.status(201).json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2942,6 +2960,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      
       res.json(assignment);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -2965,6 +2988,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!result) {
         return res.status(404).json({ message: "Assignment not found" });
       }
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
+      
       res.json({ success: true });
     } catch (error) {
       console.error(error);
@@ -2992,6 +3020,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!assignment) {
         return res.status(404).json({ message: "Assignment not found" });
       }
+      
+      // Increment version counters for planner-related data
+      await incrementVersion(VERSION_KEYS.PLANNER_ASSIGNMENTS);
+      await incrementVersion(VERSION_KEYS.PLANNER);
       
       res.json(assignment);
     } catch (error) {
@@ -3030,6 +3062,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const invoiceData = insertMonthlyInvoiceSchema.parse(req.body);
       const invoice = await storage.createMonthlyInvoice(invoiceData);
+      
+      // Increment version counters for monthly-related data
+      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
       res.status(201).json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3047,6 +3084,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
+      
+      // Increment version counters for monthly-related data
+      await incrementVersion(VERSION_KEYS.MONTHLY_INVOICES);
+      await incrementVersion(VERSION_KEYS.MONTHLY);
+      
       res.json(invoice);
     } catch (error) {
       if (error instanceof z.ZodError) {
