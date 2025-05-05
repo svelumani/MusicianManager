@@ -6,6 +6,22 @@ import { relations } from "drizzle-orm";
 // Define JSON type for TypeScript
 export type Json = any;
 
+// Settings for global application state
+export const dataVersions = pgTable("data_versions", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  version: integer("version").notNull().default(1),
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+});
+
+export const insertDataVersionSchema = createInsertSchema(dataVersions).pick({
+  name: true,
+  version: true,
+});
+
+export type DataVersion = typeof dataVersions.$inferSelect;
+export type InsertDataVersion = z.infer<typeof insertDataVersionSchema>;
+
 // User model for admin authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
