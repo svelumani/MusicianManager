@@ -202,7 +202,12 @@ function Router() {
         </AppLayout>
       </Route>
 
-      {/* Planner routes moved under Events */}
+      {/* Planner routes */}
+      <Route path="/planner">
+        <AppLayout>
+          <PlannerPage />
+        </AppLayout>
+      </Route>
       
       {/* Monthly Management */}
       <Route path="/monthly">
