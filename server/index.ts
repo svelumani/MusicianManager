@@ -56,6 +56,56 @@ app.get("/api/v2/musician-pay-rates", async (req, res) => {
     });
   }
 });
+
+// Direct endpoint for event contracts
+app.get("/api/v2/contracts/event/:eventId", async (req, res) => {
+  try {
+    const eventId = parseInt(req.params.eventId);
+    const timestamp = req.query.t; // Cache-busting parameter
+    
+    log(`[PRE-MIDDLEWARE API] Event contracts request: event ${eventId} (t=${timestamp})`);
+    
+    // Explicitly set response headers to ensure JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Get all contracts for this event
+    const contractsResult = await pool.query(`
+      SELECT *
+      FROM contract_links
+      WHERE event_id = $1
+      ORDER BY created_at DESC
+    `, [eventId]);
+    
+    log(`[PRE-MIDDLEWARE API] Found ${contractsResult.rows.length} contracts for event ${eventId}`);
+    
+    // Format contract responses to camelCase
+    const contracts = contractsResult.rows.map(row => ({
+      id: row.id,
+      bookingId: row.booking_id,
+      eventId: row.event_id,
+      musicianId: row.musician_id,
+      token: row.token,
+      expiresAt: row.expires_at,
+      status: row.status,
+      respondedAt: row.responded_at,
+      response: row.response,
+      createdAt: row.created_at,
+      amount: row.amount,
+      eventDate: row.event_date,
+      companySignature: row.company_signature,
+      musicianSignature: row.musician_signature
+    }));
+    
+    return res.json(contracts);
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Error in event contracts endpoint: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
