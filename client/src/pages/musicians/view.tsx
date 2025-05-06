@@ -39,37 +39,8 @@ export default function ViewMusicianPage() {
     queryKey: ["/api/event-categories"],
   });
   
-  // Use a fallback data generator in case the API fails
-  const generateFallbackPayRates = (musicianId: number): MusicianPayRate[] => {
-    // Base rates for each event category
-    const baseRates = {
-      1: { hourly: 100, day: 750, event: 600 }, // Wedding
-      2: { hourly: 120, day: 900, event: 750 }, // Corporate Function
-      3: { hourly: 110, day: 850, event: 1000 }, // Private Party
-      4: { hourly: 180, day: 1400, event: 900 }, // Concert
-      5: { hourly: 150, day: 1100, event: 1000 }  // Festival
-    };
-    
-    // Create variations based on musician ID
-    const modifier = (musicianId % 3) * 0.1 + 0.9; 
-    
-    return [1, 2, 3, 4, 5].map((eventCategoryId) => {
-      const baseRate = baseRates[eventCategoryId as keyof typeof baseRates];
-      const hourlyRate = Math.round(baseRate.hourly * modifier * (1 + (musicianId % 5) * 0.05));
-      const dayRate = Math.round(baseRate.day * modifier * (1 + (musicianId % 4) * 0.03));
-      const eventRate = Math.round(baseRate.event * modifier * (1 + (musicianId % 6) * 0.04));
-      
-      return {
-        id: eventCategoryId * 100 + musicianId,
-        musicianId: musicianId,
-        eventCategoryId: eventCategoryId,
-        hourlyRate: hourlyRate,
-        dayRate: dayRate,
-        eventRate: eventRate,
-        notes: `Fallback rate for musician #${musicianId}`
-      };
-    });
-  };
+  // We don't use fallback pay rates anymore
+  // All rates must come from the actual database to avoid legal issues with contracts
   
   // Fetch musician pay rates from the v2 API endpoint
   const { data: payRates, isError: payRatesError } = useQuery<MusicianPayRate[]>({

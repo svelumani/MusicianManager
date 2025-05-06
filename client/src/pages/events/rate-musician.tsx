@@ -101,14 +101,23 @@ export default function RateMusicianPage() {
     },
   });
   
-  // Fetch existing pay rates
+  // Fetch existing pay rates from v2 endpoint
   const { data: existingRates, isLoading: isLoadingRates } = useQuery({
-    queryKey: ["/api/direct/musician-pay-rates", parsedMusicianId],
+    queryKey: ["/api/v2/musician-pay-rates", parsedMusicianId],
     enabled: !isNaN(parsedMusicianId),
     queryFn: async () => {
-      const res = await fetch(`/api/direct/musician-pay-rates?musicianId=${parsedMusicianId}`);
-      if (!res.ok) throw new Error("Failed to fetch pay rates");
-      return res.json();
+      // Add cache-busting timestamp
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/v2/musician-pay-rates?musicianId=${parsedMusicianId}&t=${timestamp}`);
+      
+      if (!res.ok) {
+        console.error(`Failed to fetch pay rates: ${res.status} ${res.statusText}`);
+        throw new Error("Failed to fetch pay rates from database");
+      }
+      
+      const data = await res.json();
+      console.log(`Retrieved ${data.length} pay rates from V2 API for musician ${parsedMusicianId}`);
+      return data;
     },
   });
   
@@ -173,7 +182,8 @@ export default function RateMusicianPage() {
   // Create or update pay rate mutation
   const rateMutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // API endpoint
+      // API endpoint (we can still use the direct endpoint for writing)
+      // The v2 endpoint is primarily needed for reading due to the Vite middleware issue
       const url = "/api/direct/musician-pay-rates";
       
       // Check if we're updating an existing rate
@@ -218,8 +228,9 @@ export default function RateMusicianPage() {
         description: "Musician pay rate has been saved",
       });
       
-      // Invalidate relevant queries
+      // Invalidate relevant queries - include both the direct and v2 endpoints
       queryClient.invalidateQueries({ queryKey: ["/api/direct/musician-pay-rates", parsedMusicianId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v2/musician-pay-rates", parsedMusicianId] });
       queryClient.invalidateQueries({ queryKey: ["/api/musicians", parsedMusicianId] });
       
       // Navigate back to event view
