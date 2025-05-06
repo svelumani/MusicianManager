@@ -85,7 +85,8 @@ export default function ContractResponsePage() {
     data: contractData, 
     isLoading, 
     error,
-    isError
+    isError,
+    refetch
   } = useQuery<ContractResponse>({
     queryKey: [`/api/v2/contracts/token/${token}`],
     queryFn: async () => {
@@ -103,7 +104,9 @@ export default function ContractResponsePage() {
       console.log(`Contract data:`, data);
       return data;
     },
-    enabled: !!token
+    enabled: !!token,
+    refetchOnWindowFocus: false,
+    staleTime: 0 // Don't cache this data
   });
 
   const respondMutation = useMutation({

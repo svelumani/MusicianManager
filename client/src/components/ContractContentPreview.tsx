@@ -18,7 +18,7 @@ export default function ContractContentPreview({ contractId, token }: ContractCo
   const [hasError, setHasError] = useState(false);
   
   // Query for content based on either contract ID or token
-  const { data: contractContent, isLoading } = useQuery({
+  const { data: contractContent, isLoading, error } = useQuery({
     queryKey: contractId 
       ? [`/api/contracts/${contractId}/content`] 
       : [`/api/v2/contracts/token/${token}/content`], // Use direct endpoint for tokens
@@ -32,15 +32,19 @@ export default function ContractContentPreview({ contractId, token }: ContractCo
           ? `/api/contracts/${contractId}/content?t=${timestamp}` 
           : `/api/v2/contracts/token/${token}/content?t=${timestamp}`;
         
+        console.log(`Using endpoint: ${endpoint}`);
         const response = await fetch(endpoint);
         
         if (!response.ok) {
-          console.error(`Failed to fetch contract content: ${response.status}`);
+          const errorText = await response.text();
+          console.error(`Failed to fetch contract content: ${response.status}`, errorText);
           setHasError(true);
           throw new Error(`Failed to fetch contract content: ${response.status}`);
         }
         
-        return response.json();
+        const data = await response.json();
+        console.log('Contract content loaded successfully:', data);
+        return data;
       } catch (error) {
         console.error('Error fetching contract content:', error);
         setHasError(true);
@@ -50,8 +54,17 @@ export default function ContractContentPreview({ contractId, token }: ContractCo
     enabled: !!(contractId || token), // Only run if either contractId or token is provided
     // Force refetch data to ensure we get the latest stored content
     refetchOnMount: true,
-    refetchOnWindowFocus: true
+    refetchOnWindowFocus: false,
+    retry: 2
   });
+  
+  // Set error state when there's an error
+  useEffect(() => {
+    if (error) {
+      console.error('Contract content query error:', error);
+      setHasError(true);
+    }
+  }, [error]);
   
   if (isLoading) {
     return (
