@@ -27,13 +27,23 @@ export default function ContractDetailPage() {
   const { toast } = useToast();
   
   const { data: contract, isLoading, error } = useQuery({
-    queryKey: ["/api/contracts", contractId],
+    queryKey: ["/api/v2/contracts", contractId],
     queryFn: async () => {
-      const response = await fetch(`/api/contracts/${contractId}`);
+      // Use the new direct API endpoint that bypasses Vite middleware
+      // to ensure consistent JSON responses
+      console.log(`Fetching contract with ID: ${contractId}`);
+      const timestamp = Date.now(); // Add cache-busting parameter
+      const response = await fetch(`/api/v2/contracts/${contractId}?t=${timestamp}`);
+      
       if (!response.ok) {
-        throw new Error("Failed to fetch contract");
+        const errorText = await response.text();
+        console.error(`Error fetching contract ${contractId}:`, errorText);
+        throw new Error(`Failed to fetch contract: ${response.status} ${errorText}`);
       }
-      return response.json();
+      
+      const data = await response.json();
+      console.log(`Contract data:`, data);
+      return data;
     },
     enabled: !!contractId
   });

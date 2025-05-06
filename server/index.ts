@@ -106,6 +106,65 @@ app.get("/api/v2/contracts/event/:eventId", async (req, res) => {
     });
   }
 });
+
+// Direct endpoint for getting a single contract by ID
+app.get("/api/v2/contracts/:id", async (req, res) => {
+  try {
+    const contractId = parseInt(req.params.id);
+    const timestamp = req.query.t; // Cache-busting parameter
+    
+    log(`[PRE-MIDDLEWARE API] Contract request: id ${contractId} (t=${timestamp})`);
+    
+    // Explicitly set response headers to ensure JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Get the contract by ID
+    const contractResult = await pool.query(`
+      SELECT *
+      FROM contract_links
+      WHERE id = $1
+    `, [contractId]);
+    
+    if (contractResult.rows.length === 0) {
+      return res.status(404).json({ 
+        message: "Contract not found", 
+        contractId,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const contract = contractResult.rows[0];
+    
+    // Format the response
+    const formattedContract = {
+      id: contract.id,
+      bookingId: contract.booking_id,
+      eventId: contract.event_id,
+      musicianId: contract.musician_id,
+      invitationId: contract.invitation_id,
+      token: contract.token,
+      expiresAt: contract.expires_at,
+      status: contract.status,
+      respondedAt: contract.responded_at,
+      response: contract.response,
+      createdAt: contract.created_at,
+      amount: contract.amount,
+      eventDate: contract.event_date,
+      companySignature: contract.company_signature,
+      musicianSignature: contract.musician_signature
+    };
+    
+    return res.json(formattedContract);
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Error: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
