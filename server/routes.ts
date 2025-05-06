@@ -2761,6 +2761,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       console.log("Updating planner slot with data:", req.body);
       
+      const slotId = parseInt(req.params.id);
+      if (isNaN(slotId)) {
+        return res.status(400).json({ message: "Invalid slot ID" });
+      }
+      
+      // Get the original slot to check if times have changed
+      const originalSlot = await storage.getPlannerSlot(slotId);
+      if (!originalSlot) {
+        return res.status(404).json({ message: "Planner slot not found" });
+      }
+      
       // Ensure date is properly handled, same as in the POST endpoint
       const slotData = {
         ...req.body,
@@ -2780,9 +2791,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validatedData = insertPlannerSlotSchema.partial().parse(slotData);
       console.log("Validated update slot data:", validatedData);
       
-      const slot = await storage.updatePlannerSlot(parseInt(req.params.id), validatedData);
+      // Check if start or end time has changed
+      const timeHasChanged = (
+        (validatedData.startTime && validatedData.startTime !== originalSlot.startTime) ||
+        (validatedData.endTime && validatedData.endTime !== originalSlot.endTime)
+      );
+      
+      // Update the slot
+      const slot = await storage.updatePlannerSlot(slotId, validatedData);
       if (!slot) {
-        return res.status(404).json({ message: "Planner slot not found" });
+        return res.status(404).json({ message: "Failed to update planner slot" });
+      }
+      
+      // If the times have changed, recalculate the fees for all assignments
+      if (timeHasChanged) {
+        // Get all assignments for this slot
+        const assignments = await storage.getPlannerAssignments(slotId);
+        console.log(`Time has changed for slot ${slotId}. Updating fees for ${assignments.length} assignments...`);
+        
+        for (const assignment of assignments) {
+          // Only recalculate fees for assignments without a manual override
+          if (!assignment.actualFee || assignment.actualFee <= 0) {
+            try {
+              // Calculate hours based on start and end times
+              let hours = 2; // Default fallback
+              if (slot.startTime && slot.endTime) {
+                try {
+                  // Parse time strings (format: "HH:MM")
+                  const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
+                  const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
+                  
+                  // Convert to minutes for calculation
+                  const startTotalMinutes = startHours * 60 + startMinutes;
+                  let endTotalMinutes = endHours * 60 + endMinutes;
+                  
+                  // Handle case for next day
+                  if (endTotalMinutes < startTotalMinutes) {
+                    endTotalMinutes += 24 * 60;
+                  }
+                  
+                  // Calculate hours
+                  const durationMinutes = endTotalMinutes - startTotalMinutes;
+                  hours = Math.round((durationMinutes / 60) * 10) / 10;
+                } catch (error) {
+                  console.log(`Error calculating hours for slot ${slotId}:`, error);
+                  hours = 2; // Fallback if calculation fails
+                }
+              }
+              
+              // Get musician pay rates
+              const musician = await storage.getMusician(assignment.musicianId);
+              if (!musician) continue;
+              
+              const payRates = await storage.getMusicianPayRatesByMusicianId(assignment.musicianId);
+              
+              // Use Club Performance (ID 7) as the default event category
+              const eventCategoryId = 7;
+              
+              // Find matching pay rate
+              const matchingRate = payRates.find(rate => 
+                rate.eventCategoryId === eventCategoryId
+              );
+              
+              if (matchingRate && matchingRate.hourlyRate) {
+                // Calculate new fee
+                const newFee = Math.round(matchingRate.hourlyRate * hours);
+                
+                // Update the assignment with the new fee
+                console.log(`Updating assignment ${assignment.id} fee to ${newFee} (${matchingRate.hourlyRate} × ${hours} hours)`);
+                await storage.updatePlannerAssignment(assignment.id, { actualFee: newFee });
+              }
+            } catch (error) {
+              console.error(`Error recalculating fee for assignment ${assignment.id}:`, error);
+            }
+          } else {
+            console.log(`Skipping fee update for assignment ${assignment.id} - has manual override (${assignment.actualFee})`);
+          }
+        }
       }
       
       console.log("Updated slot:", slot);
