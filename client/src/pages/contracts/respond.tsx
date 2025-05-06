@@ -158,7 +158,7 @@ export default function ContractResponsePage() {
     }
   }, [isError, error]);
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!signature.trim()) {
       toast({
         title: "Signature required",
@@ -168,11 +168,48 @@ export default function ContractResponsePage() {
       return;
     }
     
-    respondMutation.mutate({ 
-      status: "accepted", 
-      response: responseMessage,
-      signature: signature
-    });
+    try {
+      console.log(`Using direct /accept endpoint with signature: ${signature}`);
+      
+      // Use our dedicated /accept endpoint to avoid potential issues with the general response endpoint
+      const res = await fetch(
+        `/api/v2/contracts/token/${token}/accept`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            signature: signature,
+            response: responseMessage 
+          })
+        }
+      );
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Contract acceptance error:', errorText);
+        throw new Error(`Failed to accept contract: ${res.status} ${errorText}`);
+      }
+      
+      const data = await res.json();
+      console.log('Contract acceptance success:', data);
+      
+      // Update UI to show success
+      setResponseSuccess(true);
+      toast({
+        title: "Contract Accepted",
+        description: "Your signature has been recorded and the contract has been accepted."
+      });
+      
+    } catch (error) {
+      console.error('Contract acceptance error:', error);
+      toast({
+        title: "Error accepting contract",
+        description: error instanceof Error ? error.message : "There was a problem accepting the contract. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleReject = () => {

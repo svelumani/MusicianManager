@@ -244,7 +244,11 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
     const token = req.params.token;
     const { status, response, signature } = req.body;
     
-    log(`[PRE-MIDDLEWARE API] Contract response request for token: ${token}, status: ${status}`);
+    log(`[PRE-MIDDLEWARE API] Contract response request for token: ${token}, status: ${status}, signature: ${signature ? 'provided' : 'missing'}`);
+    console.log(`Contract response payload:`, { token, status, response, signature });
+    
+    // Explicitly set response headers to ensure JSON
+    res.setHeader('Content-Type', 'application/json');
     
     // Check if the contract exists and is valid
     const contractResult = await pool.query(`
@@ -252,6 +256,7 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
     `, [token]);
     
     if (contractResult.rows.length === 0) {
+      log(`Contract not found with token: ${token}`);
       return res.status(404).json({ 
         message: "Contract not found", 
         token,
@@ -260,10 +265,23 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
     }
     
     const contract = contractResult.rows[0];
+    log(`Found contract: #${contract.id} for musician: ${contract.musician_id}, event: ${contract.event_id}`);
+    
+    // Check if contract has already been responded to
+    if (contract.responded_at) {
+      log(`Contract #${contract.id} already responded to at ${contract.responded_at}`);
+      return res.status(400).json({
+        message: "Contract has already been responded to",
+        respondedAt: contract.responded_at,
+        status: contract.status,
+        timestamp: new Date().toISOString()
+      });
+    }
     
     // Check if contract is expired
     const expiresAt = new Date(contract.expires_at);
     if (new Date() > expiresAt) {
+      log(`Contract #${contract.id} has expired at ${contract.expires_at}`);
       return res.status(400).json({
         message: "Contract has expired",
         expiresAt: contract.expires_at,
@@ -273,6 +291,20 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
     
     // Update the contract status
     const now = new Date().toISOString();
+    log(`Updating contract #${contract.id} status to ${status}`);
+    
+    // For accepted contracts, ensure we have a signature
+    if (status === 'accepted' && !signature) {
+      log(`Contract acceptance rejected - no signature provided`);
+      return res.status(400).json({
+        message: "Signature is required to accept a contract",
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Determine the correct status - when accepting with signature, use "contract-signed"
+    const dbStatus = (status === 'accepted' && signature) ? 'contract-signed' : status;
+    
     const updateResult = await pool.query(`
       UPDATE contract_links 
       SET status = $1, 
@@ -281,9 +313,18 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
           musician_signature = $4
       WHERE token = $5
       RETURNING *
-    `, [status, response, now, signature, token]);
+    `, [dbStatus, response, now, signature, token]);
+    
+    if (updateResult.rows.length === 0) {
+      log(`Failed to update contract #${contract.id}`);
+      return res.status(500).json({
+        message: "Failed to update contract status",
+        timestamp: new Date().toISOString()
+      });
+    }
     
     const updatedContract = updateResult.rows[0];
+    log(`Successfully updated contract #${updatedContract.id} to status ${updatedContract.status}`);
     
     // Format the response
     return res.json({
@@ -303,6 +344,117 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
     });
   } catch (error) {
     log(`[PRE-MIDDLEWARE API] Contract response error: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Direct endpoint for accepting a contract (simplified version)
+app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
+  try {
+    const token = req.params.token;
+    const { signature, response } = req.body;
+    
+    log(`[PRE-MIDDLEWARE API] Contract ACCEPT request for token: ${token}, signature: ${signature ? 'provided' : 'missing'}`);
+    
+    // Check for required signature
+    if (!signature) {
+      log(`Contract acceptance rejected - no signature provided`);
+      return res.status(400).json({
+        message: "Signature is required to accept a contract",
+        token,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Explicitly set response headers to ensure JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Check if the contract exists and is valid
+    const contractResult = await pool.query(`
+      SELECT * FROM contract_links WHERE token = $1
+    `, [token]);
+    
+    if (contractResult.rows.length === 0) {
+      log(`Contract not found with token: ${token}`);
+      return res.status(404).json({ 
+        message: "Contract not found", 
+        token,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const contract = contractResult.rows[0];
+    log(`Found contract: #${contract.id} for musician: ${contract.musician_id}, event: ${contract.event_id}`);
+    
+    // Check if contract has already been responded to
+    if (contract.responded_at) {
+      log(`Contract #${contract.id} already responded to at ${contract.responded_at}`);
+      return res.status(400).json({
+        message: "Contract has already been responded to",
+        respondedAt: contract.responded_at,
+        status: contract.status,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Check if contract is expired
+    const expiresAt = new Date(contract.expires_at);
+    if (new Date() > expiresAt) {
+      log(`Contract #${contract.id} has expired at ${contract.expires_at}`);
+      return res.status(400).json({
+        message: "Contract has expired",
+        expiresAt: contract.expires_at,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Update the contract status to accepted
+    const now = new Date().toISOString();
+    log(`Accepting contract #${contract.id} with signature: ${signature}`);
+    
+    const updateResult = await pool.query(`
+      UPDATE contract_links 
+      SET status = 'contract-signed', 
+          response = $1, 
+          responded_at = $2,
+          musician_signature = $3
+      WHERE token = $4
+      RETURNING *
+    `, [response || '', now, signature, token]);
+    
+    if (updateResult.rows.length === 0) {
+      log(`Failed to update contract #${contract.id}`);
+      return res.status(500).json({
+        message: "Failed to accept contract",
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const updatedContract = updateResult.rows[0];
+    log(`Successfully accepted contract #${updatedContract.id}`);
+    
+    // Format the response
+    return res.json({
+      message: "Contract accepted successfully",
+      contract: {
+        id: updatedContract.id,
+        bookingId: updatedContract.booking_id,
+        eventId: updatedContract.event_id,
+        musicianId: updatedContract.musician_id,
+        token: updatedContract.token,
+        status: updatedContract.status,
+        respondedAt: updatedContract.responded_at,
+        response: updatedContract.response,
+        musicianSignature: updatedContract.musician_signature,
+        companySignature: updatedContract.company_signature
+      }
+    });
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Contract accept error: ${error}`);
     res.status(500).json({ 
       error: "Internal server error", 
       message: String(error),
