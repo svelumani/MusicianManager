@@ -259,16 +259,58 @@ const InlineMusicianSelect = ({
       return;
     }
     
-    // Make sure we have a valid pay rate
-    const payRate = musician.payRate || getDefaultRateForMusician(musicianId, musician.categoryId);
+    // Find the slot to get start/end time
+    let currentSlot;
+    if (slot && slot.id === slotId) {
+      currentSlot = slot;
+    } else {
+      // If this is a newly created slot, it should be available as 'slot' with updated data
+      // If not, default to using startTime and endTime from state
+      currentSlot = {
+        startTime,
+        endTime
+      };
+    }
     
-    console.log(`Assigning musician ${musician.name} with pay rate: $${payRate}`);
+    // Calculate hours based on start and end times
+    let hours = 3; // Default to 3 hours if calculation fails
+    try {
+      if (currentSlot.startTime && currentSlot.endTime) {
+        // Parse the time strings (format: "HH:MM" like "19:00")
+        const [startHours, startMinutes] = currentSlot.startTime.split(':').map(Number);
+        const [endHours, endMinutes] = currentSlot.endTime.split(':').map(Number);
+        
+        // Convert to minutes for easier calculation
+        const startTotalMinutes = startHours * 60 + startMinutes;
+        let endTotalMinutes = endHours * 60 + endMinutes;
+        
+        // Handle case where end time is on the next day (e.g., 01:00 AM)
+        if (endTotalMinutes < startTotalMinutes) {
+          endTotalMinutes += 24 * 60; // Add 24 hours in minutes
+        }
+        
+        // Calculate the difference in hours (rounded to 1 decimal place)
+        const durationMinutes = endTotalMinutes - startTotalMinutes;
+        hours = Math.round((durationMinutes / 60) * 10) / 10;
+      }
+    } catch (error) {
+      console.log(`Error calculating hours:`, error);
+      hours = 3; // Fallback if calculation fails
+    }
+    
+    // Get hourly rate (use musician.payRate as fallback)
+    const hourlyRate = musician.payRate || getDefaultRateForMusician(musicianId, musician.categoryId);
+    
+    // Calculate total fee based on hours and hourly rate
+    const totalFee = Math.round(hourlyRate * hours);
+    
+    console.log(`Assigning musician ${musician.name} with hourly rate: $${hourlyRate}, hours: ${hours}, total fee: $${totalFee}`);
     
     const assignmentData = {
       slotId,
       musicianId,
       status: "scheduled",
-      actualFee: payRate,
+      actualFee: totalFee,
     };
     
     createAssignmentMutation.mutate(assignmentData);
