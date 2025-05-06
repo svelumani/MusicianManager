@@ -118,7 +118,7 @@ function ContractsTable({ eventId }: ContractsTableProps) {
         title: "Contract Resent",
         description: "The contract was successfully resent to the musician."
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v2/contracts/event", eventId] });
     },
     onError: (error: Error) => {
       toast({
@@ -176,7 +176,7 @@ function ContractsTable({ eventId }: ContractsTableProps) {
         title: "Contract Cancelled",
         description: "The contract was successfully cancelled."
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v2/contracts/event", eventId] });
     },
     onError: (error: Error) => {
       console.error("Contract cancellation error:", error);
@@ -951,7 +951,7 @@ export default function ViewEventPage() {
                                                         description: `${musician?.name} has been accepted and a contract has been sent automatically.`
                                                       });
                                                       // Also refresh contracts
-                                                      queryClient.invalidateQueries({ queryKey: ["/api/contracts/event", eventId] });
+                                                      queryClient.invalidateQueries({ queryKey: ["/api/v2/contracts/event", eventId] });
                                                     }
                                                   }
                                                 );

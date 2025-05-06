@@ -132,11 +132,13 @@ export default function EventForm({ onSuccess, onCancel, initialData }: EventFor
   
   // Fetch contracts for the event when editing to check statuses
   const { data: eventContracts = [], isLoading: isLoadingContracts } = useQuery({
-    queryKey: ["/api/contracts/event", initialData?.id],
+    queryKey: ["/api/v2/contracts/event", initialData?.id],
     enabled: !!initialData?.id, // Only fetch when editing an existing event
     queryFn: async () => {
       try {
-        const res = await fetch(`/api/contracts/event/${initialData?.id}`);
+        // Add cache-busting timestamp to prevent caching issues
+        const timestamp = new Date().getTime();
+        const res = await fetch(`/api/v2/contracts/event/${initialData?.id}?t=${timestamp}`);
         if (!res.ok) throw new Error("Failed to load contracts");
         return res.json();
       } catch (err) {
