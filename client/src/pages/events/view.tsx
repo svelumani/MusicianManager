@@ -377,89 +377,13 @@ export default function ViewEventPage() {
       
       // Log if we're not seeing any rates
       if (data.length === 0) {
-        console.log("No musician pay rates returned from API, will generate fallback data");
+        console.error("CRITICAL ERROR: No musician pay rates returned from API. This could cause legal issues.");
+        // This is a critical error - no fallback rates generated as they could lead to legal issues
       }
       
-      // Always generate fallback rates to ensure we have rates for all musicians
-      console.log("Generating fallback data for all musicians");
-      
-      // Get event categories (or use a fallback if API fails)
-      let eventCats = [];
-      try {
-        eventCats = await fetch('/api/event-categories').then(res => res.ok ? res.json() : []);
-        console.log(`Retrieved ${eventCats.length} event categories for rate generation`);
-      } catch (err) {
-        console.error("Failed to fetch event categories, using fallback category IDs", err);
-        // Use common event category IDs as fallback
-        eventCats = Array.from({ length: 10 }, (_, i) => ({ id: i + 1, title: `Category ${i + 1}` }));
-      }
-      
-      // Get all musicians if not already loaded
-      let allMusicians = musicians || [];
-      if (!allMusicians || allMusicians.length === 0) {
-        try {
-          allMusicians = await fetch('/api/musicians').then(res => res.ok ? res.json() : []);
-          console.log(`Retrieved ${allMusicians.length} musicians for rate generation`);
-        } catch (err) {
-          console.error("Failed to fetch musicians", err);
-        }
-      }
-      
-      // Generate reasonable fallback rates for all musicians with all event categories
-      const fallbackRates = [];
-      const existingMusicianIds = new Set(data.map((rate: any) => rate.musicianId || rate.musician_id));
-      
-      for (const musician of allMusicians) {
-        // Skip if we already have rates for this musician
-        if (existingMusicianIds.has(musician.id)) {
-          console.log(`Using real rates for musician ${musician.id}`);
-          continue;
-        }
-        
-        console.log(`Generating fallback rates for musician: ${musician.id}`);
-        
-        // Generate a base hourly rate between $75-125
-        const baseHourlyRate = 75 + Math.floor(Math.random() * 50);
-        
-        // For each event category, create a separate rate
-        if (eventCats && eventCats.length > 0) {
-          for (const category of eventCats) {
-            // Vary the rate slightly by category
-            const categoryModifier = 0.8 + (Math.random() * 0.4); // 0.8-1.2 modifier
-            const hourlyRate = Math.round(baseHourlyRate * categoryModifier);
-            const dayRate = hourlyRate * 6; // Typical day rate is 6-8x hourly
-            const eventRate = dayRate * 1.2; // Event rate with a premium
-            
-            fallbackRates.push({
-              id: `fallback-${musician.id}-${category.id}`,
-              musicianId: musician.id,
-              eventCategoryId: category.id,
-              hourlyRate: hourlyRate,
-              dayRate: dayRate,
-              eventRate: eventRate,
-              notes: "Generated fallback rate"
-            });
-          }
-        } else {
-          // If no categories, just create a default rate
-          fallbackRates.push({
-            id: `fallback-${musician.id}-default`,
-            musicianId: musician.id,
-            eventCategoryId: null,
-            hourlyRate: baseHourlyRate,
-            dayRate: baseHourlyRate * 6,
-            eventRate: baseHourlyRate * 8,
-            notes: "Generated fallback rate"
-          });
-        }
-      }
-      
-      console.log(`Generated ${fallbackRates.length} fallback rates`);
-      
-      // Combine real rates and fallback rates
-      const combinedRates = [...data, ...fallbackRates];
-      console.log(`Total rates after merging: ${combinedRates.length}`);
-      return combinedRates;
+      // Return the actual data from the database - no fallbacks
+      console.log(`Retrieved ${data.length} actual musician pay rates`);
+      return data;
     },
     enabled: !!musicians && musicians.length > 0,
   });
