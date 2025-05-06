@@ -181,7 +181,7 @@ export default function ContractResponsePage() {
           },
           body: JSON.stringify({ 
             signature: signature,
-            response: responseMessage 
+            response: responseMessage || "Contract accepted"
           })
         }
       );
@@ -194,6 +194,13 @@ export default function ContractResponsePage() {
       
       const data = await res.json();
       console.log('Contract acceptance success:', data);
+      
+      // Manually update contract data to ensure UI shows correct state
+      if (contractData) {
+        contractData.contract.status = "contract-signed";
+        contractData.contract.musicianSignature = signature;
+        contractData.contract.respondedAt = new Date().toISOString();
+      }
       
       // Update UI to show success
       setResponseSuccess(true);
@@ -267,11 +274,22 @@ export default function ContractResponsePage() {
   }
 
   if (responseSuccess) {
-    const isAccepted = 
+    // When using handleAccept(), we're always accepting the contract
+    // so we should always show the accepted UI
+    // The issue was because handleAccept uses direct fetch instead of respondMutation
+    // so respondMutation.data.contract.status was undefined
+    let isAccepted = 
       contractData?.contract.status === "accepted" || 
       contractData?.contract.status === "contract-signed" ||
       respondMutation.data?.contract?.status === "accepted" || 
       respondMutation.data?.contract?.status === "contract-signed";
+      
+    // If we used the direct /accept endpoint, we should always show accepted UI
+    if (signature && signature.trim()) {
+      isAccepted = true;
+    }
+    
+    console.log("Response success UI showing:", { isAccepted, signature });
     
     return (
       <div className="container py-12 max-w-3xl mx-auto">
