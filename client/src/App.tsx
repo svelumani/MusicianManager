@@ -50,6 +50,7 @@ import ContractsPage from "@/pages/contracts/index";
 import ContractViewPage from "@/pages/contracts/view";
 import ContractResponsePage from "@/pages/contracts/respond";
 import ContractDetailPage from "@/pages/contracts/[id]";
+import ContractFullViewPage from "@/pages/contracts/[id]/view";
 import TestContractPage from "@/pages/test-contract";
 
 function Router() {
@@ -284,6 +285,13 @@ function Router() {
         <AppLayout>
           <ContractViewPage />
         </AppLayout>
+      </Route>
+      <Route path="/contracts/:id/view">
+        {(params) => (
+          <AppLayout>
+            <ContractFullViewPage />
+          </AppLayout>
+        )}
       </Route>
       <Route path="/contracts/:id">
         {(params) => (
