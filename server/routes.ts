@@ -4647,8 +4647,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
       console.log("Fetching musician pay rates, musicianId:", musicianId);
       
-      // DIRECT DB QUERY APPROACH - Bypassing any storage abstraction
-      console.log("USING DIRECT DB QUERY BYPASS");
+      // RETURN JSON DIRECTLY - Bypassing any storage abstraction for now
+      console.log("USING DIRECT SQL QUERY TO RETRIEVE PAY RATES");
+      
+      // Set explicit headers to force JSON response
+      res.setHeader('Content-Type', 'application/json');
       
       try {
         let query = `
@@ -4664,7 +4667,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         query += ` ORDER BY id LIMIT 100`;
         
         const result = await pool.query(query, params);
-        console.log(`Direct DB query found ${result.rows.length} pay rates.`);
+        console.log(`SQL query found ${result.rows.length} pay rates.`);
         
         if (result.rows.length > 0) {
           // Explicitly map the snake_case to camelCase for frontend use
@@ -4678,78 +4681,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             notes: row.notes
           }));
           
-          console.log(`Returning ${formattedPayRates.length} formatted pay rates.`);
-          console.log("Sample:", JSON.stringify(formattedPayRates.slice(0, 2)));
-          
-          // Set explicit headers to force JSON response
-          res.setHeader('Content-Type', 'application/json');
-          console.log(`DEBUG: Sending JSON response with ${formattedPayRates.length} items`);
-          
-          return res.json(formattedPayRates);
+          console.log(`Returning ${formattedPayRates.length} formatted pay rates from direct query.`);
+          // Send the formatted data as JSON
+          return res.send(JSON.stringify(formattedPayRates));
         } else {
-          console.log("No pay rates found in direct DB query.");
-          return res.json([]);
+          console.log("No pay rates found in DB. Returning empty array.");
+          return res.send("[]");
         }
       } catch (directDbError) {
-        console.error("Error in direct DB query:", directDbError);
-        // Fall back to storage method if direct DB query fails
+        console.error("Error in direct SQL query:", directDbError);
+        return res.status(500).send(JSON.stringify({ error: "Database error" }));
       }
-      
-      // If we reach here, the direct method failed somehow
-      
-      // STORAGE INTERFACE APPROACH - For fallback
-      console.log("FALLING BACK to storage interface method");
-      let payRates = musicianId 
-        ? await storage.getMusicianPayRatesByMusicianId(musicianId)
-        : await storage.getMusicianPayRates();
-      
-      console.log(`Retrieved ${payRates.length} pay rates through storage interface.`);
-      
-      // Debug the returned structure - first few items if available
-      if (payRates.length > 0) {
-        console.log(`First 3 pay rates through storage:`, JSON.stringify(payRates.slice(0, 3)));
-        
-        // Check if the data structure matches what the frontend expects
-        const hasCorrectFields = payRates.some(rate => 
-          'eventCategoryId' in rate && 
-          'hourlyRate' in rate && 
-          'dayRate' in rate && 
-          'eventRate' in rate
-        );
-        
-        console.log("Pay rates have correct field structure:", hasCorrectFields);
-        
-        // Do a detailed key-by-key check of the first item
-        const firstItem = payRates[0];
-        console.log("First item keys:", Object.keys(firstItem));
-        console.log("First item values:", JSON.stringify(firstItem));
-        
-        // Try to manually fix the data structure if needed
-        if (!hasCorrectFields) {
-          console.log("Attempting to manually fix the data structure");
-          payRates = payRates.map(rate => ({
-            id: rate.id,
-            musicianId: rate.musician_id || rate.musicianId,
-            eventCategoryId: rate.event_category_id || rate.eventCategoryId,
-            hourlyRate: rate.hourly_rate || rate.hourlyRate,
-            dayRate: rate.day_rate || rate.dayRate,
-            eventRate: rate.event_rate || rate.eventRate,
-            notes: rate.notes
-          }));
-          console.log("Fixed pay rates sample:", JSON.stringify(payRates.slice(0, 1)));
-        }
-      } else {
-        console.log("No pay rates found through storage interface. Will return an empty array.");
-      }
-      
-      // Make sure we're returning properly formatted JSON with the expected field names
-      res.setHeader('Content-Type', 'application/json');
-      console.log("About to send response, pay rates length:", payRates.length);
-      console.log("Response payload sample:", JSON.stringify(payRates.slice(0, 1)));
-      res.json(payRates);
     } catch (error) {
       console.error("Error in musician-pay-rates endpoint:", error);
-      res.status(500).json({ message: "Error fetching musician pay rates" });
+      res.status(500).send(JSON.stringify({ message: "Error fetching musician pay rates" }));
     }
   });
 
