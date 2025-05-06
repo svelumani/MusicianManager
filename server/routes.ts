@@ -4833,9 +4833,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/direct/musician-pay-rates", async (req, res) => {
     try {
       const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
-      console.log("DIRECT API endpoint - Pay rates for musician:", musicianId);
+      const t = req.query.t; // Cache-busting parameter
       
-      // Direct SQL query bypassing all middleware and authentication
+      console.log("DIRECT API musician-pay-rates - Request received:", {
+        musicianId,
+        timestamp: t,
+        requestHeaders: {
+          'accept': req.headers.accept,
+          'content-type': req.headers['content-type']
+        }
+      });
+      
+      // Try direct database query bypassing middleware and authentication
+      // First, ensure the table exists
+      try {
+        const tableCheckResult = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = 'musician_pay_rates'
+          );
+        `);
+        
+        const tableExists = tableCheckResult.rows[0].exists;
+        if (!tableExists) {
+          console.error("CRITICAL ERROR: musician_pay_rates table does not exist in database");
+          res.setHeader('Content-Type', 'application/json');
+          return res.status(500).send(JSON.stringify({ 
+            error: "Database table 'musician_pay_rates' not found",
+            message: "Critical database configuration error"
+          }));
+        }
+      } catch (dbError) {
+        console.error("Error checking for table existence:", dbError);
+      }
+      
+      // Count rows in the table for diagnostics
+      try {
+        const countResult = await pool.query('SELECT COUNT(*) FROM musician_pay_rates');
+        console.log(`Total musician_pay_rates in database: ${countResult.rows[0].count}`);
+      } catch (countError) {
+        console.error("Error counting pay rates:", countError);
+      }
+      
+      // Perform the main query
       const result = await pool.query(`
         SELECT *
         FROM musician_pay_rates
@@ -4843,10 +4884,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         LIMIT 100
       `, musicianId ? [musicianId] : []);
       
-      console.log(`DIRECT API: Found ${result.rows.length} pay rates for musician ${musicianId}.`);
+      console.log(`DIRECT API: Found ${result.rows.length} pay rates ${musicianId ? `for musician ${musicianId}` : 'total'}`);
       
       // Explicitly set response headers to ensure JSON
       res.setHeader('Content-Type', 'application/json');
+      
+      // Log a sample of the data for debugging
+      if (result.rows.length > 0) {
+        console.log("Sample data (first row):", result.rows[0]);
+      }
       
       // Return the formatted rates
       if (result.rows.length > 0) {
@@ -4859,15 +4905,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           eventRate: row.event_rate,
           notes: row.notes
         }));
+        
         console.log("DIRECT API: Returning", formattedRates.length, "formatted pay rates");
-        return res.send(JSON.stringify(formattedRates));
+        // Use res.json for proper JSON formatting with correct content-type headers
+        return res.json(formattedRates);
       } else {
-        console.log("DIRECT API: No pay rates found.");
-        return res.send("[]");
+        console.log("DIRECT API: No pay rates found in the database");
+        // Use res.json for proper JSON formatting
+        return res.json([]);
       }
     } catch (error) {
-      console.error("DIRECT API endpoint error:", error);
-      res.status(500).send(JSON.stringify({ error: String(error) }));
+      console.error("DIRECT API musician-pay-rates error:", error);
+      
+      // Always return proper JSON with error details
+      res.setHeader('Content-Type', 'application/json');
+      res.status(500).json({ 
+        error: "Internal server error", 
+        message: String(error),
+        timestamp: new Date().toISOString()
+      });
     }
   });
 

@@ -349,41 +349,94 @@ export default function ViewEventPage() {
     queryKey: ["/api/direct/musician-pay-rates"],
     queryFn: async () => {
       console.log("Fetching musician pay rates...");
-      const response = await fetch('/api/direct/musician-pay-rates');
-      console.log("Musician pay rates response status:", response.status);
-      if (!response.ok) {
-        console.error("Failed to fetch musician pay rates:", response.statusText);
-        throw new Error("Failed to fetch musician pay rates");
+      try {
+        // Add cache-busting query parameter to prevent caching issues
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/api/direct/musician-pay-rates?t=${timestamp}`);
+        
+        console.log("Musician pay rates response status:", response.status);
+        console.log("Response headers:", 
+          [...response.headers.entries()].reduce((obj, [key, val]) => {
+            obj[key] = val;
+            return obj;
+          }, {}));
+        
+        if (!response.ok) {
+          console.error("Failed to fetch musician pay rates:", response.statusText);
+          // Try to get the error response text
+          try {
+            const errorText = await response.text();
+            console.error("Error response:", errorText.substring(0, 500));
+          } catch (e) {
+            console.error("Could not read error response:", e);
+          }
+          throw new Error(`Failed to fetch musician pay rates: ${response.status} ${response.statusText}`);
+        }
+        
+        // Check content type
+        const contentType = response.headers.get('content-type');
+        console.log("Response content type:", contentType);
+        
+        // If content type isn't JSON, this might be HTML from a middleware issue
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error("WARNING: Response is not JSON!");
+          
+          // Get a sample of what was returned
+          const text = await response.text();
+          console.error("Response text sample:", text.substring(0, 500));
+          
+          // Check if it's HTML - common sign of middleware issues
+          if (text.includes('<!DOCTYPE html>') || text.includes('<html>')) {
+            console.error("ERROR: HTML returned instead of JSON - likely a middleware issue");
+            throw new Error("Server returned HTML instead of JSON data. API endpoint may be misconfigured.");
+          }
+          
+          // Try to parse as JSON anyway
+          try {
+            const parsedData = JSON.parse(text);
+            console.log("Parsed non-JSON response as JSON:", parsedData);
+            // Continue with this parsed data
+            return parsedData;
+          } catch (e) {
+            console.error("Could not parse non-JSON response:", e);
+            throw new Error("Server returned non-JSON response that could not be parsed");
+          }
+        }
+        
+        const data = await response.json();
+        console.log("Musician pay rates data sample (first item):", data && data.length > 0 ? data[0] : "No data");
+        console.log("Musician pay rates data keys:", data && data.length > 0 ? Object.keys(data[0]) : "No data items");
+        console.log("Total musician pay rates returned:", data ? data.length : 0);
+        
+        // Make sure musicianId exists in the data (handle snake_case vs camelCase)
+        if (data && data.length > 0 && !data[0].musicianId && data[0].musician_id) {
+          // If we have snake_case instead of camelCase, normalize the data
+          console.log("Converting snake_case to camelCase for pay rates");
+          return data.map((rate: any) => ({
+            id: rate.id,
+            musicianId: rate.musician_id,
+            eventCategoryId: rate.event_category_id,
+            hourlyRate: rate.hourly_rate,
+            dayRate: rate.day_rate,
+            eventRate: rate.event_rate,
+            notes: rate.notes
+          }));
+        }
+        
+        // Log if we're not seeing any rates
+        if (!data || data.length === 0) {
+          console.error("CRITICAL ERROR: No musician pay rates returned from API. This could cause legal issues.");
+          // Throw an error to trigger the error UI
+          throw new Error("No musician pay rates found. Rate information is required for legal contracts.");
+        }
+        
+        // Return the actual data from the database - no fallbacks
+        console.log(`Retrieved ${data.length} actual musician pay rates`);
+        return data;
+      } catch (error) {
+        console.error("Error in musician pay rates query:", error);
+        throw error; // Let React Query handle the error
       }
-      const data = await response.json();
-      console.log("Musician pay rates data sample (first item):", data[0]);
-      console.log("Musician pay rates data keys:", data[0] ? Object.keys(data[0]) : "No data items");
-      console.log("Total musician pay rates returned:", data.length);
-      
-      // Make sure musicianId exists in the data
-      if (data.length > 0 && !data[0].musicianId && data[0].musician_id) {
-        // If we have snake_case instead of camelCase, normalize the data
-        console.log("Converting snake_case to camelCase for pay rates");
-        return data.map((rate: any) => ({
-          id: rate.id,
-          musicianId: rate.musician_id,
-          eventCategoryId: rate.event_category_id,
-          hourlyRate: rate.hourly_rate,
-          dayRate: rate.day_rate,
-          eventRate: rate.event_rate,
-          notes: rate.notes
-        }));
-      }
-      
-      // Log if we're not seeing any rates
-      if (data.length === 0) {
-        console.error("CRITICAL ERROR: No musician pay rates returned from API. This could cause legal issues.");
-        // This is a critical error - no fallback rates generated as they could lead to legal issues
-      }
-      
-      // Return the actual data from the database - no fallbacks
-      console.log(`Retrieved ${data.length} actual musician pay rates`);
-      return data;
     },
     enabled: !!musicians && musicians.length > 0,
   });
