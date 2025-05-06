@@ -76,7 +76,7 @@ export default function ContractResponsePage() {
   const token = params.token;
   const { toast } = useToast();
   const [responseMessage, setResponseMessage] = useState("");
-  const [signature, setSignature] = useState("");
+  const [signature, setSignature] = useState("SV"); // Default initials placeholder
   const [responseSuccess, setResponseSuccess] = useState(false);
   const [responseError, setResponseError] = useState<string | null>(null);
   const [isAcceptDialogOpen, setIsAcceptDialogOpen] = useState(false);
@@ -503,14 +503,16 @@ export default function ContractResponsePage() {
                   </div>
                   <Input
                     id="signature"
-                    placeholder="Type your full name as signature"
+                    placeholder="Type your initials (e.g., SV)"
                     value={signature}
                     onChange={(e) => setSignature(e.target.value)}
-                    className="w-full"
+                    className="w-full text-center text-lg font-medium"
+                    maxLength={3}
+                    required={true}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    By typing your name above, you agree this constitutes your electronic signature.
-                    Your IP address will be recorded with your signature for verification purposes.
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    Please enter your initials to sign this contract. By providing your initials, 
+                    you agree this constitutes your electronic signature.
                   </p>
                 </div>
                 <AlertDialogFooter>
