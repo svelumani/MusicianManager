@@ -464,8 +464,8 @@ const MusicianContractPage = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Musician Response</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signature Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response Status</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signature Initials</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP / Timestamp</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                 </tr>
@@ -527,10 +527,15 @@ const MusicianContractPage = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {musicianContract.musicianSignature ? (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center">
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                              Signed
-                            </Badge>
+                            <div className="flex flex-col">
+                              <Badge variant="outline" className="bg-green-50 text-green-700 flex items-center mb-1 w-fit">
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                Signed
+                              </Badge>
+                              <span className="text-xs font-semibold bg-green-50 text-green-700 px-2 py-1 rounded-md w-fit">
+                                {musicianContract.musicianSignature}
+                              </span>
+                            </div>
                           ) : (
                             <Badge variant="outline" className="bg-gray-50 text-gray-600 flex items-center">
                               <XCircle className="h-3.5 w-3.5 mr-1" />
