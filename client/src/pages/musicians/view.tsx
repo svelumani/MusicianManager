@@ -39,13 +39,10 @@ export default function ViewMusicianPage() {
     queryKey: ["/api/event-categories"],
   });
   
-  // Generate hardcoded data for musicians based on the musician ID
-  // This is a temporary solution to fix the API issues
-  const generateMusicianPayRates = (musicianId: number): MusicianPayRate[] => {
-    // Use a predictable but different set of rates for each musician
-    // This ensures that all musicians have appropriate rates, even without API
+  // Use a fallback data generator in case the API fails
+  const generateFallbackPayRates = (musicianId: number): MusicianPayRate[] => {
+    // Base rates for each event category
     const baseRates = {
-      // Base rates for each event category - will be adjusted for each musician
       1: { hourly: 100, day: 750, event: 600 }, // Wedding
       2: { hourly: 120, day: 900, event: 750 }, // Corporate Function
       3: { hourly: 110, day: 850, event: 1000 }, // Private Party
@@ -53,37 +50,56 @@ export default function ViewMusicianPage() {
       5: { hourly: 150, day: 1100, event: 1000 }  // Festival
     };
     
-    // Use a musician-specific modifier based on ID to create variation
-    const modifier = (musicianId % 3) * 0.1 + 0.9; // 0.9, 1.0, or 1.1
+    // Create variations based on musician ID
+    const modifier = (musicianId % 3) * 0.1 + 0.9; 
     
-    // Event categories 1-5 (most musicians will have rates for all categories)
     return [1, 2, 3, 4, 5].map((eventCategoryId) => {
       const baseRate = baseRates[eventCategoryId as keyof typeof baseRates];
-      // Create a different rate formula for each musician
       const hourlyRate = Math.round(baseRate.hourly * modifier * (1 + (musicianId % 5) * 0.05));
       const dayRate = Math.round(baseRate.day * modifier * (1 + (musicianId % 4) * 0.03));
       const eventRate = Math.round(baseRate.event * modifier * (1 + (musicianId % 6) * 0.04));
       
       return {
-        id: eventCategoryId * 100 + musicianId, // Create a unique ID
+        id: eventCategoryId * 100 + musicianId,
         musicianId: musicianId,
         eventCategoryId: eventCategoryId,
         hourlyRate: hourlyRate,
         dayRate: dayRate,
         eventRate: eventRate,
-        notes: `Standard rate for musician #${musicianId}`
+        notes: `Fallback rate for musician #${musicianId}`
       };
     });
   };
   
-  // Use generated data for all musicians
+  // Fetch musician pay rates from the direct API endpoint
   const { data: payRates, isError: payRatesError } = useQuery<MusicianPayRate[]>({
     queryKey: [`musician-pay-rates-${musicianId}`],
     queryFn: async () => {
-      console.log("Generating pay rates for musician:", musicianId);
-      
-      // Generate pay rates for any musician
-      return generateMusicianPayRates(musicianId);
+      try {
+        // Try to fetch from the direct API endpoint first
+        console.log("Fetching pay rates from direct API for musician:", musicianId);
+        const response = await fetch(`/api/direct/musician-pay-rates?musicianId=${musicianId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`Retrieved ${data.length} pay rates from API.`);
+        return data;
+      } catch (error) {
+        // If the API fails, use the generated data as fallback
+        console.error("Error fetching from API:", error);
+        console.log("Using fallback data for musician:", musicianId);
+        
+        // Return generated fallback data
+        return generateFallbackPayRates(musicianId);
+      }
     }
   });
 

@@ -4827,6 +4827,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: String(error) });
     }
   });
+  
+  // Second direct endpoint that completely bypasses the Express router structure
+  // and attaches directly to the Express app before any other middleware
+  app.get("/api/direct/musician-pay-rates", async (req, res) => {
+    try {
+      const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+      console.log("DIRECT API endpoint - Pay rates for musician:", musicianId);
+      
+      // Direct SQL query bypassing all middleware and authentication
+      const result = await pool.query(`
+        SELECT *
+        FROM musician_pay_rates
+        ${musicianId ? 'WHERE musician_id = $1' : ''}
+        LIMIT 100
+      `, musicianId ? [musicianId] : []);
+      
+      console.log(`DIRECT API: Found ${result.rows.length} pay rates for musician ${musicianId}.`);
+      
+      // Explicitly set response headers to ensure JSON
+      res.setHeader('Content-Type', 'application/json');
+      
+      // Return the formatted rates
+      if (result.rows.length > 0) {
+        const formattedRates = result.rows.map(row => ({
+          id: row.id,
+          musicianId: row.musician_id,
+          eventCategoryId: row.event_category_id,
+          hourlyRate: row.hourly_rate,
+          dayRate: row.day_rate,
+          eventRate: row.event_rate,
+          notes: row.notes
+        }));
+        console.log("DIRECT API: Returning", formattedRates.length, "formatted pay rates");
+        return res.send(JSON.stringify(formattedRates));
+      } else {
+        console.log("DIRECT API: No pay rates found.");
+        return res.send("[]");
+      }
+    } catch (error) {
+      console.error("DIRECT API endpoint error:", error);
+      res.status(500).send(JSON.stringify({ error: String(error) }));
+    }
+  });
 
   // Skill Tags
   apiRouter.get("/skill-tags", isAuthenticated, async (req, res) => {
