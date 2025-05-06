@@ -1,8 +1,61 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { pool } from "./db";
 
 const app = express();
+
+// CRITICAL: Register the direct musician-pay-rates endpoint before ANY middleware
+// This ensures it will not be intercepted by Vite or any other middleware
+app.get("/api/v2/musician-pay-rates", async (req, res) => {
+  try {
+    const musicianId = req.query.musicianId ? parseInt(req.query.musicianId as string) : undefined;
+    const timestamp = req.query.t; // Cache-busting parameter
+    
+    log(`[PRE-MIDDLEWARE API] Musician pay rates request: ${musicianId || 'all'} (t=${timestamp})`);
+    
+    // Explicitly set response headers to ensure JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Count rows in the table for diagnostics
+    try {
+      const countResult = await pool.query('SELECT COUNT(*) FROM musician_pay_rates');
+      log(`Total musician_pay_rates in database: ${countResult.rows[0].count}`);
+    } catch (countError) {
+      log(`Error counting pay rates: ${countError}`);
+    }
+    
+    // Perform the main query
+    const result = await pool.query(`
+      SELECT *
+      FROM musician_pay_rates
+      ${musicianId ? 'WHERE musician_id = $1' : ''}
+      LIMIT 200
+    `, musicianId ? [musicianId] : []);
+    
+    log(`[PRE-MIDDLEWARE API] Found ${result.rows.length} pay rates ${musicianId ? `for musician ${musicianId}` : 'total'}`);
+    
+    // Format the response
+    const formattedRates = result.rows.map(row => ({
+      id: row.id,
+      musicianId: row.musician_id,
+      eventCategoryId: row.event_category_id,
+      hourlyRate: row.hourly_rate,
+      dayRate: row.day_rate,
+      eventRate: row.event_rate,
+      notes: row.notes
+    }));
+    
+    return res.json(formattedRates);
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Error: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
