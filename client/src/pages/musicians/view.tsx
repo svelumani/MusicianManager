@@ -40,47 +40,9 @@ export default function ViewMusicianPage() {
   });
   
   const { data: payRates, isError: payRatesError } = useQuery<MusicianPayRate[]>({
-    queryKey: ["/api/musician-pay-rates", musicianId],
-    queryFn: async () => {
-      console.log("Fetching pay rates for musician:", musicianId);
-      const res = await fetch(`/api/musician-pay-rates?musicianId=${musicianId}`);
-      console.log("Pay rates response status:", res.status);
-      if (!res.ok) throw new Error("Failed to fetch pay rates");
-      const data = await res.json();
-      console.log("Pay rates data:", data);
-      console.log("Type of data:", typeof data);
-      console.log("Is array:", Array.isArray(data));
-      console.log("Length (if array):", Array.isArray(data) ? data.length : 'not an array');
-      
-      // Debug the returned data structure
-      if (Array.isArray(data) && data.length > 0) {
-        console.log("First pay rate object keys:", Object.keys(data[0]));
-        console.log("Is eventCategoryId present?", 'eventCategoryId' in data[0]);
-        console.log("Is event_category_id present?", 'event_category_id' in data[0]);
-        console.log("Pay rate sample:", JSON.stringify(data[0]));
-        
-        // Try manual conversion if needed (for debugging)
-        console.log("======= Attempting to format data =======");
-        const formattedRates = data.map(rate => ({
-          id: rate.id,
-          musicianId: rate.musician_id || rate.musicianId,
-          eventCategoryId: rate.event_category_id || rate.eventCategoryId,
-          hourlyRate: rate.hourly_rate || rate.hourlyRate,
-          dayRate: rate.day_rate || rate.dayRate,
-          eventRate: rate.event_rate || rate.eventRate,
-          notes: rate.notes
-        }));
-        
-        console.log("Formatted rates:", formattedRates);
-        
-        // Actually use the formatted data
-        return formattedRates;
-      } else {
-        console.log("No pay rates received or not in expected format", data);
-      }
-      
-      return data;
-    },
+    queryKey: [`/api/musician-pay-rates?musicianId=${musicianId}`],
+    // Let the default queryFn handle this request to ensure proper auth
+    // This will use the global client config that includes credentials
   });
 
   useEffect(() => {
