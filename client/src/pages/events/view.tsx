@@ -346,10 +346,10 @@ export default function ViewEventPage() {
   
   // Fetch musician pay rates for all assigned musicians
   const { data: musicianPayRates = [] } = useQuery({
-    queryKey: ["/api/musician-pay-rates"],
+    queryKey: ["/api/direct/musician-pay-rates"],
     queryFn: async () => {
       console.log("Fetching musician pay rates...");
-      const response = await fetch('/api/musician-pay-rates');
+      const response = await fetch('/api/direct/musician-pay-rates');
       console.log("Musician pay rates response status:", response.status);
       if (!response.ok) {
         console.error("Failed to fetch musician pay rates:", response.statusText);

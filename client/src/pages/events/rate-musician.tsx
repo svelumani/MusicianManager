@@ -174,7 +174,7 @@ export default function RateMusicianPage() {
   const rateMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       // API endpoint
-      const url = "/api/musician-pay-rates";
+      const url = "/api/direct/musician-pay-rates";
       
       // Check if we're updating an existing rate
       let existingRateId = null;
@@ -219,7 +219,7 @@ export default function RateMusicianPage() {
       });
       
       // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ["/api/musician-pay-rates", parsedMusicianId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/direct/musician-pay-rates", parsedMusicianId] });
       queryClient.invalidateQueries({ queryKey: ["/api/musicians", parsedMusicianId] });
       
       // Navigate back to event view
