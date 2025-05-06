@@ -321,18 +321,8 @@ app.get("/api/v2/contracts/token/:token/content", async (req, res) => {
     
     // Get the contract by token
     const contractResult = await pool.query(`
-      SELECT cl.*, 
-             ct.content as template_content, 
-             e.name as event_name, 
-             e.venue_id, 
-             v.name as venue_name,
-             m.name as musician_name, 
-             m.email
+      SELECT cl.*
       FROM contract_links cl
-      JOIN events e ON cl.event_id = e.id
-      JOIN venues v ON e.venue_id = v.id
-      JOIN musicians m ON cl.musician_id = m.id
-      LEFT JOIN contract_templates ct ON cl.template_id = ct.id
       WHERE cl.token = $1
     `, [token]);
     
@@ -344,32 +334,71 @@ app.get("/api/v2/contracts/token/:token/content", async (req, res) => {
       });
     }
     
-    const contractData = contractResult.rows[0];
+    const contract = contractResult.rows[0];
     
-    // If we have a stored content, return that directly
-    if (contractData.content) {
-      return res.json({ content: contractData.content });
+    // Get event and musician data
+    const eventResult = await pool.query(`
+      SELECT e.*, v.name as venue_name
+      FROM events e
+      LEFT JOIN venues v ON e.venue_id = v.id
+      WHERE e.id = $1
+    `, [contract.event_id]);
+    
+    const musicianResult = await pool.query(`
+      SELECT *
+      FROM musicians
+      WHERE id = $1
+    `, [contract.musician_id]);
+    
+    if (eventResult.rows.length === 0 || musicianResult.rows.length === 0) {
+      return res.status(404).json({ 
+        message: "Event or musician data not found", 
+        timestamp: new Date().toISOString()
+      });
     }
     
-    // Otherwise use the template content and fill in the variables
-    let content = contractData.template_content || '';
+    const event = eventResult.rows[0];
+    const musician = musicianResult.rows[0];
+    
+    // Get the default template
+    const templateResult = await pool.query(`
+      SELECT *
+      FROM contract_templates
+      WHERE is_default = true
+      ORDER BY id DESC
+      LIMIT 1
+    `);
+    
+    if (templateResult.rows.length === 0) {
+      return res.status(404).json({ 
+        message: "No default contract template found", 
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const template = templateResult.rows[0];
+    let content = template.content;
     
     // Basic variable replacement
-    const variables = {
-      'MUSICIAN_NAME': contractData.musician_name,
-      'EVENT_NAME': contractData.event_name,
-      'VENUE_NAME': contractData.venue_name,
-      'EVENT_DATE': contractData.event_date ? new Date(contractData.event_date).toLocaleDateString() : 'TBD',
-      'AMOUNT': contractData.amount ? `$${parseFloat(contractData.amount).toFixed(2)}` : 'TBD',
-      'COMPANY_SIGNATURE': contractData.company_signature || '',
-      'MUSICIAN_SIGNATURE': contractData.musician_signature || '',
-      'CONTRACT_DATE': new Date(contractData.created_at).toLocaleDateString(),
+    const replacements = {
+      '{{contract_id}}': contract.id.toString(),
+      '{{contract_date}}': new Date(contract.created_at).toLocaleDateString(),
+      '{{musician_name}}': musician.name,
+      '{{event_name}}': event.name,
+      '{{event_date}}': contract.event_date ? new Date(contract.event_date).toLocaleDateString() : 'TBD',
+      '{{venue_name}}': event.venue_name || 'TBD',
+      '{{start_time}}': event.start_time || 'TBD',
+      '{{end_time}}': event.end_time || 'TBD',
+      '{{amount}}': contract.amount ? `$${parseFloat(contract.amount).toFixed(2)}` : 'TBD',
+      '{{company_signature}}': contract.company_signature || 'VAMP Management',
+      '{{company_signed_date}}': new Date().toLocaleDateString(),
+      '{{musician_signature}}': contract.musician_signature || '',
+      '{{signed_date}}': contract.responded_at ? new Date(contract.responded_at).toLocaleDateString() : ''
     };
     
-    // Replace variables in the template
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-      content = content.replace(regex, value);
+    // Replace all variables in the template
+    Object.entries(replacements).forEach(([key, value]) => {
+      content = content.replace(new RegExp(key, 'g'), value || '');
     });
     
     return res.json({ content });
