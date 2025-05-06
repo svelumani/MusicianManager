@@ -124,7 +124,7 @@ export default function AddMusicianPage() {
         
         // Now create the pay rates for this musician
         const payRatePromises = payRates.map(payRate => 
-          fetch("/api/musician-pay-rates", {
+          fetch("/api/direct/musician-pay-rates", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

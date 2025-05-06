@@ -103,10 +103,10 @@ export default function RateMusicianPage() {
   
   // Fetch existing pay rates
   const { data: existingRates, isLoading: isLoadingRates } = useQuery({
-    queryKey: ["/api/musician-pay-rates", parsedMusicianId],
+    queryKey: ["/api/direct/musician-pay-rates", parsedMusicianId],
     enabled: !isNaN(parsedMusicianId),
     queryFn: async () => {
-      const res = await fetch(`/api/musician-pay-rates?musicianId=${parsedMusicianId}`);
+      const res = await fetch(`/api/direct/musician-pay-rates?musicianId=${parsedMusicianId}`);
       if (!res.ok) throw new Error("Failed to fetch pay rates");
       return res.json();
     },

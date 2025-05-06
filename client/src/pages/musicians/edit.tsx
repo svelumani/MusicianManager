@@ -63,9 +63,9 @@ export default function EditMusicianPage() {
   });
 
   const { data: payRates, isLoading: isLoadingPayRates } = useQuery<MusicianPayRate[]>({
-    queryKey: ["/api/musician-pay-rates", musicianId],
+    queryKey: ["/api/direct/musician-pay-rates", musicianId],
     queryFn: async () => {
-      const res = await fetch(`/api/musician-pay-rates?musicianId=${musicianId}`);
+      const res = await fetch(`/api/direct/musician-pay-rates?musicianId=${musicianId}`);
       if (!res.ok) throw new Error("Failed to fetch pay rates");
       return res.json();
     },
@@ -179,7 +179,7 @@ export default function EditMusicianPage() {
         
         // Handle pay rates - update existing ones and create new ones
         const payRatePromises = payRates.map(payRate => {
-          const endpoint = "/api/musician-pay-rates";
+          const endpoint = "/api/direct/musician-pay-rates";
           const method = payRate.id ? "PUT" : "POST";
           const url = payRate.id ? `${endpoint}/${payRate.id}` : endpoint;
           
@@ -211,7 +211,7 @@ export default function EditMusicianPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/musicians"] });
       queryClient.invalidateQueries({ queryKey: ["/api/musicians", musicianId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/musician-pay-rates", musicianId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/direct/musician-pay-rates", musicianId] });
       navigate(`/musicians/${musicianId}`);
     },
     onError: (error) => {
