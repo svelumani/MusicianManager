@@ -137,8 +137,8 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     data: payRates,
     isLoading: isPayRatesLoading,
   } = useQuery({
-    queryKey: ['/api/musician-pay-rates'],
-    queryFn: () => apiRequest('/api/musician-pay-rates'),
+    queryKey: ['/api/direct/musician-pay-rates'],
+    queryFn: () => apiRequest('/api/direct/musician-pay-rates'),
   });
   
   // Query to get event categories for proper pricing calculations
