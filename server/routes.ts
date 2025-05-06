@@ -2854,8 +2854,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               );
               
               if (matchingRate && matchingRate.hourlyRate) {
-                // Calculate new fee
-                const newFee = Math.round(matchingRate.hourlyRate * hours);
+                // Calculate new fee - exact multiplication without rounding
+                const newFee = parseInt((matchingRate.hourlyRate * hours).toFixed(0));
                 
                 // Update the assignment with the new fee
                 console.log(`Updating assignment ${assignment.id} fee to ${newFee} (${matchingRate.hourlyRate} × ${hours} hours)`);

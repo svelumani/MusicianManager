@@ -301,10 +301,10 @@ const InlineMusicianSelect = ({
     // Get hourly rate (use musician.payRate as fallback)
     const hourlyRate = musician.payRate || getDefaultRateForMusician(musicianId, musician.categoryId);
     
-    // Calculate total fee based on hours and hourly rate
-    const totalFee = Math.round(hourlyRate * hours);
+    // Calculate total fee based on hours and hourly rate - exact multiplication without rounding
+    const totalFee = parseInt((hourlyRate * hours).toFixed(0));
     
-    console.log(`Assigning musician ${musician.name} with hourly rate: $${hourlyRate}, hours: ${hours}, total fee: $${totalFee}`);
+    console.log(`Assigning musician ${musician.name} with hourly rate: $${hourlyRate}, hours: ${hours}, total fee: $${totalFee} (calculation: ${hourlyRate} × ${hours} = ${hourlyRate * hours})`);
     
     const assignmentData = {
       slotId,
