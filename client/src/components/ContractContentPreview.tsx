@@ -21,8 +21,32 @@ export default function ContractContentPreview({ contractId, token }: ContractCo
   const { data: contractContent, isLoading } = useQuery({
     queryKey: contractId 
       ? [`/api/contracts/${contractId}/content`] 
-      : [`/api/contracts/token/${token}/content`],
-    onError: () => setHasError(true),
+      : [`/api/v2/contracts/token/${token}/content`], // Use direct endpoint for tokens
+    queryFn: async () => {
+      try {
+        console.log(`Fetching contract content for ${contractId ? 'ID: ' + contractId : 'token: ' + token}`);
+        const timestamp = Date.now(); // Add cache-busting parameter
+        
+        // Use direct endpoint for tokens, regular API for contract IDs
+        const endpoint = contractId 
+          ? `/api/contracts/${contractId}/content?t=${timestamp}` 
+          : `/api/v2/contracts/token/${token}/content?t=${timestamp}`;
+        
+        const response = await fetch(endpoint);
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch contract content: ${response.status}`);
+          setHasError(true);
+          throw new Error(`Failed to fetch contract content: ${response.status}`);
+        }
+        
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching contract content:', error);
+        setHasError(true);
+        throw error;
+      }
+    },
     enabled: !!(contractId || token), // Only run if either contractId or token is provided
     // Force refetch data to ensure we get the latest stored content
     refetchOnMount: true,

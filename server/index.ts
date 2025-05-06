@@ -165,6 +165,224 @@ app.get("/api/v2/contracts/:id", async (req, res) => {
   }
 });
 
+// Direct endpoint for getting a contract by token
+app.get("/api/v2/contracts/token/:token", async (req, res) => {
+  try {
+    const token = req.params.token;
+    const timestamp = req.query.t; // Cache-busting parameter
+    
+    log(`[PRE-MIDDLEWARE API] Contract request by token: ${token} (t=${timestamp})`);
+    
+    // Explicitly set response headers to ensure JSON
+    res.setHeader('Content-Type', 'application/json');
+    
+    // Get the contract by token
+    const contractResult = await pool.query(`
+      SELECT cl.*, e.name as event_name, e.venue_id, m.name as musician_name, m.email, m.profile_image
+      FROM contract_links cl
+      JOIN events e ON cl.event_id = e.id
+      JOIN musicians m ON cl.musician_id = m.id
+      WHERE cl.token = $1
+    `, [token]);
+    
+    if (contractResult.rows.length === 0) {
+      return res.status(404).json({ 
+        message: "Contract not found", 
+        token,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const contractData = contractResult.rows[0];
+    
+    // Format the response with the expected structure
+    const response = {
+      contract: {
+        id: contractData.id,
+        bookingId: contractData.booking_id,
+        eventId: contractData.event_id,
+        musicianId: contractData.musician_id,
+        invitationId: contractData.invitation_id,
+        token: contractData.token,
+        expiresAt: contractData.expires_at,
+        status: contractData.status,
+        respondedAt: contractData.responded_at,
+        response: contractData.response,
+        createdAt: contractData.created_at,
+        amount: contractData.amount,
+        eventDate: contractData.event_date,
+        companySignature: contractData.company_signature,
+        musicianSignature: contractData.musician_signature
+      },
+      event: {
+        id: contractData.event_id,
+        name: contractData.event_name,
+        venueId: contractData.venue_id
+      },
+      musician: {
+        id: contractData.musician_id,
+        name: contractData.musician_name,
+        email: contractData.email,
+        profileImage: contractData.profile_image
+      }
+    };
+    
+    return res.json(response);
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Error: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Direct endpoint for handling contract response by token
+app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
+  try {
+    const token = req.params.token;
+    const { status, response, signature } = req.body;
+    
+    log(`[PRE-MIDDLEWARE API] Contract response request for token: ${token}, status: ${status}`);
+    
+    // Check if the contract exists and is valid
+    const contractResult = await pool.query(`
+      SELECT * FROM contract_links WHERE token = $1
+    `, [token]);
+    
+    if (contractResult.rows.length === 0) {
+      return res.status(404).json({ 
+        message: "Contract not found", 
+        token,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const contract = contractResult.rows[0];
+    
+    // Check if contract is expired
+    const expiresAt = new Date(contract.expires_at);
+    if (new Date() > expiresAt) {
+      return res.status(400).json({
+        message: "Contract has expired",
+        expiresAt: contract.expires_at,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Update the contract status
+    const now = new Date().toISOString();
+    const updateResult = await pool.query(`
+      UPDATE contract_links 
+      SET status = $1, 
+          response = $2, 
+          responded_at = $3,
+          musician_signature = $4
+      WHERE token = $5
+      RETURNING *
+    `, [status, response, now, signature, token]);
+    
+    const updatedContract = updateResult.rows[0];
+    
+    // Format the response
+    return res.json({
+      message: `Contract ${status === 'accepted' ? 'accepted' : 'declined'} successfully`,
+      contract: {
+        id: updatedContract.id,
+        bookingId: updatedContract.booking_id,
+        eventId: updatedContract.event_id,
+        musicianId: updatedContract.musician_id,
+        token: updatedContract.token,
+        status: updatedContract.status,
+        respondedAt: updatedContract.responded_at,
+        response: updatedContract.response,
+        musicianSignature: updatedContract.musician_signature,
+        companySignature: updatedContract.company_signature
+      }
+    });
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Contract response error: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Direct endpoint for getting contract content by token
+app.get("/api/v2/contracts/token/:token/content", async (req, res) => {
+  try {
+    const token = req.params.token;
+    const timestamp = req.query.t; // Cache-busting parameter
+    
+    log(`[PRE-MIDDLEWARE API] Contract content request by token: ${token} (t=${timestamp})`);
+    
+    // Get the contract by token
+    const contractResult = await pool.query(`
+      SELECT cl.*, 
+             ct.content as template_content, 
+             e.name as event_name, 
+             e.venue_id, 
+             v.name as venue_name,
+             m.name as musician_name, 
+             m.email
+      FROM contract_links cl
+      JOIN events e ON cl.event_id = e.id
+      JOIN venues v ON e.venue_id = v.id
+      JOIN musicians m ON cl.musician_id = m.id
+      LEFT JOIN contract_templates ct ON cl.template_id = ct.id
+      WHERE cl.token = $1
+    `, [token]);
+    
+    if (contractResult.rows.length === 0) {
+      return res.status(404).json({ 
+        message: "Contract not found", 
+        token,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const contractData = contractResult.rows[0];
+    
+    // If we have a stored content, return that directly
+    if (contractData.content) {
+      return res.json({ content: contractData.content });
+    }
+    
+    // Otherwise use the template content and fill in the variables
+    let content = contractData.template_content || '';
+    
+    // Basic variable replacement
+    const variables = {
+      'MUSICIAN_NAME': contractData.musician_name,
+      'EVENT_NAME': contractData.event_name,
+      'VENUE_NAME': contractData.venue_name,
+      'EVENT_DATE': contractData.event_date ? new Date(contractData.event_date).toLocaleDateString() : 'TBD',
+      'AMOUNT': contractData.amount ? `$${parseFloat(contractData.amount).toFixed(2)}` : 'TBD',
+      'COMPANY_SIGNATURE': contractData.company_signature || '',
+      'MUSICIAN_SIGNATURE': contractData.musician_signature || '',
+      'CONTRACT_DATE': new Date(contractData.created_at).toLocaleDateString(),
+    };
+    
+    // Replace variables in the template
+    Object.entries(variables).forEach(([key, value]) => {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      content = content.replace(regex, value);
+    });
+    
+    return res.json({ content });
+  } catch (error) {
+    log(`[PRE-MIDDLEWARE API] Contract content error: ${error}`);
+    res.status(500).json({ 
+      error: "Internal server error", 
+      message: String(error),
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

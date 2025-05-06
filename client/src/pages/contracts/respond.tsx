@@ -87,17 +87,50 @@ export default function ContractResponsePage() {
     error,
     isError
   } = useQuery<ContractResponse>({
-    queryKey: [`/api/contracts/token/${token}`],
+    queryKey: [`/api/v2/contracts/token/${token}`],
+    queryFn: async () => {
+      console.log(`Fetching contract data with token: ${token}`);
+      const timestamp = Date.now(); // Add cache-busting parameter
+      const response = await fetch(`/api/v2/contracts/token/${token}?t=${timestamp}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Error fetching contract with token ${token}:`, errorText);
+        throw new Error(`Failed to fetch contract: ${response.status} ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Contract data:`, data);
+      return data;
+    },
+    enabled: !!token
   });
 
   const respondMutation = useMutation({
     mutationFn: async ({ status, response, signature }: { status: string; response: string; signature?: string }) => {
-      const res = await apiRequest(
-        `/api/contracts/token/${token}/respond`,
-        "POST", 
-        { status, response, signature }
+      // Use our new direct endpoint to avoid middleware issues
+      console.log(`Submitting response to contract with token ${token}:`, { status, response, signature });
+      
+      const res = await fetch(
+        `/api/v2/contracts/token/${token}/respond`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status, response, signature })
+        }
       );
-      return res;
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Response error:', errorText);
+        throw new Error(`Failed to submit response: ${res.status} ${errorText}`);
+      }
+      
+      const data = await res.json();
+      console.log('Response success:', data);
+      return data;
     },
     onSuccess: (data) => {
       setResponseSuccess(true);
