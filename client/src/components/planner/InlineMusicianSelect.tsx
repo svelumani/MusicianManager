@@ -84,6 +84,12 @@ const InlineMusicianSelect = ({
         title: "Success",
         description: slot ? "Slot updated successfully" : "Slot created successfully",
       });
+
+      // If this is a slot update, call the onMusicianAssigned handler 
+      // to refresh the assignment data (including recalculated fees)
+      if (slot && onMusicianAssigned) {
+        onMusicianAssigned();
+      }
       
       // If a musician is selected, proceed to assign them
       if (selectedMusicianId && parseInt(selectedMusicianId) > 0) {
