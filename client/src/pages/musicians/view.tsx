@@ -71,14 +71,15 @@ export default function ViewMusicianPage() {
     });
   };
   
-  // Fetch musician pay rates from the direct API endpoint
+  // Fetch musician pay rates from the v2 API endpoint
   const { data: payRates, isError: payRatesError } = useQuery<MusicianPayRate[]>({
-    queryKey: [`musician-pay-rates-${musicianId}`],
+    queryKey: [`/api/v2/musician-pay-rates-${musicianId}`],
     queryFn: async () => {
       try {
-        // Try to fetch from the direct API endpoint first
-        console.log("Fetching pay rates from direct API for musician:", musicianId);
-        const response = await fetch(`/api/direct/musician-pay-rates?musicianId=${musicianId}`, {
+        // Add cache-busting timestamp
+        const timestamp = new Date().getTime();
+        console.log("Fetching pay rates from v2 API for musician:", musicianId);
+        const response = await fetch(`/api/v2/musician-pay-rates?musicianId=${musicianId}&t=${timestamp}`, {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json'
@@ -86,19 +87,18 @@ export default function ViewMusicianPage() {
         });
         
         if (!response.ok) {
-          throw new Error(`API returned ${response.status}`);
+          throw new Error(`V2 API returned ${response.status}`);
         }
         
         const data = await response.json();
-        console.log(`Retrieved ${data.length} pay rates from API.`);
+        console.log(`Retrieved ${data.length} pay rates from V2 API.`);
         return data;
       } catch (error) {
-        // If the API fails, use the generated data as fallback
-        console.error("Error fetching from API:", error);
-        console.log("Using fallback data for musician:", musicianId);
+        // If the API fails, log the error and rethrow it
+        console.error("Error fetching from V2 API:", error);
         
-        // Return generated fallback data
-        return generateFallbackPayRates(musicianId);
+        // Do not use fallback data as requested - we need real rates from the database
+        throw new Error(`Failed to fetch musician pay rates: ${error}`);
       }
     }
   });

@@ -137,8 +137,18 @@ const PlannerGrid = ({ plannerId, month, year, onPrepareContracts }: PlannerGrid
     data: payRates,
     isLoading: isPayRatesLoading,
   } = useQuery({
-    queryKey: ['/api/direct/musician-pay-rates'],
-    queryFn: () => apiRequest('/api/direct/musician-pay-rates'),
+    queryKey: ['/api/v2/musician-pay-rates'],
+    queryFn: async () => {
+      // Add cache-busting timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/v2/musician-pay-rates?t=${timestamp}`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch musician pay rates: ${response.status}`);
+      }
+      
+      return response.json();
+    },
   });
   
   // Query to get event categories for proper pricing calculations
