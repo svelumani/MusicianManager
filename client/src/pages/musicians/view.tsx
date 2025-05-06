@@ -39,10 +39,46 @@ export default function ViewMusicianPage() {
     queryKey: ["/api/event-categories"],
   });
   
+  // Use the API request function directly to bypass any caching or transformation issues
   const { data: payRates, isError: payRatesError } = useQuery<MusicianPayRate[]>({
-    queryKey: [`/api/musician-pay-rates?musicianId=${musicianId}`],
-    // Let the default queryFn handle this request to ensure proper auth
-    // This will use the global client config that includes credentials
+    queryKey: [`/api/musician-pay-rates-${musicianId}`], // Unique key to prevent caching issues
+    queryFn: async () => {
+      try {
+        console.log("Directly fetching pay rates for musician:", musicianId);
+        const response = await fetch(`/api/debug-musician-pay-rates?musicianId=${musicianId}`, {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        
+        console.log("Debug API response status:", response.status);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch pay rates: ${response.status}`);
+        }
+        
+        const responseData = await response.json();
+        console.log("Debug API response:", responseData);
+        
+        // Transform the data from the debug endpoint format
+        if (responseData && responseData.data && Array.isArray(responseData.data)) {
+          return responseData.data.map(rate => ({
+            id: rate.id,
+            musicianId: rate.musician_id,
+            eventCategoryId: rate.event_category_id,
+            hourlyRate: rate.hourly_rate,
+            dayRate: rate.day_rate,
+            eventRate: rate.event_rate,
+            notes: rate.notes
+          }));
+        }
+        
+        return [];
+      } catch (error) {
+        console.error("Error fetching musician pay rates:", error);
+        throw error;
+      }
+    }
   });
 
   useEffect(() => {

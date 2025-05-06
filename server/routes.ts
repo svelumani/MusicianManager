@@ -4681,6 +4681,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`Returning ${formattedPayRates.length} formatted pay rates.`);
           console.log("Sample:", JSON.stringify(formattedPayRates.slice(0, 2)));
           
+          // Set explicit headers to force JSON response
+          res.setHeader('Content-Type', 'application/json');
+          console.log(`DEBUG: Sending JSON response with ${formattedPayRates.length} items`);
+          
           return res.json(formattedPayRates);
         } else {
           console.log("No pay rates found in direct DB query.");
