@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { pool } from "./db";
+import { statusService, ENTITY_TYPES } from "./services/status";
 
 const app = express();
 
@@ -328,6 +329,32 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
     const updatedContract = updateResult.rows[0];
     log(`[ACCEPT] Successfully updated contract #${updatedContract.id} to status ${updatedContract.status}`);
     
+    // Update entity status in the centralized status system
+    try {
+      // Use 1 as the default user ID for system actions
+      const systemUserId = 1;
+      
+      // Update the contract entity status
+      await statusService.updateEntityStatus(
+        ENTITY_TYPES.CONTRACT,
+        updatedContract.id,
+        'contract-signed',
+        systemUserId,
+        `Contract signed via direct token endpoint`,
+        updatedContract.event_id,
+        { signature: true, token: token },
+        undefined,
+        updatedContract.musician_id,
+        updatedContract.event_date
+      );
+      
+      log(`[ACCEPT] Updated entity status for contract #${updatedContract.id} to contract-signed`);
+    } catch (statusError) {
+      // Log the error but don't fail the request
+      console.error('[ACCEPT] Error updating entity status:', statusError);
+      log(`[ACCEPT] Failed to update entity status for contract #${updatedContract.id}: ${statusError}`);
+    }
+    
     // Format the response
     return res.json({
       message: "Contract accepted successfully",
@@ -446,6 +473,32 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
     
     const updatedContract = updateResult.rows[0];
     log(`Successfully updated contract #${updatedContract.id} to status ${updatedContract.status}`);
+    
+    // Update entity status in the centralized status system
+    try {
+      // Use 1 as the default user ID for system actions
+      const systemUserId = 1;
+      
+      // Update the contract entity status
+      await statusService.updateEntityStatus(
+        ENTITY_TYPES.CONTRACT,
+        updatedContract.id,
+        updatedContract.status, // Use the contract status that was just set
+        systemUserId,
+        `Contract ${status} via direct token endpoint`,
+        updatedContract.event_id,
+        { signature: !!signature, token: token, response: response },
+        undefined,
+        updatedContract.musician_id,
+        updatedContract.event_date
+      );
+      
+      log(`Updated entity status for contract #${updatedContract.id} to ${updatedContract.status}`);
+    } catch (statusError) {
+      // Log the error but don't fail the request
+      console.error('Error updating entity status:', statusError);
+      log(`Failed to update entity status for contract #${updatedContract.id}: ${statusError}`);
+    }
     
     // Format the response
     return res.json({
