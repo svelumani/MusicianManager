@@ -335,7 +335,6 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
       const systemUserId = 1;
       
       // Update the contract entity status
-      // Update the contract entity status
       await statusService.updateEntityStatus(
         ENTITY_TYPES.CONTRACT,
         updatedContract.id,
