@@ -181,11 +181,48 @@ export function useEntityStatus(
               }
               
               if (event && event.musicianStatuses && typeof musicianId === 'number') {
-                // Look for status in musicianStatuses using string conversion for object indexing
                 const musicianIdKey = musicianId.toString();
-                const status = musicianIdKey in event.musicianStatuses 
-                  ? event.musicianStatuses[musicianIdKey] 
-                  : undefined;
+                let status;
+                
+                // First check if there's a date-specific status
+                if (eventDate && event.musicianStatuses) {
+                  // Check for date-specific status first
+                  if (event.musicianStatuses[eventDate] && 
+                      event.musicianStatuses[eventDate][musicianIdKey]) {
+                    status = event.musicianStatuses[eventDate][musicianIdKey];
+                    console.log(`Found date-specific status for ${eventDate}: ${status}`);
+                  }
+                  // Check for date-indexed object (new format)
+                  else if (typeof event.musicianStatuses === 'object') {
+                    // Try to find the entry with the correct date
+                    const dateKeys = Object.keys(event.musicianStatuses);
+                    for (const dateKey of dateKeys) {
+                      if (dateKey !== 'all' && 
+                          event.musicianStatuses[dateKey] && 
+                          event.musicianStatuses[dateKey][musicianIdKey]) {
+                        status = event.musicianStatuses[dateKey][musicianIdKey];
+                        console.log(`Found date-specific status for ${dateKey}: ${status}`);
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // If no date-specific status, check for 'all' status or direct indexing
+                if (!status) {
+                  // Try 'all' key first (new format)
+                  if (event.musicianStatuses.all && 
+                      event.musicianStatuses.all[musicianIdKey]) {
+                    status = event.musicianStatuses.all[musicianIdKey];
+                    console.log(`Using global status: ${status}`);
+                  }
+                  // Then try direct indexing (old format)
+                  else if (musicianIdKey in event.musicianStatuses) {
+                    status = event.musicianStatuses[musicianIdKey];
+                    console.log(`Using direct status mapping: ${status}`);
+                  }
+                }
+                
                 if (status) {
                   legacyStatusData = {
                     id: 0,
@@ -233,7 +270,27 @@ export function useEntityStatus(
             };
           } catch (legacyError) {
             console.error(`Error getting legacy status:`, legacyError);
-            throw new Error(`Failed to get status for ${entityType} #${entityId}`);
+            
+            // Instead of throwing, return unknown status with error info
+            return {
+              id: 0,
+              entityType,
+              entityId,
+              status: 'unknown',
+              customStatus: null,
+              eventId: eventId || null,
+              musicianId: musicianId || null,
+              eventDate: eventDate || null,
+              statusDate: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              metadata: {
+                legacySource: true,
+                errorOccurred: true,
+                errorMessage: legacyError instanceof Error ? legacyError.message : 'Unknown error'
+              },
+              source: 'error'
+            };
           }
         } else {
           // For other errors, propagate them

@@ -1,7 +1,11 @@
 import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNow } from "date-fns";
-import { useEntityStatus, useEntityStatusConfig } from "@/hooks/use-status";
+import { 
+  useEntityStatus, 
+  useEntityStatusConfig, 
+  useUpdateEntityStatus 
+} from "@/hooks/use-status";
 import {
   Tooltip,
   TooltipContent,
@@ -91,8 +95,57 @@ export default function StatusBadge({
     );
   }
   
-  // If there was an error or no status is available, show Unknown
+  // Handle missing status in centralized system for contracts by auto-syncing
+  const updateStatus = useUpdateEntityStatus();
+  
+  // If there was an error or no status is available but we have a direct status value
   if ((shouldUseCentralized && error) || !effectiveStatus) {
+    // If we have a direct status value from props, we can try to sync it with the centralized system
+    if (status && entityType === 'contract' && entityId && eventId) {
+      console.log(`Auto-syncing status for ${entityType} #${entityId}: ${status}`);
+      
+      // Queue a background update of the status
+      setTimeout(() => {
+        updateStatus.mutate({
+          entityType,
+          entityId,
+          status: status,
+          eventId,
+          musicianId,
+          eventDate: eventDate?.toString(),
+          details: 'Auto-synced from legacy system',
+          metadata: {
+            autoSynced: true,
+            source: 'legacy',
+            syncedAt: new Date().toISOString()
+          }
+        });
+      }, 100);
+      
+      // Helper functions for status formatting
+      const getStatusLabel = (statusValue: string, entityType: string) => {
+        const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
+        return config?.label || statusValue;
+      };
+      
+      const getStatusColorClass = (statusValue: string, entityType: string) => {
+        const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
+        return config?.colorClass || 'bg-gray-100 text-gray-500';
+      };
+      
+      // For now, use the direct value
+      return (
+        <Badge 
+          variant="outline" 
+          className={`${getStatusColorClass(status, entityType)} ${className}`}
+          title="Using direct status (auto-syncing with centralized system)"
+        >
+          {getStatusLabel(status, entityType)}
+        </Badge>
+      );
+    }
+    
+    // Otherwise, show Unknown
     return (
       <Badge variant="outline" className={`bg-gray-100 text-gray-500 ${className}`}>
         Unknown
