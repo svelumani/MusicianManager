@@ -613,6 +613,32 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
     const updatedContract = updateResult.rows[0];
     log(`Successfully accepted contract #${updatedContract.id}`);
     
+    // Update entity status in the centralized status system
+    try {
+      // Use 1 as the default user ID for system actions
+      const systemUserId = 1;
+      
+      // Update the contract entity status
+      await statusService.updateEntityStatus(
+        ENTITY_TYPES.CONTRACT,
+        updatedContract.id,
+        'contract-signed',
+        systemUserId,
+        `Contract signed via direct token endpoint`,
+        updatedContract.event_id,
+        { signature: true, token: token },
+        undefined,
+        updatedContract.musician_id,
+        updatedContract.event_date
+      );
+      
+      log(`Updated entity status for contract #${updatedContract.id} to contract-signed`);
+    } catch (statusError) {
+      // Log the error but don't fail the request
+      console.error('Error updating entity status:', statusError);
+      log(`Failed to update entity status for contract #${updatedContract.id}: ${statusError}`);
+    }
+    
     // Format the response
     return res.json({
       message: "Contract accepted successfully",
