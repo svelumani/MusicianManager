@@ -367,6 +367,31 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
         updatedContract.event_date
       );
       
+      // Also update the musician status in the legacy system
+      try {
+        if (updatedContract.event_id && updatedContract.musician_id && updatedContract.event_date) {
+          // Convert the event_date to a string in YYYY-MM-DD format
+          const dateStr = new Date(updatedContract.event_date).toISOString().split('T')[0];
+          
+          // Get storage to update the musician status
+          const { storage } = await import('./storage');
+          
+          // Update musician status in the legacy system as well
+          await storage.updateMusicianEventStatusForDate(
+            updatedContract.event_id,
+            updatedContract.musician_id,
+            'contract-signed',
+            dateStr
+          );
+          
+          log(`[ACCEPT] Updated musician status in legacy system for event ${updatedContract.event_id}, musician ${updatedContract.musician_id}, date ${dateStr}`);
+        }
+      } catch (legacyError) {
+        console.error('[ACCEPT] Error updating musician status in legacy system:', legacyError);
+        log(`[ACCEPT] Failed to update musician status in legacy system: ${legacyError}`);
+        // Don't fail the request if this fails
+      }
+      
       log(`[ACCEPT] Updated entity status for contract #${updatedContract.id} and musician #${updatedContract.musician_id} to contract-signed`);
     } catch (statusError) {
       // Log the error but don't fail the request
@@ -532,6 +557,31 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
           undefined,
           updatedContract.event_date
         );
+        
+        // Also update the musician status in the legacy system
+        try {
+          if (updatedContract.event_id && updatedContract.musician_id && updatedContract.event_date) {
+            // Convert the event_date to a string in YYYY-MM-DD format
+            const dateStr = new Date(updatedContract.event_date).toISOString().split('T')[0];
+            
+            // Get storage to update the musician status
+            const { storage } = await import('./storage');
+            
+            // Update musician status in the legacy system as well
+            await storage.updateMusicianEventStatusForDate(
+              updatedContract.event_id,
+              updatedContract.musician_id,
+              'contract-signed',
+              dateStr
+            );
+            
+            log(`Updated musician status in legacy system for event ${updatedContract.event_id}, musician ${updatedContract.musician_id}, date ${dateStr}`);
+          }
+        } catch (legacyError) {
+          console.error('Error updating musician status in legacy system:', legacyError);
+          log(`Failed to update musician status in legacy system: ${legacyError}`);
+          // Don't fail the request if this fails
+        }
       }
       
       log(`Updated entity status for contract #${updatedContract.id} to ${updatedContract.status}${updatedContract.status === 'contract-signed' ? ' and updated musician status' : ''}`);
@@ -692,6 +742,31 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
         undefined,
         updatedContract.event_date
       );
+      
+      // Also update the musician status in the legacy system
+      try {
+        if (updatedContract.event_id && updatedContract.musician_id && updatedContract.event_date) {
+          // Convert the event_date to a string in YYYY-MM-DD format
+          const dateStr = new Date(updatedContract.event_date).toISOString().split('T')[0];
+          
+          // Get storage to update the musician status
+          const { storage } = await import('./storage');
+          
+          // Update musician status in the legacy system as well
+          await storage.updateMusicianEventStatusForDate(
+            updatedContract.event_id,
+            updatedContract.musician_id,
+            'contract-signed',
+            dateStr
+          );
+          
+          log(`Updated musician status in legacy system for event ${updatedContract.event_id}, musician ${updatedContract.musician_id}, date ${dateStr}`);
+        }
+      } catch (legacyError) {
+        console.error('Error updating musician status in legacy system:', legacyError);
+        log(`Failed to update musician status in legacy system: ${legacyError}`);
+        // Don't fail the request if this fails
+      }
       
       log(`Updated entity status for contract #${updatedContract.id} and musician #${updatedContract.musician_id} to contract-signed`);
     } catch (statusError) {
