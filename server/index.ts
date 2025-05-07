@@ -335,6 +335,7 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
       const systemUserId = 1;
       
       // Update the contract entity status
+      // Update the contract entity status
       await statusService.updateEntityStatus(
         ENTITY_TYPES.CONTRACT,
         updatedContract.id,
@@ -348,7 +349,26 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
         updatedContract.event_date
       );
       
-      log(`[ACCEPT] Updated entity status for contract #${updatedContract.id} to contract-signed`);
+      // Update the musician entity status as well
+      await statusService.updateEntityStatus(
+        ENTITY_TYPES.MUSICIAN,
+        updatedContract.musician_id,
+        'contract-signed',
+        systemUserId,
+        `Contract signed via direct token endpoint`,
+        updatedContract.event_id,
+        { 
+          contractId: updatedContract.id, 
+          token: token,
+          signature: true,
+          date: updatedContract.event_date
+        },
+        undefined,
+        undefined,
+        updatedContract.event_date
+      );
+      
+      log(`[ACCEPT] Updated entity status for contract #${updatedContract.id} and musician #${updatedContract.musician_id} to contract-signed`);
     } catch (statusError) {
       // Log the error but don't fail the request
       console.error('[ACCEPT] Error updating entity status:', statusError);
@@ -493,7 +513,29 @@ app.post("/api/v2/contracts/token/:token/respond", async (req, res) => {
         updatedContract.event_date
       );
       
-      log(`Updated entity status for contract #${updatedContract.id} to ${updatedContract.status}`);
+      // Update the musician entity status as well if contract is signed
+      if (updatedContract.status === 'contract-signed') {
+        await statusService.updateEntityStatus(
+          ENTITY_TYPES.MUSICIAN,
+          updatedContract.musician_id,
+          'contract-signed',
+          systemUserId,
+          `Contract ${status} via direct token endpoint`,
+          updatedContract.event_id,
+          { 
+            contractId: updatedContract.id, 
+            token: token,
+            signature: !!signature,
+            response: response,
+            date: updatedContract.event_date
+          },
+          undefined,
+          undefined,
+          updatedContract.event_date
+        );
+      }
+      
+      log(`Updated entity status for contract #${updatedContract.id} to ${updatedContract.status}${updatedContract.status === 'contract-signed' ? ' and updated musician status' : ''}`);
     } catch (statusError) {
       // Log the error but don't fail the request
       console.error('Error updating entity status:', statusError);
@@ -632,7 +674,27 @@ app.post("/api/v2/contracts/token/:token/accept", async (req, res) => {
         updatedContract.event_date
       );
       
-      log(`Updated entity status for contract #${updatedContract.id} to contract-signed`);
+      // Update the musician entity status as well
+      await statusService.updateEntityStatus(
+        ENTITY_TYPES.MUSICIAN,
+        updatedContract.musician_id,
+        'contract-signed',
+        systemUserId,
+        `Contract signed via direct token endpoint`,
+        updatedContract.event_id,
+        { 
+          contractId: updatedContract.id, 
+          token: token,
+          signature: true,
+          response: response || 'Contract accepted',
+          date: updatedContract.event_date
+        },
+        undefined,
+        undefined,
+        updatedContract.event_date
+      );
+      
+      log(`Updated entity status for contract #${updatedContract.id} and musician #${updatedContract.musician_id} to contract-signed`);
     } catch (statusError) {
       // Log the error but don't fail the request
       console.error('Error updating entity status:', statusError);
