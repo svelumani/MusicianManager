@@ -95,7 +95,19 @@ export default function StatusBadge({
     );
   }
   
+  // Helper functions for status formatting - defined outside of conditional
+  const getStatusLabel = (statusValue: string, entityType: string) => {
+    const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
+    return config?.label || statusValue;
+  };
+  
+  const getStatusColorClass = (statusValue: string, entityType: string) => {
+    const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
+    return config?.colorClass || 'bg-gray-100 text-gray-500';
+  };
+  
   // Handle missing status in centralized system for contracts by auto-syncing
+  // IMPORTANT: Define hooks at the top level, not conditionally
   const updateStatus = useUpdateEntityStatus();
   
   // If there was an error or no status is available but we have a direct status value
@@ -121,17 +133,6 @@ export default function StatusBadge({
           }
         });
       }, 100);
-      
-      // Helper functions for status formatting
-      const getStatusLabel = (statusValue: string, entityType: string) => {
-        const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
-        return config?.label || statusValue;
-      };
-      
-      const getStatusColorClass = (statusValue: string, entityType: string) => {
-        const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
-        return config?.colorClass || 'bg-gray-100 text-gray-500';
-      };
       
       // For now, use the direct value
       return (
