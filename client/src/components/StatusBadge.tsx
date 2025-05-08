@@ -69,8 +69,9 @@ export default function StatusBadge({
     ? entityStatus.updatedAt
     : timestamp;
 
-  // Get status config for display
+  // Get status config for display - IMPORTANT: keep all hooks at the top level before any conditionals
   const { data: statusConfig } = useEntityStatusConfig(entityType);
+  const updateStatus = useUpdateEntityStatus();
   
   // Format the timestamp
   let formattedTime = "";
@@ -107,8 +108,6 @@ export default function StatusBadge({
   };
   
   // Handle missing status in centralized system for contracts by auto-syncing
-  // IMPORTANT: Define hooks at the top level, not conditionally
-  const updateStatus = useUpdateEntityStatus();
   
   // If there was an error or no status is available but we have a direct status value
   if ((shouldUseCentralized && error) || !effectiveStatus) {
