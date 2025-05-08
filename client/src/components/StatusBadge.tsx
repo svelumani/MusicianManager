@@ -43,10 +43,11 @@ export default function StatusBadge({
   className = "",
   useCentralizedSystem = true
 }: StatusBadgeProps) {
+  // IMPORTANT: All hooks must be called at the top level, before any conditionals
   // If entityId is provided, try to use the centralized system
   const shouldUseCentralized = useCentralizedSystem && !!entityId;
   
-  // If using centralized system, fetch the status
+  // Get status from centralized system 
   const { 
     data: entityStatus, 
     isLoading, 
@@ -59,9 +60,58 @@ export default function StatusBadge({
     eventDate
   );
 
+  // Get status config for styling
+  const { data: statusConfig } = useEntityStatusConfig(entityType);
+  
+  // Hook for updating status (used in auto-sync)
+  const updateStatus = useUpdateEntityStatus();
+
+  // Helper functions for status formatting
+  const getStatusLabel = React.useCallback((statusValue: string) => {
+    if (!statusConfig) return statusValue;
+    const config = statusConfig.statuses.find((s: any) => s.value === statusValue);
+    return config?.label || statusValue;
+  }, [statusConfig]);
+  
+  const getStatusColorClass = React.useCallback((statusValue: string) => {
+    if (!statusConfig) return 'bg-gray-100 text-gray-500';
+    const config = statusConfig.statuses.find((s: any) => s.value === statusValue);
+    return config?.colorClass || 'bg-gray-100 text-gray-500';
+  }, [statusConfig]);
+  
+  // Auto-sync legacy status if needed
+  React.useEffect(() => {
+    // Only auto-sync if we have a direct status from props but centralized system has none
+    const shouldAutoSync = shouldUseCentralized && 
+                          status && 
+                          (!entityStatus || error) && 
+                          entityType === 'contract' && 
+                          !!entityId && 
+                          !!eventId;
+    
+    if (shouldAutoSync) {
+      console.log(`Auto-syncing status for ${entityType} #${entityId}: ${status}`);
+      updateStatus.mutate({
+        entityType,
+        entityId,
+        status: status,
+        eventId,
+        musicianId,
+        eventDate: eventDate?.toString(),
+        details: 'Auto-synced from legacy system',
+        metadata: {
+          autoSynced: true,
+          source: 'legacy',
+          syncedAt: new Date().toISOString()
+        }
+      });
+    }
+  }, [shouldUseCentralized, status, entityStatus, error, entityType, entityId, eventId, 
+      musicianId, eventDate, updateStatus]);
+
   // Determine which status value to use
-  const effectiveStatus = shouldUseCentralized 
-    ? entityStatus?.status // Use status from centralized system if available 
+  const effectiveStatus = shouldUseCentralized && entityStatus?.status 
+    ? entityStatus.status // Use status from centralized system if available 
     : status; // Otherwise use the directly provided status
 
   // Timestamp will be from entity status or from props
@@ -69,24 +119,24 @@ export default function StatusBadge({
     ? entityStatus.updatedAt
     : timestamp;
 
-  // Get status config for display - IMPORTANT: keep all hooks at the top level before any conditionals
-  const { data: statusConfig } = useEntityStatusConfig(entityType);
-  const updateStatus = useUpdateEntityStatus();
-  
-  // Format the timestamp
+  // Format the timestamp if we have one
   let formattedTime = "";
   let relativeTime = "";
   
   if (effectiveTimestamp) {
-    const date = typeof effectiveTimestamp === 'string' 
-      ? new Date(effectiveTimestamp) 
-      : effectiveTimestamp;
-    
-    formattedTime = format(date, "MMM d, yyyy, h:mm a");
-    relativeTime = formatDistanceToNow(date, { addSuffix: true });
+    try {
+      const date = typeof effectiveTimestamp === 'string' 
+        ? new Date(effectiveTimestamp) 
+        : effectiveTimestamp;
+      
+      formattedTime = format(date, "MMM d, yyyy, h:mm a");
+      relativeTime = formatDistanceToNow(date, { addSuffix: true });
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
   }
   
-  // If loading status from centralized system, show loading indicator
+  // Render loading state
   if (shouldUseCentralized && isLoading) {
     return (
       <Badge variant="outline" className={`bg-gray-100 text-gray-500 ${className}`}>
@@ -96,56 +146,8 @@ export default function StatusBadge({
     );
   }
   
-  // Helper functions for status formatting - defined outside of conditional
-  const getStatusLabel = (statusValue: string, entityType: string) => {
-    const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
-    return config?.label || statusValue;
-  };
-  
-  const getStatusColorClass = (statusValue: string, entityType: string) => {
-    const config = statusConfig?.statuses.find((s: any) => s.value === statusValue);
-    return config?.colorClass || 'bg-gray-100 text-gray-500';
-  };
-  
-  // Handle missing status in centralized system for contracts by auto-syncing
-  
-  // If there was an error or no status is available but we have a direct status value
-  if ((shouldUseCentralized && error) || !effectiveStatus) {
-    // If we have a direct status value from props, we can try to sync it with the centralized system
-    if (status && entityType === 'contract' && entityId && eventId) {
-      console.log(`Auto-syncing status for ${entityType} #${entityId}: ${status}`);
-      
-      // Queue a background update of the status
-      setTimeout(() => {
-        updateStatus.mutate({
-          entityType,
-          entityId,
-          status: status,
-          eventId,
-          musicianId,
-          eventDate: eventDate?.toString(),
-          details: 'Auto-synced from legacy system',
-          metadata: {
-            autoSynced: true,
-            source: 'legacy',
-            syncedAt: new Date().toISOString()
-          }
-        });
-      }, 100);
-      
-      // For now, use the direct value
-      return (
-        <Badge 
-          variant="outline" 
-          className={`${getStatusColorClass(status, entityType)} ${className}`}
-          title="Using direct status (auto-syncing with centralized system)"
-        >
-          {getStatusLabel(status, entityType)}
-        </Badge>
-      );
-    }
-    
-    // Otherwise, show Unknown
+  // Render unknown state if no status is available
+  if (!effectiveStatus) {
     return (
       <Badge variant="outline" className={`bg-gray-100 text-gray-500 ${className}`}>
         Unknown
@@ -153,10 +155,12 @@ export default function StatusBadge({
     );
   }
   
-  // Find the status configuration
+  // Calculate badge properties 
+  const colorClass = getStatusColorClass(effectiveStatus);
+  const label = getStatusLabel(effectiveStatus);
+  
+  // Get description from config
   const statusInfo = statusConfig?.statuses.find((s: { value: string }) => s.value === effectiveStatus);
-  const colorClass = statusInfo?.colorClass || "";
-  const label = statusInfo?.label || effectiveStatus;
   const description = statusInfo?.description || "";
   
   // Show info about data source in the tooltip if using centralized system
@@ -164,6 +168,7 @@ export default function StatusBadge({
     ? `Data source: ${entityStatus.source === 'centralized' ? 'Centralized Status System' : 'Legacy System'}`
     : '';
   
+  // Render the badge with tooltip
   return (
     <TooltipProvider>
       <Tooltip>
