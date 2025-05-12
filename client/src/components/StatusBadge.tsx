@@ -79,17 +79,24 @@ export default function StatusBadge({
     return config?.colorClass || 'bg-gray-100 text-gray-500';
   }, [statusConfig]);
   
-  // Auto-sync legacy status if needed
+  // Flag to prevent repeated sync attempts - define it outside the effect
+  const syncAttemptFlag = React.useRef(false);
+  
+  // Auto-sync legacy status if needed - only once when needed
   React.useEffect(() => {
     // Only auto-sync if we have a direct status from props but centralized system has none
+    // Only do this once per component instance
     const shouldAutoSync = shouldUseCentralized && 
                           status && 
-                          (!entityStatus || error) && 
+                          (error || (entityStatus === undefined)) && 
                           entityType === 'contract' && 
                           !!entityId && 
                           !!eventId;
     
-    if (shouldAutoSync) {
+    if (shouldAutoSync && !syncAttemptFlag.current) {
+      // Mark that we've attempted a sync
+      syncAttemptFlag.current = true;
+      
       console.log(`Auto-syncing status for ${entityType} #${entityId}: ${status}`);
       updateStatus.mutate({
         entityType,
@@ -106,8 +113,9 @@ export default function StatusBadge({
         }
       });
     }
-  }, [shouldUseCentralized, status, entityStatus, error, entityType, entityId, eventId, 
-      musicianId, eventDate, updateStatus]);
+  // Run this effect ONCE on mount, not on every status update
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Determine which status value to use
   const effectiveStatus = shouldUseCentralized && entityStatus?.status 
