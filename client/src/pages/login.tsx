@@ -76,7 +76,7 @@ export default function LoginPage() {
   return (
     <Card className="w-full">
       <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+        <CardTitle className="text-2xl font-bold">Login In</CardTitle>
         <CardDescription>
           Enter your credentials to access your account
         </CardDescription>
@@ -117,7 +117,7 @@ export default function LoginPage() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign in"}
+            {isLoading ? "Signing in..." : "Login In"}
           </Button>
 
           <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
