@@ -4,7 +4,13 @@ import { useLocation } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -27,10 +33,10 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) return;
-    
+
     setLoginAttempted(true);
     console.log("Attempting login with:", { username, password });
-    
+
     try {
       await login(username, password);
       toast({
@@ -42,7 +48,7 @@ export default function LoginPage() {
       toast({
         title: "Login failed",
         description: "Please check your credentials and try again",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
@@ -52,12 +58,12 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth/setup-admin", {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
       });
-      
+
       const data = await res.json();
       console.log("Admin setup result:", data);
-      
+
       toast({
         title: data.message,
         description: "You can now login with admin / admin123",
@@ -82,10 +88,10 @@ export default function LoginPage() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">Username *</Label>
             <Input
               id="username"
               type="text"
@@ -95,10 +101,10 @@ export default function LoginPage() {
               required
             />
           </div>
-          
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password *</Label>
             </div>
             <Input
               id="password"
@@ -109,15 +115,15 @@ export default function LoginPage() {
               required
             />
           </div>
-          
+
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
-          
+
           <div className="flex justify-between items-center text-sm text-gray-500 mt-4">
             <p>Default credentials: admin / admin123</p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               type="button"
               onClick={setupAdmin}
@@ -125,7 +131,7 @@ export default function LoginPage() {
               Reset Admin
             </Button>
           </div>
-          
+
           {loginAttempted && (
             <div className="text-xs text-gray-500 mt-2">
               <p>Login attempts will be logged in the console for debugging.</p>
