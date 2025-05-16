@@ -2,15 +2,24 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies and netcat for db connections check
+RUN apk add --no-cache netcat-openbsd postgresql-client
+
+# Copy package files first for better layer caching
 COPY package*.json ./
 RUN npm install
 
 # Copy source code
 COPY . .
 
+# Make our entrypoint script executable
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Expose port 5000
 EXPOSE 5000
+
+# Use our custom entrypoint script
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # Run development server
 CMD ["npm", "run", "dev"]
