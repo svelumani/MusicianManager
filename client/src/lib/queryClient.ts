@@ -1,5 +1,4 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { getApiUrl } from "./apiConfig";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -21,8 +20,8 @@ export async function apiRequest(
   method: string = "GET",
   data?: unknown | undefined,
 ): Promise<any> {
-  // Get the full API URL - this handles Docker networking
-  const fullUrl = url.startsWith('/api') ? url : getApiUrl(url);
+  // Just use the URL directly
+  const fullUrl = url;
   console.log(`API Request: ${fullUrl} ${method}`, data || '');
   
   try {
@@ -78,7 +77,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const endpoint = queryKey[0] as string;
+    console.log(`Query fetch: ${endpoint}`);
+    
+    const res = await fetch(endpoint, {
       credentials: "include",
       headers: {
         "Accept": "application/json"

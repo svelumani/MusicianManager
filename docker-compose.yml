@@ -12,7 +12,14 @@ services:
       - NODE_ENV=development
       - PORT=5000
       - HOST=0.0.0.0
+      - IS_DOCKER=true
       - DATABASE_URL=postgres://postgres:postgres@postgres:5432/musician_management
+      # Additional env vars for PostgreSQL direct access
+      - PGHOST=postgres
+      - PGUSER=postgres
+      - PGPASSWORD=postgres
+      - PGDATABASE=musician_management
+      - PGPORT=5432
     depends_on:
       postgres:
         condition: service_healthy
