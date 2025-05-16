@@ -1,0 +1,17 @@
+services:
+  # This service runs migrations and then exits
+  db-migration:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/musician_management
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run db:push
+    networks:
+      - app-network
+    profiles:
+      - migration
