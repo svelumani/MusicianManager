@@ -68,7 +68,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       secret: "vamp-musician-management-secret",
       resave: false,
       saveUninitialized: false,
-      cookie: { secure: process.env.NODE_ENV === "production" },
+      cookie: { 
+        secure: false, // Set to false to work in Replit preview
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+        sameSite: 'lax'
+      },
       store: new PgSession({
         pool: pool,
         createTableIfMissing: true,
