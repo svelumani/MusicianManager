@@ -18,8 +18,8 @@ RUN chmod +x /app/docker-entrypoint.sh
 # Expose port 5000
 EXPOSE 5000
 
-# Use our custom entrypoint script
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# Use our custom database wait script
+ENTRYPOINT ["/app/docker-wait-for-db.sh"]
 
 # Run development server
 CMD ["npm", "run", "dev"]

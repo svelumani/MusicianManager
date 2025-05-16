@@ -20,6 +20,8 @@ services:
       - PGPASSWORD=postgres
       - PGDATABASE=musician_management
       - PGPORT=5432
+      # Enable automatic database migrations
+      - RUN_MIGRATIONS=true
     depends_on:
       postgres:
         condition: service_healthy
