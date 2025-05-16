@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getApiUrl } from "./apiConfig";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -20,13 +21,15 @@ export async function apiRequest(
   method: string = "GET",
   data?: unknown | undefined,
 ): Promise<any> {
-  console.log(`API Request: ${url} ${method}`, data || '');
+  // Get the full API URL - this handles Docker networking
+  const fullUrl = url.startsWith('/api') ? url : getApiUrl(url);
+  console.log(`API Request: ${fullUrl} ${method}`, data || '');
   
   try {
     // Skip auth check for login and specific operations
     const isAuthPath = url === '/api/auth/login' || url === '/api/auth/register' || url === '/api/auth/setup-admin';
     
-    const res = await fetch(url, {
+    const res = await fetch(fullUrl, {
       method,
       headers: {
         "Content-Type": "application/json",
