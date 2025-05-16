@@ -1,0 +1,21 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    extra_hosts:
+      # This makes your host machine's localhost accessible as 'host.docker.internal' inside Docker
+      - "host.docker.internal:host-gateway"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      # Connect to the PostgreSQL running on your host machine
+      - DATABASE_URL=postgres://postgres:postgres@host.docker.internal:5432/musician_management
+    command: npm run dev
+
+# No networks needed since we're connecting directly to the host
